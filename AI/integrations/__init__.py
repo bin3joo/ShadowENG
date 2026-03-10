@@ -1,0 +1,1 @@
+"""StyleEcho integration package."""

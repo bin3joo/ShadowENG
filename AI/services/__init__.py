@@ -1,0 +1,1 @@
+"""StyleEcho service package."""
