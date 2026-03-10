@@ -2,6 +2,7 @@ package com.bremenband.shadoweng.feature.content.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bremenband.shadoweng.core.exception.DomainException
 import com.bremenband.shadoweng.feature.content.model.ContentRegisterEvent
 import com.bremenband.shadoweng.feature.content.model.ContentRegisterUiState
 import com.bremenband.shadoweng.feature.content.repository.ContentRepository
@@ -43,11 +44,21 @@ class ContentRegisterViewModel @Inject constructor(
     private fun submit() {
         val videoId = _uiState.value.videoId ?: return
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            repository.getVideo("https://www.youtube.com/watch?v=$videoId")
-                .onSuccess { video -> _navigateToRange.emit(video.embedUrl) }
-                .onFailure { e -> _uiState.update { it.copy(error = e.message) } }
-            _uiState.update { it.copy(isLoading = false) }
+            try {
+                _uiState.update { it.copy(isLoading = true) }
+                repository.getVideo("https://www.youtube.com/watch?v=$videoId")
+                    .onSuccess { video -> _navigateToRange.emit(video.embedUrl) }
+                    .onFailure { e ->
+                        val msg = when (e) {
+                            is DomainException.NotFound -> "영상을 찾을 수 없어요"
+                            is DomainException.NetworkError  -> "네트워크를 확인해주세요"
+                            else -> "알 수 없는 오류가 발생했어요"
+                        }
+                        _uiState.update { it.copy(error = msg) }
+                    }
+            } finally {
+                _uiState.update { it.copy(isLoading = false) }
+            }
         }
     }
 }
