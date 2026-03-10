@@ -1,0 +1,34 @@
+# Core ML / Audio
+torch==2.0.1
+torchaudio==2.0.2
+torchvision==0.15.2
+whisperx==3.4.3
+pyannote.audio==3.1.1
+faster-whisper==1.2.1
+transformers==4.39.3
+ctranslate2==4.4.0
+
+librosa==0.11.0
+numpy==1.26.4
+scipy==1.15.3
+fastdtw==0.3.4
+jiwer==4.0.0
+noisereduce==3.0.3
+
+# Compatibility Fixes
+setuptools<81.0              # pkg_resources required by ctranslate2
+pytorch-lightning==2.1.4     # torch.utils.flop_counter not in torch 2.0.x
+lightning==2.1.4
+
+# API Server
+fastapi==0.135.1
+uvicorn==0.41.0
+python-multipart==0.0.22
+pydantic==2.12.5
+python-dotenv==1.1.1
+google-genai==1.30.0
+
+# Tools
+yt-dlp==2026.2.21
+youtube-transcript-api==1.2.4
+pyyaml==6.0.3
