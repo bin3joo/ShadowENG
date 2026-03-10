@@ -1,5 +1,6 @@
 package com.bremenband.shadowengapi.domain.study.dto.res;
 
+import com.bremenband.shadowengapi.domain.youtube.dto.res.ThumbnailsResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "최근 학습 중인 세션 정보")
