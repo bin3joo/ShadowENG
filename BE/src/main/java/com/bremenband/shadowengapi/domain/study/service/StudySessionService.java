@@ -1,0 +1,204 @@
+package com.bremenband.shadowengapi.domain.study.service;
+
+import com.bremenband.shadowengapi.domain.study.dto.req.StudySessionCreateRequest;
+import com.bremenband.shadowengapi.domain.study.dto.res.ActiveSessionResponse;
+import com.bremenband.shadowengapi.domain.study.dto.res.ActiveSessionsResponse;
+import com.bremenband.shadowengapi.domain.study.dto.res.LatestActiveSessionResponse;
+import com.bremenband.shadowengapi.domain.study.dto.res.RecentStudySessionResponse;
+import com.bremenband.shadowengapi.domain.study.dto.res.StudySessionCreateResponse;
+import com.bremenband.shadowengapi.domain.study.dto.transcription.TranscribedSentence;
+import com.bremenband.shadowengapi.domain.study.entity.Sentence;
+import com.bremenband.shadowengapi.domain.study.entity.SessionStatus;
+import com.bremenband.shadowengapi.domain.study.entity.StudySession;
+import com.bremenband.shadowengapi.domain.study.repository.EvaluationRepository;
+import com.bremenband.shadowengapi.domain.study.repository.SentenceRepository;
+import com.bremenband.shadowengapi.domain.study.repository.StudySessionRepository;
+import com.bremenband.shadowengapi.domain.user.entity.User;
+import com.bremenband.shadowengapi.domain.user.repository.UserRepository;
+import com.bremenband.shadowengapi.domain.youtube.dto.res.ThumbnailInfo;
+import com.bremenband.shadowengapi.domain.youtube.dto.res.ThumbnailsResponse;
+import com.bremenband.shadowengapi.domain.youtube.dto.res.VideoInfoResponse;
+import com.bremenband.shadowengapi.domain.youtube.entity.Video;
+import com.bremenband.shadowengapi.domain.youtube.repository.VideoRepository;
+import com.bremenband.shadowengapi.domain.youtube.service.YoutubeService;
+import com.bremenband.shadowengapi.global.exception.CustomException;
+import com.bremenband.shadowengapi.global.exception.ErrorCode;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class StudySessionService {
+
+    private final StudySessionRepository studySessionRepository;
+    private final VideoRepository videoRepository;
+    private final SentenceRepository sentenceRepository;
+    private final EvaluationRepository evaluationRepository;
+    private final UserRepository userRepository;
+    private final YoutubeService youtubeService;
+    private final TranscriptionService transcriptionService;
+
+    public ActiveSessionsResponse getActiveSessions(Long userId) {
+        List<StudySession> sessions = studySessionRepository
+                .findByUser_IdAndStatusOrderByCreatedAtDesc(userId, SessionStatus.ACTIVE);
+
+        List<ActiveSessionResponse> list = sessions.stream()
+                .map(session -> {
+                    String videoId = session.getVideo().getVideoId();
+                    ThumbnailInfo thumbnail = new ThumbnailInfo(
+                            "https://i.ytimg.com/vi/" + videoId + "/sddefault.jpg", 640, 480);
+                    return new ActiveSessionResponse(session.getId(), thumbnail, session.getProgressRate());
+                })
+                .toList();
+
+        return new ActiveSessionsResponse(list);
+    }
+
+    public StudySessionCreateResponse getStudySession(Long sessionId, Long userId) {
+        StudySession session = studySessionRepository.findByIdWithVideo(sessionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
+
+        if (!session.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
+
+        Video video = session.getVideo();
+        List<Sentence> sentences = sentenceRepository.findByStudySession_Id(sessionId);
+
+        // 문장별 평가 횟수를 한 번의 쿼리로 집계
+        Map<Long, Long> evalCountMap = evaluationRepository.findByStudySession_Id(sessionId)
+                .stream()
+                .collect(Collectors.groupingBy(e -> e.getSentence().getId(), Collectors.counting()));
+
+        List<StudySessionCreateResponse.SentenceData> sentencesData = sentences.stream()
+                .map(s -> new StudySessionCreateResponse.SentenceData(
+                        s.getId(),
+                        s.getContent(),
+                        s.getStartSec(),
+                        s.getEndSec(),
+                        s.getDurationSec(),
+                        evalCountMap.getOrDefault(s.getId(), 0L).intValue()
+                ))
+                .toList();
+
+        return new StudySessionCreateResponse(
+                session.getId(),
+                new StudySessionCreateResponse.VideoData(
+                        video.getVideoId(),
+                        video.getEmbedUrl(),
+                        video.getTitle(),
+                        video.getThumbnailUrl(),
+                        video.getDuration(),
+                        video.getChannelTitle()
+                ),
+                sentencesData
+        );
+    }
+
+    public RecentStudySessionResponse getRecentSession(Long userId) {
+        Optional<StudySession> sessionOpt = studySessionRepository
+                .findTopByUser_IdAndStatusOrderByCreatedAtDesc(userId, SessionStatus.ACTIVE);
+
+        if (sessionOpt.isEmpty()) {
+            return new RecentStudySessionResponse(null);
+        }
+
+        StudySession session = sessionOpt.get();
+        String videoId = session.getVideo().getVideoId();
+        ThumbnailsResponse thumbnails = ThumbnailsResponse.from(videoId);
+
+        LatestActiveSessionResponse latestSession = new LatestActiveSessionResponse(
+                session.getId(),
+                thumbnails,
+                session.getProgressRate()
+        );
+
+        return new RecentStudySessionResponse(latestSession);
+    }
+
+    @Transactional
+    public StudySessionCreateResponse createStudySession(Long userId, StudySessionCreateRequest request) {
+        // 1. embedUrl에서 videoId 추출
+        String videoId = extractVideoId(request.embedUrl());
+
+        // 2. Video 조회 or YouTube API에서 가져와 저장
+        Video video = videoRepository.findById(videoId)
+                .orElseGet(() -> {
+                    VideoInfoResponse info = youtubeService.getVideo(request.embedUrl());
+                    return videoRepository.save(Video.builder()
+                            .videoId(info.videoId())
+                            .title(info.title())
+                            .embedUrl(info.embedUrl())
+                            .thumbnailUrl(info.thumbnailUrl())
+                            .duration((int) info.duration())
+                            .channelTitle(info.channelTitle())
+                            .build());
+                });
+
+        // 3. User 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 4. StudySession 생성 및 저장
+        StudySession session = studySessionRepository.save(StudySession.builder()
+                .video(video)
+                .user(user)
+                .startSec(request.startSec())
+                .endSec(request.endSec())
+                .build());
+
+        // 5. 전사(STT) 수행
+        List<TranscribedSentence> transcriptions =
+                transcriptionService.transcribe(videoId, request.startSec(), request.endSec());
+
+        // 6. Sentence 저장
+        List<Sentence> sentences = transcriptions.stream()
+                .map(t -> sentenceRepository.save(Sentence.builder()
+                        .studySession(session)
+                        .content(t.content())
+                        .startSec(t.startSec())
+                        .endSec(t.endSec())
+                        .durationSec(t.durationSec())
+                        .wordTimestamps(t.wordTimestamps())
+                        .features(t.features())
+                        .build()))
+                .toList();
+
+        // 7. 응답 빌드
+        return new StudySessionCreateResponse(
+                session.getId(),
+                new StudySessionCreateResponse.VideoData(
+                        video.getVideoId(),
+                        video.getEmbedUrl(),
+                        video.getTitle(),
+                        video.getThumbnailUrl(),
+                        video.getDuration(),
+                        video.getChannelTitle()
+                ),
+                sentences.stream()
+                        .map(s -> new StudySessionCreateResponse.SentenceData(
+                                s.getId(),
+                                s.getContent(),
+                                s.getStartSec(),
+                                s.getEndSec(),
+                                s.getDurationSec(),
+                                0
+                        ))
+                        .toList()
+        );
+    }
+
+    // "https://www.youtube.com/embed/dQw4w9WgXcQ?start=10" → "dQw4w9WgXcQ"
+    private String extractVideoId(String embedUrl) {
+        String path = embedUrl.substring(embedUrl.lastIndexOf('/') + 1);
+        int queryIndex = path.indexOf('?');
+        return queryIndex == -1 ? path : path.substring(0, queryIndex);
+    }
+}

@@ -1,0 +1,104 @@
+package com.bremenband.shadowengapi.domain.study.controller;
+
+import com.bremenband.shadowengapi.domain.study.dto.res.ActiveSessionResponse;
+import com.bremenband.shadowengapi.domain.study.dto.res.ActiveSessionsResponse;
+import com.bremenband.shadowengapi.domain.youtube.dto.res.ThumbnailInfo;
+import com.bremenband.shadowengapi.domain.study.service.EvaluationService;
+import com.bremenband.shadowengapi.domain.study.service.StudySessionService;
+import com.bremenband.shadowengapi.global.config.SecurityConfig;
+import com.bremenband.shadowengapi.global.jwt.JwtProvider;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.List;
+
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.times;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@WebMvcTest(StudySessionController.class)
+@Import({SecurityConfig.class, JwtProvider.class})
+class ActiveSessionsControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoBean private StudySessionService studySessionService;
+    @MockitoBean private EvaluationService   evaluationService;
+
+    private static final String VIDEO_ID = "dQw4w9WgXcQ";
+    private static final String THUMBNAIL_URL =
+            "https://i.ytimg.com/vi/" + VIDEO_ID + "/sddefault.jpg";
+
+    @Test
+    @DisplayName("ACTIVE 세션이 있으면 목록과 200을 반환한다")
+    void getStudySessions_세션있음_200() throws Exception {
+        // given
+        Long userId = 1L;
+
+        ActiveSessionsResponse response = new ActiveSessionsResponse(List.of(
+                new ActiveSessionResponse(12345L, new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 40),
+                new ActiveSessionResponse(67890L, new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 75)
+        ));
+
+        given(studySessionService.getActiveSessions(userId)).willReturn(response);
+
+        // when & then
+        mockMvc.perform(get("/study-sessions")
+                        .accept(MediaType.APPLICATION_JSON)
+                        .with(authentication(
+                                new UsernamePasswordAuthenticationToken(userId, null, List.of())
+                        )))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isSuccess").value(true))
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.ActiveSessions").isArray())
+                .andExpect(jsonPath("$.data.ActiveSessions.length()").value(2))
+                .andExpect(jsonPath("$.data.ActiveSessions[0].sessionId").value(12345))
+                .andExpect(jsonPath("$.data.ActiveSessions[0].progressRate").value(40))
+                .andExpect(jsonPath("$.data.ActiveSessions[0].thumbnails.url").value(THUMBNAIL_URL))
+                .andExpect(jsonPath("$.data.ActiveSessions[0].thumbnails.width").value(640))
+                .andExpect(jsonPath("$.data.ActiveSessions[0].thumbnails.height").value(480))
+                .andExpect(jsonPath("$.data.ActiveSessions[1].sessionId").value(67890))
+                .andExpect(jsonPath("$.data.ActiveSessions[1].progressRate").value(75));
+
+        then(studySessionService).should(times(1)).getActiveSessions(userId);
+    }
+
+    @Test
+    @DisplayName("ACTIVE 세션이 없으면 빈 배열과 200을 반환한다")
+    void getStudySessions_세션없음_빈배열_200() throws Exception {
+        // given
+        Long userId = 1L;
+
+        given(studySessionService.getActiveSessions(userId))
+                .willReturn(new ActiveSessionsResponse(List.of()));
+
+        // when & then
+        mockMvc.perform(get("/study-sessions")
+                        .accept(MediaType.APPLICATION_JSON)
+                        .with(authentication(
+                                new UsernamePasswordAuthenticationToken(userId, null, List.of())
+                        )))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isSuccess").value(true))
+                .andExpect(jsonPath("$.data.ActiveSessions").isArray())
+                .andExpect(jsonPath("$.data.ActiveSessions.length()").value(0));
+
+        then(studySessionService).should(times(1)).getActiveSessions(userId);
+    }
+}
