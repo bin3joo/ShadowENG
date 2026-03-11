@@ -50,9 +50,9 @@ llm:
   # 재시도 기본 backoff(초). 실제 대기 시간은 지수 증가
   gemini_retry_backoff_sec: 1.0
   # 번역/병합 생성 temperature
-  gemini_temperature: 0.2
+  gemini_temperature: 0.0
   # Gemini 최대 출력 토큰 수
-  gemini_max_output_tokens: 4096
+  gemini_max_output_tokens: 8192
 
 # ─────────────────────────────────────────────────
 # 오디오 전처리

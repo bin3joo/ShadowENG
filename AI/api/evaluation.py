@@ -1,6 +1,7 @@
 """Audio evaluation API routes."""
 
 from fastapi import APIRouter, BackgroundTasks
+from fastapi.concurrency import run_in_threadpool
 
 try:
     from ..schemas import EvaluateAudioRequest, EvaluateAudioResponse
@@ -21,4 +22,8 @@ async def evaluate_audio_endpoint(
     req: EvaluateAudioRequest,
 ) -> dict:
     """Evaluate a user audio sample against a reference payload."""
-    return evaluate_audio_request(req, background_tasks)
+    return await run_in_threadpool(
+        evaluate_audio_request,
+        req,
+        background_tasks,
+    )

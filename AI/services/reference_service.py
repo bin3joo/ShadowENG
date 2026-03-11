@@ -346,7 +346,7 @@ def generate_reference(
         if save_dir and os.path.exists(save_dir):
             remove_dir(save_dir)
         raise
-    except Exception as exc:
+    except Exception:
         logger.exception("generate-reference failed")
         if actual_audio and os.path.exists(actual_audio):
             remove_file(actual_audio)
@@ -354,4 +354,7 @@ def generate_reference(
             remove_dir(tmp_dir)
         if save_dir and os.path.exists(save_dir):
             remove_dir(save_dir)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(
+            status_code=500,
+            detail="레퍼런스 생성 중 내부 오류가 발생했습니다.",
+        )

@@ -3,13 +3,14 @@
 import json
 import logging
 import os
+import threading
 import time
 from collections import Counter
 from typing import Any
 
 from google import genai
 from google.genai import types
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 
 try:
     from .. import config
@@ -22,6 +23,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 _gemini_client: Any | None = None
+_gemini_client_lock = threading.Lock()
 
 
 class LearningExpression(BaseModel):
@@ -60,6 +62,10 @@ class TranslationMetadata(BaseModel):
     translation_provider: str
 
 
+class GeminiRetryableError(RuntimeError):
+    """Retryable Gemini request error."""
+
+
 def _strip_code_fence(text: str) -> str:
     """Remove optional Markdown code fences from model output."""
     cleaned = text.strip()
@@ -84,14 +90,18 @@ def _get_gemini_api_key() -> str:
 def _get_gemini_client() -> Any:
     """Create and cache the Gemini SDK client."""
     global _gemini_client
-    if _gemini_client is None:
-        api_key = _get_gemini_api_key()
-        if not api_key:
-            raise RuntimeError("GMS_API_KEY is not configured.")
-        _gemini_client = genai.Client(
-            api_key=api_key,
-            http_options={"base_url": config.LLM_GEMINI_BASE_URL},
-        )
+    if _gemini_client is not None:
+        return _gemini_client
+
+    with _gemini_client_lock:
+        if _gemini_client is None:
+            api_key = _get_gemini_api_key()
+            if not api_key:
+                raise RuntimeError("GMS_API_KEY is not configured.")
+            _gemini_client = genai.Client(
+                api_key=api_key,
+                http_options={"base_url": config.LLM_GEMINI_BASE_URL},
+            )
     return _gemini_client
 
 
@@ -140,20 +150,21 @@ def _build_prompt(full_text: str, sentence_data: list[dict]) -> str:
         "Return JSON only. Do not wrap the response in markdown.\n"
         "Tasks:\n"
         "1. Translate the full English text into natural, fluent Korean. "
-        "Use conversational phrasing suitable for the context, and actively omit unnecessary pronouns (I, You, They, etc.) that cause awkward translations.\n"
+        "Use conversational phrasing suitable for the context, and actively omit unnecessary pronouns.\n"
         "2. Merge only adjacent preprocessed parts when they are clearly "
         "the same speaker's continuous utterance and the merged result "
         "remains natural for learning.\n"
         "3. Keep questions or speaker changes separate unless there is very "
         "strong evidence to merge.\n"
         "4. For each final merged part, provide source_part_ids and translated_text.\n"
-        "5. Extract up to 5 useful learning expressions with Korean meaning and short learning context.\n"
+        "5. Extract 3 to 5 highly reusable English expressions (such as phrasal verbs, idioms, collocations, or versatile sentence patterns) that are practical for Korean learners.\n"
         "Rules:\n"
-        "- Prioritize natural Korean phrasing and localization over literal word-for-word translation.\n"
+        "- Prioritize natural Korean phrasing and localization over literal translation.\n"
         "- Maintain a consistent and context-appropriate politeness level (존댓말 or 반말) throughout the dialogue.\n"
         "- source_part_ids must cover every part exactly once and keep the original order.\n"
-        "- Merge only adjacent parts.\n"
-        "- Do not omit any source part.\n"
+        "- Merge only adjacent parts. Do not omit any source part.\n"
+        '- For learning_expressions, strictly AVOID simple vocabulary (e.g., nouns, names), interjections (e.g., "Ugh", "Ah"), or overly specific full sentences.\n'
+        "- Focus on chunk-level expressions or sentence frames that can be applied to other situations.\n"
         "- Output schema keys must be exactly: full_text_translation, merged_parts, learning_expressions.\n"
         "- Each merged_parts item must contain exactly: source_part_ids, translated_text.\n"
         "- Each learning_expressions item must contain exactly: expression, meaning_ko, context.\n"
@@ -177,6 +188,25 @@ def _build_generate_config() -> types.GenerateContentConfig:
     )
 
 
+def _get_response_finish_reason(response: Any) -> str | None:
+    """Extract the first-candidate finish reason from a Gemini response."""
+    candidates = getattr(response, "candidates", None)
+    if not candidates:
+        return None
+
+    first_candidate = candidates[0]
+    finish_reason = getattr(first_candidate, "finish_reason", None)
+    if finish_reason is None:
+        finish_reason = getattr(first_candidate, "finishReason", None)
+    if finish_reason is None:
+        return None
+
+    enum_name = getattr(finish_reason, "name", None)
+    if enum_name:
+        return str(enum_name)
+    return str(finish_reason)
+
+
 def _request_gemini(prompt: str) -> dict[str, Any]:
     """Send a single prompt to Gemini and return the parsed JSON."""
     client = _get_gemini_client()
@@ -191,6 +221,12 @@ def _request_gemini(prompt: str) -> dict[str, Any]:
         ],
     )
 
+    finish_reason = _get_response_finish_reason(response)
+    if finish_reason == "MAX_TOKENS":
+        raise GeminiRetryableError(
+            "Gemini response was truncated due to MAX_TOKENS."
+        )
+
     text = str(getattr(response, "text", "")).strip()
     if not text:
         raise RuntimeError("Gemini returned an empty text response.")
@@ -201,6 +237,9 @@ def _request_gemini(prompt: str) -> dict[str, Any]:
 
 def _is_retryable_exception(exc: Exception) -> bool:
     """Return whether a Gemini error should be retried."""
+    if isinstance(exc, GeminiRetryableError):
+        return True
+
     message = str(exc).lower()
     retry_signals = [
         "429",
@@ -216,6 +255,8 @@ def _is_retryable_exception(exc: Exception) -> bool:
         "503",
         "502",
         "500",
+        "max_tokens",
+        "truncated",
     ]
     return any(signal in message for signal in retry_signals)
 
@@ -360,14 +401,7 @@ def translate_reference_parts_with_gemini(
                 translation_retry_count=retry_count,
                 translation_provider=provider,
             )
-        except (
-            ValidationError,
-            ValueError,
-            json.JSONDecodeError,
-            TimeoutError,
-            RuntimeError,
-            Exception,
-        ) as exc:
+        except Exception as exc:
             logger.warning(
                 "Gemini translation attempt %d/%d failed: %s",
                 attempt,
