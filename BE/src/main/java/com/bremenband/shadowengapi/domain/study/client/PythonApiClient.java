@@ -6,7 +6,7 @@ import com.bremenband.shadowengapi.domain.study.dto.python.PythonGenerateReferen
 import com.bremenband.shadowengapi.domain.study.dto.python.PythonGenerateReferenceResponse;
 import com.bremenband.shadowengapi.global.exception.CustomException;
 import com.bremenband.shadowengapi.global.exception.ErrorCode;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -14,13 +14,16 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 @Component
-@RequiredArgsConstructor
 public class PythonApiClient {
 
     private final RestClient restClient;
 
     @Value("${python.api.base-url}")
     private String baseUrl;
+
+    public PythonApiClient(@Qualifier("pythonRestClient") RestClient restClient) {
+        this.restClient = restClient;
+    }
 
     public PythonGenerateReferenceResponse generateReference(String videoId, double startSec, double endSec) {
         PythonGenerateReferenceRequest request =

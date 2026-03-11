@@ -9,6 +9,7 @@ import com.bremenband.shadowengapi.domain.study.repository.StudySessionRepositor
 import com.bremenband.shadowengapi.domain.youtube.repository.VideoRepository;
 import com.bremenband.shadowengapi.domain.user.entity.User;
 import com.bremenband.shadowengapi.domain.user.repository.UserRepository;
+import com.bremenband.shadowengapi.domain.youtube.service.YoutubeService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

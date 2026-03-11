@@ -81,10 +81,10 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("Redis에 저장된 토큰과 다르면 INVALID_REFRESH_TOKEN 예외를 던진다")
-    void refresh_Redis불일치_예외() {
+    @DisplayName("이미 사용된 리프레시 토큰 재사용 시 세션을 강제 무효화하고 INVALID_REFRESH_TOKEN 예외를 던진다 (RTR Reuse Detection)")
+    void refresh_토큰재사용_세션강제무효화_예외() {
         // given
-        String refreshToken = "refresh.token";
+        String refreshToken = "already.used.token";
         Long userId = 1L;
 
         given(jwtProvider.isValid(refreshToken)).willReturn(true);
@@ -97,6 +97,30 @@ class AuthServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
+
+        // RTR Reuse Detection: 탈취 의심 시 해당 사용자 세션 전체 강제 종료
+        then(refreshTokenService).should(times(1)).delete(userId);
+    }
+
+    @Test
+    @DisplayName("절대 세션 만료 시 세션을 강제 무효화하고 INVALID_REFRESH_TOKEN 예외를 던진다")
+    void refresh_절대세션만료_세션강제무효화_예외() {
+        // given
+        String refreshToken = "expired.session.token";
+        Long userId = 1L;
+
+        given(jwtProvider.isValid(refreshToken)).willReturn(true);
+        given(jwtProvider.isRefreshToken(refreshToken)).willReturn(true);
+        given(jwtProvider.getUserId(refreshToken)).willReturn(userId);
+        given(refreshTokenService.validate(userId, refreshToken)).willReturn(false); // 절대 만료로 false
+
+        // when & then
+        assertThatThrownBy(() -> authService.refresh(refreshToken))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
+
+        then(refreshTokenService).should(times(1)).delete(userId);
     }
 
     @Test
