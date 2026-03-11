@@ -2,8 +2,6 @@ package com.bremenband.shadowengapi.domain.study.controller;
 
 import com.bremenband.shadowengapi.domain.study.dto.res.LatestActiveSessionResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.RecentStudySessionResponse;
-import com.bremenband.shadowengapi.domain.youtube.dto.res.ThumbnailInfo;
-import com.bremenband.shadowengapi.domain.youtube.dto.res.ThumbnailsResponse;
 import com.bremenband.shadowengapi.domain.study.service.StudySessionService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -47,15 +45,9 @@ class StudySessionControllerTest {
         String videoId = "dQw4w9WgXcQ";
         String base = "https://i.ytimg.com/vi/" + videoId + "/";
 
-        ThumbnailsResponse thumbnails = new ThumbnailsResponse(
-                new ThumbnailInfo(base + "default.jpg", 120, 90),
-                new ThumbnailInfo(base + "mqdefault.jpg", 320, 180),
-                new ThumbnailInfo(base + "hqdefault.jpg", 480, 360),
-                new ThumbnailInfo(base + "sddefault.jpg", 640, 480),
-                new ThumbnailInfo(base + "maxresdefault.jpg", 1280, 720)
-        );
         RecentStudySessionResponse response = new RecentStudySessionResponse(
-                new LatestActiveSessionResponse(12345L, thumbnails, 40)
+                new LatestActiveSessionResponse(12345L, base + "sddefault.jpg",
+                        "Never Gonna Give You Up", 8L, 5L)
         );
 
         given(studySessionService.getRecentSession(userId)).willReturn(response);
@@ -71,21 +63,10 @@ class StudySessionControllerTest {
                 .andExpect(jsonPath("$.isSuccess").value(true))
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.latestActiveSession.sessionId").value(12345))
-                .andExpect(jsonPath("$.data.latestActiveSession.progressRate").value(40))
-                .andExpect(jsonPath("$.data.latestActiveSession.thumbnails.default.url")
-                        .value(base + "default.jpg"))
-                .andExpect(jsonPath("$.data.latestActiveSession.thumbnails.default.width").value(120))
-                .andExpect(jsonPath("$.data.latestActiveSession.thumbnails.default.height").value(90))
-                .andExpect(jsonPath("$.data.latestActiveSession.thumbnails.medium.url")
-                        .value(base + "mqdefault.jpg"))
-                .andExpect(jsonPath("$.data.latestActiveSession.thumbnails.high.url")
-                        .value(base + "hqdefault.jpg"))
-                .andExpect(jsonPath("$.data.latestActiveSession.thumbnails.standard.url")
-                        .value(base + "sddefault.jpg"))
-                .andExpect(jsonPath("$.data.latestActiveSession.thumbnails.maxres.url")
-                        .value(base + "maxresdefault.jpg"))
-                .andExpect(jsonPath("$.data.latestActiveSession.thumbnails.maxres.width").value(1280))
-                .andExpect(jsonPath("$.data.latestActiveSession.thumbnails.maxres.height").value(720));
+                .andExpect(jsonPath("$.data.latestActiveSession.thumbnailUrl").value(base + "sddefault.jpg"))
+                .andExpect(jsonPath("$.data.latestActiveSession.videoTitle").value("Never Gonna Give You Up"))
+                .andExpect(jsonPath("$.data.latestActiveSession.totalSentences").value(8))
+                .andExpect(jsonPath("$.data.latestActiveSession.completedSentences").value(5));
 
         then(studySessionService).should(times(1)).getRecentSession(userId);
     }

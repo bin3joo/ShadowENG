@@ -16,7 +16,6 @@ import com.bremenband.shadowengapi.domain.study.repository.StudySessionRepositor
 import com.bremenband.shadowengapi.domain.user.entity.User;
 import com.bremenband.shadowengapi.domain.user.repository.UserRepository;
 import com.bremenband.shadowengapi.domain.youtube.dto.res.ThumbnailInfo;
-import com.bremenband.shadowengapi.domain.youtube.dto.res.ThumbnailsResponse;
 import com.bremenband.shadowengapi.domain.youtube.dto.res.VideoInfoResponse;
 import com.bremenband.shadowengapi.domain.youtube.entity.Video;
 import com.bremenband.shadowengapi.domain.youtube.repository.VideoRepository;
@@ -114,12 +113,17 @@ public class StudySessionService {
 
         StudySession session = sessionOpt.get();
         String videoId = session.getVideo().getVideoId();
-        ThumbnailsResponse thumbnails = ThumbnailsResponse.from(videoId);
+        String thumbnailUrl = "https://i.ytimg.com/vi/" + videoId + "/sddefault.jpg";
+
+        long totalSentences     = sentenceRepository.countByStudySession_Id(session.getId());
+        long completedSentences = evaluationRepository.countDistinctEvaluatedSentencesBySessionId(session.getId());
 
         LatestActiveSessionResponse latestSession = new LatestActiveSessionResponse(
                 session.getId(),
-                thumbnails,
-                session.getProgressRate()
+                thumbnailUrl,
+                session.getVideo().getTitle(),
+                totalSentences,
+                completedSentences
         );
 
         return new RecentStudySessionResponse(latestSession);
