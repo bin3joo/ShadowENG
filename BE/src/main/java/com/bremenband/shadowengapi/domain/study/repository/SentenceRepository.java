@@ -8,4 +8,6 @@ import java.util.List;
 public interface SentenceRepository extends JpaRepository<Sentence, Long> {
 
     List<Sentence> findByStudySession_Id(Long sessionId);
+
+    long countByStudySession_Id(Long sessionId);
 }
