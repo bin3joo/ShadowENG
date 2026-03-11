@@ -11,10 +11,10 @@ class ContentRepository @Inject constructor(
     private val api: ApiService
 ) {
     suspend fun getVideo(url: String): Result<VideoResponse> =
-        runCatching { api.getVideo(url).data ?: throw DomainException.NotFound }
+        runCatching { api.getVideo(url).data ?: throw DomainException.InvalidResponse }
             .mapDomainException()
 
     suspend fun createSession(embedUrl: String, startSec: Double, endSec: Double): Result<Long> =
-        runCatching { api.createSession(CreateSessionRequest(embedUrl, startSec, endSec)).data?.sessionId ?: throw DomainException.NotFound }
+        runCatching { api.createSession(CreateSessionRequest(embedUrl, startSec, endSec)).data?.sessionId ?: throw DomainException.InvalidResponse }
             .mapDomainException()
 }
