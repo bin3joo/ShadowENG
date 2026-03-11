@@ -46,7 +46,8 @@ youtube:
 
 jwt:
   access-token-expiry: 3600000      # 1시간 (ms)
-  refresh-token-expiry: 604800000   # 7일 (ms)
+  refresh-token-expiry: 604800000   # 7일 (ms) - sliding window
+  max-session-expiry: 2592000000    # 30일 (ms) - absolute max
 
 logging:
   level:
