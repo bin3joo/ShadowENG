@@ -7,9 +7,9 @@ import com.bremenband.shadowengapi.domain.study.dto.res.LatestActiveSessionRespo
 import com.bremenband.shadowengapi.domain.study.dto.res.RecentStudySessionResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.StudySessionCreateResponse;
 import com.bremenband.shadowengapi.domain.study.dto.transcription.TranscribedSentence;
-import com.bremenband.shadowengapi.domain.study.entity.Sentence;
 import com.bremenband.shadowengapi.domain.study.entity.SessionStatus;
 import com.bremenband.shadowengapi.domain.study.entity.StudySession;
+import com.bremenband.shadowengapi.domain.study.entity.Sentence;
 import com.bremenband.shadowengapi.domain.study.repository.EvaluationRepository;
 import com.bremenband.shadowengapi.domain.study.repository.SentenceRepository;
 import com.bremenband.shadowengapi.domain.study.repository.StudySessionRepository;
@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -44,6 +45,7 @@ public class StudySessionService {
     private final UserRepository userRepository;
     private final YoutubeService youtubeService;
     private final TranscriptionService transcriptionService;
+    private final StudySessionWriter studySessionWriter;
 
     public ActiveSessionsResponse getActiveSessions(Long userId) {
         List<StudySession> sessions = studySessionRepository
@@ -123,12 +125,11 @@ public class StudySessionService {
         return new RecentStudySessionResponse(latestSession);
     }
 
-    @Transactional
     public StudySessionCreateResponse createStudySession(Long userId, StudySessionCreateRequest request) {
-        // 1. URL에서 videoId 추출 (watch/youtu.be/embed 형식 모두 지원)
+        // 1. URL에서 videoId 추출 (watch/youtu.be/embed 형식 모두 지원, DB/API 호출 없음)
         String videoId = youtubeService.extractVideoId(request.embedUrl());
 
-        // 2. Video 조회 or YouTube API에서 가져와 저장
+        // 2. Video 조회 or YouTube API에서 가져와 저장 (각각 독립 트랜잭션, 최대 10초)
         Video video = videoRepository.findById(videoId)
                 .orElseGet(() -> {
                     VideoInfoResponse info = youtubeService.getVideo(request.embedUrl());
@@ -142,58 +143,17 @@ public class StudySessionService {
                             .build());
                 });
 
-        // 3. User 조회
+        // 3. User 조회 (독립 트랜잭션)
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 4. StudySession 생성 및 저장
-        StudySession session = studySessionRepository.save(StudySession.builder()
-                .video(video)
-                .user(user)
-                .startSec(request.startSec())
-                .endSec(request.endSec())
-                .build());
-
-        // 5. 전사(STT) 수행
+        // 4. 전사(STT) 수행 (Python API 호출, 최대 35초 — DB 커넥션 점유 없음)
         List<TranscribedSentence> transcriptions =
                 transcriptionService.transcribe(videoId, request.startSec(), request.endSec());
 
-        // 6. Sentence 저장
-        List<Sentence> sentencesToSave = transcriptions.stream()
-                .map(t -> Sentence.builder()
-                        .studySession(session)
-                        .content(t.content())
-                        .startSec(t.startSec())
-                        .endSec(t.endSec())
-                        .durationSec(t.durationSec())
-                        .wordTimestamps(t.wordTimestamps())
-                        .features(t.features())
-                        .build())
-                .toList();
-        List<Sentence> sentences = sentenceRepository.saveAll(sentencesToSave);
-
-        // 7. 응답 빌드
-        return new StudySessionCreateResponse(
-                session.getId(),
-                new StudySessionCreateResponse.VideoData(
-                        video.getVideoId(),
-                        video.getEmbedUrl(),
-                        video.getTitle(),
-                        video.getThumbnailUrl(),
-                        video.getDuration(),
-                        video.getChannelTitle()
-                ),
-                sentences.stream()
-                        .map(s -> new StudySessionCreateResponse.SentenceData(
-                                s.getId(),
-                                s.getContent(),
-                                s.getStartSec(),
-                                s.getEndSec(),
-                                s.getDurationSec(),
-                                0
-                        ))
-                        .toList()
-        );
+        // 5. 세션 + 문장 저장 (단일 트랜잭션으로 원자성 보장)
+        return studySessionWriter.saveSessionAndSentences(
+                user, video, request.startSec(), request.endSec(), transcriptions);
     }
 
 }
