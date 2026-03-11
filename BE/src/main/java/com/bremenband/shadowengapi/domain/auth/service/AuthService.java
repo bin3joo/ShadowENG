@@ -29,6 +29,9 @@ public class AuthService {
         // 3. userId 추출 후 Redis 저장값과 일치 여부 확인
         Long userId = jwtProvider.getUserId(refreshToken);
         if (!refreshTokenService.validate(userId, refreshToken)) {
+            // 유효한 JWT이지만 검증 실패: 이미 사용된 토큰 재사용(탈취 의심) 또는 절대 세션 만료
+            // 해당 사용자의 모든 세션을 즉시 무효화하여 피해 최소화 (RTR Reuse Detection)
+            refreshTokenService.delete(userId);
             throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
