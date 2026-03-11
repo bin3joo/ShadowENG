@@ -5,10 +5,6 @@ import com.bremenband.shadowengapi.domain.study.entity.SessionStatus;
 import com.bremenband.shadowengapi.domain.study.entity.StudySession;
 import com.bremenband.shadowengapi.domain.study.repository.EvaluationRepository;
 import com.bremenband.shadowengapi.domain.study.repository.SentenceRepository;
-<<<<<<< Updated upstream
-import com.bremenband.shadowengapi.domain.youtube.entity.Video;
-=======
->>>>>>> Stashed changes
 import com.bremenband.shadowengapi.domain.study.repository.StudySessionRepository;
 import com.bremenband.shadowengapi.domain.user.entity.User;
 import com.bremenband.shadowengapi.domain.youtube.entity.Video;
@@ -38,17 +34,10 @@ class StudySessionServiceTest {
     @Mock private EvaluationRepository   evaluationRepository;
 
     @Test
-<<<<<<< Updated upstream
-    @DisplayName("ACTIVE 세션이 존재하면 썸네일, 영상 제목, 문장 진행 현황을 반환한다")
-    void getRecentSession_ACTIVE세션존재_세션반환() {
-        // given
-        Long userId  = 1L;
-=======
     @DisplayName("ACTIVE 세션이 존재하면 썸네일 URL, 영상 제목, 문장 진행 현황을 반환한다")
     void getRecentSession_ACTIVE세션존재_세션반환() {
         // given
         Long userId   = 1L;
->>>>>>> Stashed changes
         String videoId = "dQw4w9WgXcQ";
 
         User user = User.builder()

@@ -47,7 +47,7 @@ class BookmarkUpdateControllerTest {
         given(bookmarkService.updateBookmark(userId, sentenceId, true)).willReturn(response);
 
         // when & then
-        mockMvc.perform(patch("/sentences/{sentenceId}", sentenceId)
+        mockMvc.perform(patch("/bookmarks/{sentenceId}", sentenceId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"isBookmarked\": true}")
                         .accept(MediaType.APPLICATION_JSON)
@@ -77,7 +77,7 @@ class BookmarkUpdateControllerTest {
         given(bookmarkService.updateBookmark(userId, sentenceId, false)).willReturn(response);
 
         // when & then
-        mockMvc.perform(patch("/sentences/{sentenceId}", sentenceId)
+        mockMvc.perform(patch("/bookmarks/{sentenceId}", sentenceId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"isBookmarked\": false}")
                         .accept(MediaType.APPLICATION_JSON)
@@ -102,7 +102,7 @@ class BookmarkUpdateControllerTest {
                 .willThrow(new CustomException(ErrorCode.SENTENCE_NOT_FOUND));
 
         // when & then
-        mockMvc.perform(patch("/sentences/{sentenceId}", sentenceId)
+        mockMvc.perform(patch("/bookmarks/{sentenceId}", sentenceId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"isBookmarked\": true}")
                         .accept(MediaType.APPLICATION_JSON)
@@ -124,7 +124,7 @@ class BookmarkUpdateControllerTest {
         Long sentenceId = 1234L;
 
         // when & then
-        mockMvc.perform(patch("/sentences/{sentenceId}", sentenceId)
+        mockMvc.perform(patch("/bookmarks/{sentenceId}", sentenceId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}")
                         .accept(MediaType.APPLICATION_JSON)
