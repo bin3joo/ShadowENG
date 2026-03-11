@@ -26,7 +26,7 @@ public class YoutubeApiClient {
 
     public YoutubeApiResponse fetchVideoInfo(String videoId) {
         try {
-            return restClient.get()
+            YoutubeApiResponse response = restClient.get()
                     .uri(baseUrl + "/videos?part=snippet,contentDetails&id={videoId}&key={key}",
                             videoId, apiKey)
                     .retrieve()
@@ -34,6 +34,11 @@ public class YoutubeApiClient {
                         throw new CustomException(ErrorCode.EXTERNAL_API_ERROR);
                     })
                     .body(YoutubeApiResponse.class);
+
+            if (response == null) {
+                throw new CustomException(ErrorCode.EXTERNAL_API_ERROR);
+            }
+            return response;
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {
