@@ -98,6 +98,51 @@ def _apply_speaker_risk_policy(
                 part["speaker_risk"] = "medium"
 
 
+def _slice_audio_segment(
+    audio_array: np.ndarray,
+    sample_rate: int,
+    start_sec: float,
+    end_sec: float,
+) -> np.ndarray:
+    """주어진 시간 구간의 오디오 배열을 잘라 반환합니다."""
+    start_idx = max(0, int(start_sec * sample_rate))
+    end_idx = max(start_idx, int(end_sec * sample_rate))
+    return np.asarray(audio_array[start_idx:end_idx], dtype=np.float32)
+
+
+def _rebase_reference_words(
+    words: list[dict],
+    offset_sec: float,
+    clip_duration_sec: float,
+) -> list[dict]:
+    """패딩 기준 단어 타임스탬프를 요청 구간 기준으로 재매핑합니다."""
+    rebased_words: list[dict] = []
+    for word in words:
+        start = float(word.get("start", 0.0) or 0.0)
+        end = float(word.get("end", 0.0) or 0.0)
+        local_start = start - offset_sec
+        local_end = end - offset_sec
+        overlap_start = max(0.0, local_start)
+        overlap_end = min(clip_duration_sec, local_end)
+        overlap_duration = max(0.0, overlap_end - overlap_start)
+        original_duration = max(1e-6, end - start)
+        midpoint = (local_start + local_end) / 2.0
+        midpoint_in_window = 0.0 <= midpoint <= clip_duration_sec
+        overlap_ratio = overlap_duration / original_duration
+        if overlap_duration <= 0.0:
+            continue
+        if (
+            not midpoint_in_window
+            and overlap_ratio < config.CAPTION_MIN_ENTRY_OVERLAP_RATIO
+        ):
+            continue
+        rebased_word = dict(word)
+        rebased_word["start"] = round(overlap_start, 3)
+        rebased_word["end"] = round(overlap_end, 3)
+        rebased_words.append(rebased_word)
+    return rebased_words
+
+
 def _export_part_audio_files(
     audio_array: np.ndarray,
     sample_rate: int,
@@ -198,6 +243,8 @@ def generate_reference(
         target_sr = config.TARGET_SR
         audio_array, _ = librosa.load(actual_audio, sr=target_sr)
         audio_duration_sec = float(len(audio_array) / target_sr)
+        request_offset_sec = min(req.start_sec, audio_padding_sec)
+        request_duration_sec = max(0.0, req.end_sec - req.start_sec)
 
         refined_words, refined_text = trim_boundary_fragments(
             word_timestamps=stats["word_timestamps"],
@@ -217,24 +264,49 @@ def generate_reference(
             )
         else:
             final_script = sanitize_reference_text(final_script)
+        request_words = _rebase_reference_words(
+            final_words,
+            request_offset_sec,
+            request_duration_sec,
+        )
+        if request_words:
+            final_words = sanitize_word_timestamps(request_words)
+            final_script = sanitize_reference_text(
+                " ".join(word["word"] for word in final_words)
+            )
         logger.info(
             "trim_boundary_fragments: removed %d words (%d remain)",
             trimmed_count,
             len(final_words),
         )
 
-        denoise_mode = select_reference_denoise_mode(
+        request_audio = _slice_audio_segment(
             audio_array,
+            target_sr,
+            request_offset_sec,
+            request_offset_sec + request_duration_sec,
+        )
+
+        denoise_mode = select_reference_denoise_mode(
+            request_audio,
             target_sr,
             final_words,
         )
 
-        start_idx = int(stats["start_time"] * target_sr)
-        end_idx = int(stats["end_time"] * target_sr)
+        speech_start_sec = (
+            float(final_words[0].get("start", 0.0)) if final_words else 0.0
+        )
+        speech_end_sec = (
+            float(final_words[-1].get("end", request_duration_sec))
+            if final_words
+            else request_duration_sec
+        )
+        start_idx = int(speech_start_sec * target_sr)
+        end_idx = int(speech_end_sec * target_sr)
         cropped_audio = (
-            audio_array[start_idx:end_idx]
+            request_audio[start_idx:end_idx]
             if end_idx > start_idx
-            else audio_array
+            else request_audio
         )
 
         f0, rms, _ = pipeline.extract_prosody_features(
@@ -252,13 +324,13 @@ def generate_reference(
             sentence_data,
             f0,
             rms,
-            stats["start_time"],
+            speech_start_sec,
             target_sr,
             config.HOP_LENGTH,
         )
 
         quality_metadata = assess_reference_quality(
-            audio_array,
+            request_audio,
             target_sr,
             final_words,
             sentence_data,
@@ -292,7 +364,7 @@ def generate_reference(
             translation_result.parts,
             f0,
             rms,
-            stats["start_time"],
+            speech_start_sec,
             target_sr,
             config.HOP_LENGTH,
         )
@@ -305,9 +377,13 @@ def generate_reference(
             req.end_sec,
             req.save_dir,
         )
-        full_audio_path = persist_reference_audio(actual_audio, save_dir)
+        full_audio_path = persist_reference_audio(
+            request_audio,
+            target_sr,
+            save_dir,
+        )
         _export_part_audio_files(
-            audio_array,
+            request_audio,
             target_sr,
             save_dir,
             sentence_data,

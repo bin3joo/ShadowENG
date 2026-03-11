@@ -35,6 +35,35 @@ def get_reference_json_path(video_id: str) -> Path:
     return get_reference_meta_dir(video_id) / "reference.json"
 
 
+def get_reference_script_path(video_id: str) -> Path:
+    """비디오별 검증용 스크립트 JSON 경로를 반환합니다."""
+    return get_reference_meta_dir(video_id) / "script.json"
+
+
+def resolve_reference_json_path(reference_input: str) -> Path | None:
+    """현재 저장 구조 기준으로 평가용 reference.json 경로를 해석합니다."""
+    stripped = reference_input.strip()
+    if not stripped:
+        return find_latest_reference_json()
+
+    candidate = Path(stripped)
+
+    if candidate.is_dir():
+        if candidate.name == "meta":
+            return candidate / "reference.json"
+        nested_meta_reference = candidate / "meta" / "reference.json"
+        if nested_meta_reference.exists():
+            return nested_meta_reference
+        return candidate / "reference.json"
+
+    if candidate.name == "script.json":
+        sibling_reference = candidate.with_name("reference.json")
+        if sibling_reference.exists():
+            return sibling_reference
+
+    return candidate
+
+
 def get_evaluate_result_path(reference_path: Path | None = None) -> Path:
     """평가 결과 JSON 저장 경로를 반환합니다."""
     if reference_path is not None and reference_path.parent.name == "meta":
@@ -75,6 +104,66 @@ def extract_video_id(value: str) -> str:
     )
 
 
+def build_script_summary(data: dict) -> dict:
+    """검증용 텍스트 중심 스크립트 요약을 생성합니다."""
+    parts = data.get("parts", [])
+    learning_expressions = data.get("learning_expressions", [])
+
+    return {
+        "status": data.get("status"),
+        "video_id": data.get("video_id"),
+        "stt_method": data.get("stt_method"),
+        "translation_status": data.get("translation_status"),
+        "translation_retry_count": data.get("translation_retry_count"),
+        "translation_provider": data.get("translation_provider"),
+        "final_script": data.get("final_script", ""),
+        "final_script_ko": data.get("final_script_ko", ""),
+        "parts": [
+            {
+                "part_index": index,
+                "start_sec": part.get("start_sec"),
+                "end_sec": part.get("end_sec"),
+                "part_source": part.get("part_source"),
+                "sentence": part.get("sentence", ""),
+                "sentence_ko": part.get("sentence_ko", ""),
+                "vocabulary": [
+                    {
+                        "word": vocabulary.get("word", ""),
+                        "meaning_ko": vocabulary.get("meaning_ko", ""),
+                        "phonetic_en": vocabulary.get("phonetic_en", ""),
+                        "phonetic_ko": vocabulary.get("phonetic_ko", ""),
+                        "example_en": vocabulary.get("example_en", ""),
+                        "example_ko": vocabulary.get("example_ko", ""),
+                    }
+                    for vocabulary in part.get("vocabulary", [])
+                ],
+            }
+            for index, part in enumerate(parts, start=1)
+        ],
+        "learning_expressions": [
+            {
+                "expression": expression.get("expression", ""),
+                "meaning": expression.get("meaning", ""),
+                "pronunciation_en": expression.get(
+                    "pronunciation_en",
+                    "",
+                ),
+                "pronunciation_ko": expression.get(
+                    "pronunciation_ko",
+                    "",
+                ),
+                "nuance_in_sentence": expression.get(
+                    "nuance_in_sentence",
+                    "",
+                ),
+                "example_en": expression.get("example_en", ""),
+                "example_ko": expression.get("example_ko", ""),
+            }
+            for expression in learning_expressions
+        ],
+    }
+
+
 def test_generate_reference(
     video_id_or_url: str,
     start_sec: float,
@@ -93,6 +182,7 @@ def test_generate_reference(
     reference_audio_dir = get_reference_audio_dir(video_id)
     reference_meta_dir.mkdir(parents=True, exist_ok=True)
     reference_result_path = get_reference_json_path(video_id)
+    reference_script_path = get_reference_script_path(video_id)
 
     payload = {
         "video_id": video_id,
@@ -178,6 +268,16 @@ def test_generate_reference(
         )
         if part.get("sentence_ko"):
             print(f"               KO={part.get('sentence_ko', '')[:70]}")
+        vocabulary_items = part.get("vocabulary", [])
+        if vocabulary_items:
+            print(f"               VOCAB={len(vocabulary_items)}개")
+            for vocabulary in vocabulary_items:
+                print(
+                    "               "
+                    f"- {vocabulary.get('word', '')} "
+                    f"| {vocabulary.get('meaning_ko', '')} "
+                    f"| {vocabulary.get('phonetic_ko', '')}"
+                )
 
     if expressions:
         print("\n📚 학습 표현:")
@@ -185,12 +285,24 @@ def test_generate_reference(
             print(
                 "   "
                 f"- {expression.get('expression', '')}: "
-                f"{expression.get('meaning_ko', '')}"
+                f"{expression.get('meaning', '')}"
             )
+            pronunciation_ko = expression.get("pronunciation_ko", "")
+            if pronunciation_ko:
+                print(f"     발음  : {pronunciation_ko}")
+            nuance = expression.get("nuance_in_sentence", "")
+            if nuance:
+                print(f"     뉘앙스: {nuance}")
 
     with open(reference_result_path, "w", encoding="utf-8") as file_obj:
         json.dump(data, file_obj, ensure_ascii=False, indent=2)
     print(f"\n💾 레퍼런스 JSON 저장 완료: {reference_result_path}")
+
+    script_summary = build_script_summary(data)
+    with open(reference_script_path, "w", encoding="utf-8") as file_obj:
+        json.dump(script_summary, file_obj, ensure_ascii=False, indent=2)
+    print(f"💾 검증용 스크립트 JSON 저장 완료: {reference_script_path}")
+
     return str(reference_result_path)
 
 
@@ -201,10 +313,10 @@ def test_evaluate_audio(
 ) -> None:
     """evaluate-audio 호출 후 결과를 test/result 에 저장합니다."""
     url = f"{BASE_URL}/api/v1/evaluate-audio"
-    reference_path = Path(reference_json_path)
+    reference_path = resolve_reference_json_path(reference_json_path)
     user_audio = Path(user_audio_path)
 
-    if not reference_path.exists():
+    if reference_path is None or not reference_path.exists():
         print(f"❌ 레퍼런스 JSON 파일이 없습니다: {reference_path}")
         latest_reference = find_latest_reference_json()
         if latest_reference is not None:
@@ -218,6 +330,18 @@ def test_evaluate_audio(
 
     with open(reference_path, "r", encoding="utf-8") as file_obj:
         ref_data = json.load(file_obj)
+
+    if reference_path.name == "script.json":
+        print("❌ eval 입력으로 script.json은 사용할 수 없습니다.")
+        print(
+            "   feature / word_timestamps가 포함된 reference.json을 사용하세요."
+        )
+        sys.exit(1)
+
+    if not ref_data.get("parts"):
+        print("❌ 평가용 reference 데이터에 parts가 없습니다.")
+        print(f"   reference.json 경로를 확인하세요: {reference_path}")
+        sys.exit(1)
 
     if part_index is not None:
         parts = ref_data.get("parts", [])
@@ -339,6 +463,8 @@ def main() -> None:
 
   python -m test.test_api evaluate "./my_recording.wav"
   python -m test.test_api evaluate "./my_recording.wav" --ref "./test/result/VIDEO_ID/meta/reference.json"
+  python -m test.test_api evaluate "./my_recording.wav" --ref "./test/result/VIDEO_ID/meta"
+  python -m test.test_api evaluate "./my_recording.wav" --ref "./test/result/VIDEO_ID"
 """,
     )
 
@@ -364,7 +490,7 @@ def main() -> None:
         "--ref",
         default=str(default_reference_path) if default_reference_path else "",
         help=(
-            "레퍼런스 JSON 경로 "
+            "레퍼런스 기준 경로(reference.json, meta 디렉터리, video_id 결과 디렉터리) "
             f"(기본: {default_reference_path.as_posix() if default_reference_path else '최근 생성 레퍼런스 없음'})"
         ),
     )

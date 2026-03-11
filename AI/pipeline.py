@@ -31,6 +31,7 @@ try:
     from .domain.processing.audio_processing import denoise_for_analysis
     from .domain.processing.engine_utils import (
         _REMOVE_PUNCT,
+        _canonicalize_tokens,
         _normalize_word,
         _sum_word_durations,
         count_pauses_from_words,
@@ -41,6 +42,7 @@ except ImportError:
     from domain.processing.audio_processing import denoise_for_analysis
     from domain.processing.engine_utils import (
         _REMOVE_PUNCT,
+        _canonicalize_tokens,
         _normalize_word,
         _sum_word_durations,
         count_pauses_from_words,
@@ -643,56 +645,62 @@ class StyleEchoPipeline:
         aligned: list[dict] = []
         available = list(user_words)
 
+        def _build_canonical_span(
+            words: list[dict],
+        ) -> tuple[list[str], dict] | None:
+            canonical_tokens: list[str] = []
+            matched_words: list[dict] = []
+
+            for word in words:
+                tokens = _canonicalize_tokens(word.get("word", ""))
+                if not tokens:
+                    continue
+                canonical_tokens.extend(tokens)
+                matched_words.append(word)
+
+            if not canonical_tokens or not matched_words:
+                return None
+
+            merged_entry = {
+                "word": " ".join(
+                    word.get("word", "") for word in matched_words
+                ),
+                "start": matched_words[0]["start"],
+                "end": matched_words[-1]["end"],
+                "score": sum(word.get("score", 0.0) for word in matched_words)
+                / len(matched_words),
+            }
+            return canonical_tokens, merged_entry
+
         for r_word in ref_words:
-            r_text = _normalize_word(r_word.get("word", ""))
-            if not r_text:
+            ref_tokens = _canonicalize_tokens(r_word.get("word", ""))
+            if not ref_tokens:
                 continue
 
-            r_sub = r_text.split()
+            match_found = False
+            for start_idx in range(len(available)):
+                candidate_words: list[dict] = []
+                candidate_tokens: list[str] = []
 
-            if len(r_sub) == 1:
-                for idx, u_word in enumerate(available):
-                    u_text = _normalize_word(u_word.get("word", ""))
-                    if r_text == u_text:
-                        aligned.append(available.pop(idx))
-                        break
-            else:
-                for start_idx in range(len(available)):
-                    u0 = _normalize_word(available[start_idx].get("word", ""))
-                    if u0 != r_sub[0]:
+                for end_idx in range(start_idx, len(available)):
+                    candidate_words.append(available[end_idx])
+                    canonical_span = _build_canonical_span(candidate_words)
+                    if canonical_span is None:
                         continue
 
-                    ok = True
-                    end_idx = start_idx + 1
-                    for si in range(1, len(r_sub)):
-                        if end_idx >= len(available):
-                            ok = False
-                            break
-                        un = _normalize_word(
-                            available[end_idx].get("word", "")
-                        )
-                        if un != r_sub[si]:
-                            ok = False
-                            break
-                        end_idx += 1
-
-                    if ok:
-                        indices = list(range(start_idx, end_idx))
-                        matched = [available[i] for i in indices]
-                        merged_word = " ".join(
-                            w.get("word", "") for w in matched
-                        )
-                        merged_entry = {
-                            "word": merged_word,
-                            "start": matched[0]["start"],
-                            "end": matched[-1]["end"],
-                            "score": sum(w.get("score", 0) for w in matched)
-                            / len(matched),
-                        }
-                        aligned.append(merged_entry)
-                        for i in sorted(indices, reverse=True):
-                            available.pop(i)
+                    candidate_tokens, merged_entry = canonical_span
+                    if len(candidate_tokens) > len(ref_tokens):
                         break
+                    if candidate_tokens == ref_tokens:
+                        indices = list(range(start_idx, end_idx + 1))
+                        aligned.append(merged_entry)
+                        for idx in sorted(indices, reverse=True):
+                            available.pop(idx)
+                        match_found = True
+                        break
+
+                if match_found:
+                    break
 
         aligned.extend(available)
         return aligned
@@ -919,13 +927,14 @@ class StyleEchoPipeline:
         유저 오디오와 레퍼런스 JSON 데이터를 비교하여 7대 지표 JSON 을 반환합니다.
         """
         ref_script = ref_data["final_script"]
+        ref_text = " ".join(_canonicalize_tokens(ref_script))
         ref_word_timestamps = ref_data.get("word_timestamps", [])
         ref_f0 = np.array(ref_data.get("features", {}).get("f0_array", []))
         ref_rms = np.array(ref_data.get("features", {}).get("rms_array", []))
 
         # 1. 유저 STT
         user_stats = self.extract_whisper_stats(user_audio_path)
-        user_text = user_stats["text"]
+        user_text = " ".join(_canonicalize_tokens(user_stats.get("text", "")))
 
         if not user_text:
             return {
@@ -941,7 +950,7 @@ class StyleEchoPipeline:
 
         # 3. 단어 정확도 (WER → 지수 감쇠 스코어링)
         wer = jiwer.wer(
-            _REMOVE_PUNCT(ref_script.lower()),
+            _REMOVE_PUNCT(ref_text.lower()),
             _REMOVE_PUNCT(user_text.lower()),
         )
         word_score = 100.0 * np.exp(-2.5 * wer)

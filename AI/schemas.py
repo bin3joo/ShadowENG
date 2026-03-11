@@ -71,6 +71,17 @@ class ProsodyFeatures(BaseModel):
     rms_array: list[float]
 
 
+class PartVocabularyData(BaseModel):
+    """Per-part vocabulary item for learning support."""
+
+    word: str
+    meaning_ko: str
+    phonetic_en: str
+    phonetic_ko: str
+    example_en: str
+    example_ko: str
+
+
 class PartData(BaseModel):
     """Sentence-level reference data."""
 
@@ -96,14 +107,19 @@ class PartData(BaseModel):
     audio_path: str | None = None
     sentence_ko: str | None = None
     source_part_ids: list[str] = Field(default_factory=list)
+    vocabulary: list[PartVocabularyData] = Field(default_factory=list)
 
 
 class LearningExpressionData(BaseModel):
     """Learning expression extracted from the reference text."""
 
     expression: str
-    meaning_ko: str
-    context: str
+    meaning: str
+    pronunciation_en: str
+    pronunciation_ko: str
+    nuance_in_sentence: str
+    example_en: str
+    example_ko: str
 
 
 class GenerateReferenceResponse(BaseModel):
