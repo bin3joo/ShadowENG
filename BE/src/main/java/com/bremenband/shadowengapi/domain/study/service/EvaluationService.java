@@ -16,7 +16,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
@@ -33,18 +32,16 @@ public class EvaluationService {
     private final PythonApiClient pythonApiClient;
     private final ObjectMapper objectMapper;
 
-    @Transactional
     public EvaluationResponse evaluate(Long sessionId, Long sentenceId, MultipartFile audioFile, Long userId) {
-        // 1. 세션 조회
+        // 1. 세션 조회 및 소유권 검증 (트랜잭션 불필요 — 단순 조회)
         StudySession session = studySessionRepository.findById(sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
 
-        // 2. 세션 소유권 검증
         if (!session.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.FORBIDDEN);
         }
 
-        // 3. 문장 조회 및 세션 소속 검증
+        // 2. 문장 조회 및 세션 소속 검증
         Sentence sentence = sentenceRepository.findById(sentenceId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SENTENCE_NOT_FOUND));
 
@@ -60,7 +57,7 @@ public class EvaluationService {
         JsonNode features = parseJson(sentence.getFeatures());
         JsonNode wordTimestamps = parseJson(sentence.getWordTimestamps());
 
-        // 5. Python evaluate-audio 호출
+        // 5. Python evaluate-audio 호출 (최대 35초 소요 — DB 커넥션 점유 방지를 위해 트랜잭션 밖에서 실행)
         PythonEvaluateAudioRequest request = new PythonEvaluateAudioRequest(
                 base64Audio, audioFormat, sentence.getContent(), features, wordTimestamps);
         PythonEvaluateAudioResponse pythonResponse = pythonApiClient.evaluateAudio(request);
@@ -69,7 +66,7 @@ public class EvaluationService {
             throw new CustomException(ErrorCode.VOICE_RECOGNITION_FAILED);
         }
 
-        // 6. 평가 결과 저장
+        // 6. 평가 결과 저장 (SimpleJpaRepository.save()가 자체 @Transactional 보유)
         PythonEvaluateAudioResponse.Details d = pythonResponse.details();
         PythonEvaluateAudioResponse.Scores s = pythonResponse.scores();
 
