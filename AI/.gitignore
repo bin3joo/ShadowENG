@@ -17,3 +17,5 @@ test/result/*
 *.m4a
 *.mp3
 *.wav
+config.yaml
+*.iml

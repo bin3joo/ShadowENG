@@ -7,6 +7,8 @@
 - evaluate 경로의 `_align_user_words_to_ref()`를 연음/축약 canonical token sequence 기반으로 재구성했습니다.
 - `gonna`, `wanna`, `gotta`, `lemme`, `gimme`, `I'm` 류 표현이 evaluate 정렬에서 더 자연스럽게 매칭되도록 `engine_utils` canonicalization 유틸을 추가했습니다.
 - 관련 변경 배경과 검증 포인트를 `docs/review/timebase_and_alignment_2026-03-11.md`에 기록했습니다.
+- 공개 `generate-reference` 응답에서 내부 수치처리/디버그 메타데이터를 제외하고, 백엔드 전달에 필요한 핵심 필드만 남기도록 응답 계약을 축소했습니다.
+- `parts.word_timestamps`에서는 `speaker`, `score`를 제거했고, top-level 번역 상태는 `translation_status` 대신 `translation_success`로 정리했습니다.
 
 ## 2026-03-10
 

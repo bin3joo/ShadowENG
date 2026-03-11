@@ -185,7 +185,6 @@ def generate_reference(
     """Generate a reference payload from YouTube captions and audio."""
     tmp_dir: str | None = None
     actual_audio: str | None = None
-    full_audio_path: str | None = None
     quality_metadata: dict | None = None
     save_dir: str | None = None
 
@@ -377,7 +376,7 @@ def generate_reference(
             req.end_sec,
             req.save_dir,
         )
-        full_audio_path = persist_reference_audio(
+        persist_reference_audio(
             request_audio,
             target_sr,
             save_dir,
@@ -397,12 +396,10 @@ def generate_reference(
             req.start_sec,
             req.end_sec,
             final_script,
-            stt_method,
             sentence_data,
             trimmed_count,
             final_words,
             quality_metadata,
-            full_audio_path,
             translation_result.model_dump(
                 include={
                     "final_script_ko",

@@ -46,18 +46,20 @@
 * **역할:** YouTube `video_id` 와 시간 구간을 입력받아 reference 스크립트, part 정보, 단어 타임스탬프, F0/RMS feature를 생성합니다.
 * **입력:** `video_id`, `start_sec`, `end_sec`
 * **출력:**
+  * `status`, `video_id`, `start_sec`, `end_sec`
   * `final_script`
+  * `final_script_ko`
   * `parts[]`
-  * `word_timestamps`
   * `pause_count`, `active_speech_sec`, `word_count`
-  * `reference_quality`, `warnings`, `denoise_mode`
-  * `speaker_mode`, `dialog_mode`, `turn_count`
+  * `reference_quality`, `quality_reasons`, `warnings`
+  * `learning_expressions`
+  * `translation_success`, `translation_retry_count`, `translation_provider`
 * **특징:**
   * 자막 기반 `caption_align` fast path 우선 시도
   * 실패 시 Whisper STT fallback
   * boundary trim 적용
   * part 단위 prosody feature 추출
-  * quality / overlap / speaker risk 분석 포함
+  * quality 분석 결과는 공개 API에 필요한 수준만 노출
 
 ### 4.3. 유저 발화 평가 (`evaluate-audio`)
 
