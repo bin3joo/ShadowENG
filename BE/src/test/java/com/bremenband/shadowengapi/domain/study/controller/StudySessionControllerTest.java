@@ -2,10 +2,7 @@ package com.bremenband.shadowengapi.domain.study.controller;
 
 import com.bremenband.shadowengapi.domain.study.dto.res.LatestActiveSessionResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.RecentStudySessionResponse;
-<<<<<<< Updated upstream
-=======
 import com.bremenband.shadowengapi.domain.study.service.EvaluationService;
->>>>>>> Stashed changes
 import com.bremenband.shadowengapi.domain.study.service.StudySessionService;
 import com.bremenband.shadowengapi.global.config.SecurityConfig;
 import com.bremenband.shadowengapi.global.jwt.JwtProvider;
@@ -49,10 +46,6 @@ class StudySessionControllerTest {
         String base    = "https://i.ytimg.com/vi/" + videoId + "/";
 
         RecentStudySessionResponse response = new RecentStudySessionResponse(
-<<<<<<< Updated upstream
-                new LatestActiveSessionResponse(12345L, base + "sddefault.jpg",
-                        "Never Gonna Give You Up", 8L, 5L)
-=======
                 new LatestActiveSessionResponse(
                         12345L,
                         base + "sddefault.jpg",
@@ -60,7 +53,6 @@ class StudySessionControllerTest {
                         8L,
                         5L
                 )
->>>>>>> Stashed changes
         );
 
         given(studySessionService.getRecentSession(userId)).willReturn(response);

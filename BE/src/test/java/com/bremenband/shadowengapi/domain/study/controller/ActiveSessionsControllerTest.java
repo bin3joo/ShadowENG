@@ -49,8 +49,8 @@ class ActiveSessionsControllerTest {
         Long userId = 1L;
 
         ActiveSessionsResponse response = new ActiveSessionsResponse(List.of(
-                new ActiveSessionResponse(12345L, new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 40),
-                new ActiveSessionResponse(67890L, new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 75)
+                new ActiveSessionResponse(12345L, new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 8L, 5L),
+                new ActiveSessionResponse(67890L, new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 6L, 2L)
         ));
 
         given(studySessionService.getActiveSessions(userId)).willReturn(response);
@@ -68,12 +68,14 @@ class ActiveSessionsControllerTest {
                 .andExpect(jsonPath("$.data.ActiveSessions").isArray())
                 .andExpect(jsonPath("$.data.ActiveSessions.length()").value(2))
                 .andExpect(jsonPath("$.data.ActiveSessions[0].sessionId").value(12345))
-                .andExpect(jsonPath("$.data.ActiveSessions[0].progressRate").value(40))
+                .andExpect(jsonPath("$.data.ActiveSessions[0].totalSentences").value(8))
+                .andExpect(jsonPath("$.data.ActiveSessions[0].completedSentences").value(5))
                 .andExpect(jsonPath("$.data.ActiveSessions[0].thumbnails.url").value(THUMBNAIL_URL))
                 .andExpect(jsonPath("$.data.ActiveSessions[0].thumbnails.width").value(640))
                 .andExpect(jsonPath("$.data.ActiveSessions[0].thumbnails.height").value(480))
                 .andExpect(jsonPath("$.data.ActiveSessions[1].sessionId").value(67890))
-                .andExpect(jsonPath("$.data.ActiveSessions[1].progressRate").value(75));
+                .andExpect(jsonPath("$.data.ActiveSessions[1].totalSentences").value(6))
+                .andExpect(jsonPath("$.data.ActiveSessions[1].completedSentences").value(2));
 
         then(studySessionService).should(times(1)).getActiveSessions(userId);
     }

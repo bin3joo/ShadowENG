@@ -12,8 +12,11 @@ public record ActiveSessionResponse(
         @Schema(description = "영상 썸네일 (standard 사이즈, 640x480)")
         ThumbnailInfo thumbnails,
 
-        @Schema(description = "학습 진행률 (%)", example = "40")
-        int progressRate
+        @Schema(description = "세션 전체 문장 수", example = "8")
+        long totalSentences,
+
+        @Schema(description = "평가 완료된 문장 수 (1회 이상 평가)", example = "5")
+        long completedSentences
 
 ) {
 }

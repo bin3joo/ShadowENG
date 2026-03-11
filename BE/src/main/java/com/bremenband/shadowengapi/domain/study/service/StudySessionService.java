@@ -50,12 +50,24 @@ public class StudySessionService {
         List<StudySession> sessions = studySessionRepository
                 .findByUser_IdAndStatusOrderByCreatedAtDesc(userId, SessionStatus.ACTIVE);
 
+        if (sessions.isEmpty()) {
+            return new ActiveSessionsResponse(List.of());
+        }
+
+        List<Long> sessionIds = sessions.stream().map(StudySession::getId).toList();
+
+        // 배치 집계: 세션별 전체 문장 수, 학습 완료 문장 수 (N+1 방지)
+        Map<Long, Long> totalMap     = sentenceRepository.countMapBySessionIds(sessionIds);
+        Map<Long, Long> completedMap = evaluationRepository.completedSentencesMapBySessionIds(sessionIds);
+
         List<ActiveSessionResponse> list = sessions.stream()
                 .map(session -> {
                     String videoId = session.getVideo().getVideoId();
                     ThumbnailInfo thumbnail = new ThumbnailInfo(
                             "https://i.ytimg.com/vi/" + videoId + "/sddefault.jpg", 640, 480);
-                    return new ActiveSessionResponse(session.getId(), thumbnail, session.getProgressRate());
+                    long total     = totalMap.getOrDefault(session.getId(), 0L);
+                    long completed = completedMap.getOrDefault(session.getId(), 0L);
+                    return new ActiveSessionResponse(session.getId(), thumbnail, total, completed);
                 })
                 .toList();
 

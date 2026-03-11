@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public interface EvaluationRepository extends JpaRepository<Evaluation, Long> {
 
@@ -17,4 +19,15 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, Long> {
 
     @Query("SELECT COUNT(DISTINCT e.sentence.id) FROM Evaluation e WHERE e.studySession.id = :sessionId")
     long countDistinctEvaluatedSentencesBySessionId(@Param("sessionId") Long sessionId);
+
+    @Query("SELECT e.studySession.id, COUNT(DISTINCT e.sentence.id) FROM Evaluation e WHERE e.studySession.id IN :sessionIds GROUP BY e.studySession.id")
+    List<Object[]> countDistinctEvaluatedSentencesBySessionIds(@Param("sessionIds") List<Long> sessionIds);
+
+    default Map<Long, Long> completedSentencesMapBySessionIds(List<Long> sessionIds) {
+        return countDistinctEvaluatedSentencesBySessionIds(sessionIds).stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> (Long) row[1]
+                ));
+    }
 }

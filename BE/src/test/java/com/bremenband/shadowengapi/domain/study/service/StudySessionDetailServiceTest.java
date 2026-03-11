@@ -113,7 +113,7 @@ class StudySessionDetailServiceTest {
         Evaluation eval1 = buildEvaluation(s1, session);
         Evaluation eval2 = buildEvaluation(s1, session);
 
-        given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(session));
+        given(studySessionRepository.findByIdWithVideo(sessionId)).willReturn(Optional.of(session));
         given(sentenceRepository.findByStudySession_Id(sessionId)).willReturn(List.of(s1, s2));
         given(evaluationRepository.findByStudySession_Id(sessionId)).willReturn(List.of(eval1, eval2));
 
@@ -144,7 +144,7 @@ class StudySessionDetailServiceTest {
         assertThat(response.sentencesData().get(1).sentenceId()).isEqualTo(11L);
         assertThat(response.sentencesData().get(1).studyCount()).isEqualTo(0);
 
-        then(studySessionRepository).should(times(1)).findById(sessionId);
+        then(studySessionRepository).should(times(1)).findByIdWithVideo(sessionId);
         then(sentenceRepository).should(times(1)).findByStudySession_Id(sessionId);
         then(evaluationRepository).should(times(1)).findByStudySession_Id(sessionId);
     }
@@ -156,7 +156,7 @@ class StudySessionDetailServiceTest {
         Long sessionId = 1L;
         StudySession session = buildSession(sessionId);
 
-        given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(session));
+        given(studySessionRepository.findByIdWithVideo(sessionId)).willReturn(Optional.of(session));
         given(sentenceRepository.findByStudySession_Id(sessionId)).willReturn(List.of());
         given(evaluationRepository.findByStudySession_Id(sessionId)).willReturn(List.of());
 
@@ -173,7 +173,7 @@ class StudySessionDetailServiceTest {
     void getStudySession_세션없음_예외() {
         // given
         Long sessionId = 999L;
-        given(studySessionRepository.findById(sessionId)).willReturn(Optional.empty());
+        given(studySessionRepository.findByIdWithVideo(sessionId)).willReturn(Optional.empty());
 
         // when & then
         assertThatThrownBy(() -> studySessionService.getStudySession(sessionId, USER_ID))
