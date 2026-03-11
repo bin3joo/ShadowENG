@@ -113,7 +113,7 @@ class EvaluationServiceTest {
                 "file", "test.wav", "audio/wav", "audio-bytes".getBytes());
 
         // when
-        EvaluationResponse response = evaluationService.evaluate(sessionId, sentenceId, audio, USER_ID);
+        EvaluationResponse response = evaluationService.evaluate(sessionId, sentenceId, 1, audio, USER_ID);
 
         // then
         assertThat(response.sentenceId()).isEqualTo(sentenceId);
@@ -150,7 +150,7 @@ class EvaluationServiceTest {
         given(studySessionRepository.findById(sessionId)).willReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> evaluationService.evaluate(sessionId, sentenceId, audio, USER_ID))
+        assertThatThrownBy(() -> evaluationService.evaluate(sessionId, sentenceId, 1, audio, USER_ID))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.SESSION_NOT_FOUND);
 
@@ -170,7 +170,7 @@ class EvaluationServiceTest {
         given(sentenceRepository.findById(sentenceId)).willReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> evaluationService.evaluate(sessionId, sentenceId, audio, USER_ID))
+        assertThatThrownBy(() -> evaluationService.evaluate(sessionId, sentenceId, 1, audio, USER_ID))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.SENTENCE_NOT_FOUND);
     }
@@ -193,7 +193,7 @@ class EvaluationServiceTest {
                         "음성이 인식되지 않았습니다. 다시 녹음해주세요.", null, null, null));
 
         // when & then
-        assertThatThrownBy(() -> evaluationService.evaluate(sessionId, sentenceId, audio, USER_ID))
+        assertThatThrownBy(() -> evaluationService.evaluate(sessionId, sentenceId, 1, audio, USER_ID))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.VOICE_RECOGNITION_FAILED);
 
@@ -218,7 +218,7 @@ class EvaluationServiceTest {
         given(sentenceRepository.findById(sentenceId)).willReturn(Optional.of(sentence));
 
         // when & then
-        assertThatThrownBy(() -> evaluationService.evaluate(sessionId, sentenceId, audio, USER_ID))
+        assertThatThrownBy(() -> evaluationService.evaluate(sessionId, sentenceId, 1, audio, USER_ID))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.INVALID_REQUEST);
     }

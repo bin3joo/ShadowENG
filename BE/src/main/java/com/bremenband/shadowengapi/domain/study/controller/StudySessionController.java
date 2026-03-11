@@ -1,9 +1,12 @@
 package com.bremenband.shadowengapi.domain.study.controller;
 
+import com.bremenband.shadowengapi.domain.study.dto.req.EvaluationRequest;
+import com.bremenband.shadowengapi.domain.study.dto.req.SentenceLearningRequest;
 import com.bremenband.shadowengapi.domain.study.dto.req.StudySessionCreateRequest;
 import com.bremenband.shadowengapi.domain.study.dto.res.ActiveSessionsResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.EvaluationResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.RecentStudySessionResponse;
+import com.bremenband.shadowengapi.domain.study.dto.res.SentenceLearningResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.StudySessionCreateResponse;
 import com.bremenband.shadowengapi.domain.study.service.EvaluationService;
 import com.bremenband.shadowengapi.domain.study.service.StudySessionService;
@@ -71,10 +74,12 @@ public class StudySessionController {
             @Parameter(description = "평가 대상 문장 ID", example = "1234")
             @RequestParam Long sentenceId,
             @Parameter(description = "녹음된 음성 파일 (wav, m4a 등)")
-            @RequestParam("file") MultipartFile file,
+            @RequestPart("file") MultipartFile file,
+            @Parameter(description = "학습 단계 정보 (JSON)")
+            @RequestPart("request") @Valid EvaluationRequest request,
             @Parameter(hidden = true) @AuthenticationPrincipal Long userId
     ) {
-        return ApiResponse.success(evaluationService.evaluate(sessionId, sentenceId, file, userId));
+        return ApiResponse.success(evaluationService.evaluate(sessionId, sentenceId, request.step(), file, userId));
     }
 
     @GetMapping("/{sessionId}")
@@ -90,5 +95,22 @@ public class StudySessionController {
         return ApiResponse.success(studySessionService.getStudySession(sessionId, userId));
     }
 
+    @GetMapping("/{sessionId}/sentences/{sentenceId}")
+    @Operation(
+            summary = "특정 문장 학습 데이터 조회",
+            description = "학습 단계(step)에 따라 문장 원문 또는 마스킹된 문장을 반환합니다. " +
+                    "첫 학습(studyCount=0)이면 step 1(hiddenSentence=null), " +
+                    "재학습이면 step 2(hiddenSentence에 마스킹된 문장 포함)."
+    )
+    public ApiResponse<SentenceLearningResponse> getSentenceLearning(
+            @Parameter(description = "학습 세션 ID", example = "12345")
+            @PathVariable Long sessionId,
+            @Parameter(description = "문장 ID", example = "1234")
+            @PathVariable Long sentenceId,
+            @Valid @RequestBody SentenceLearningRequest request,
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId
+    ) {
+        return ApiResponse.success(studySessionService.getSentenceLearning(sessionId, sentenceId, request.step(), userId));
+    }
 
 }
