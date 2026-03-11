@@ -32,7 +32,7 @@ public class EvaluationService {
     private final PythonApiClient pythonApiClient;
     private final ObjectMapper objectMapper;
 
-    public EvaluationResponse evaluate(Long sessionId, Long sentenceId, MultipartFile audioFile, Long userId) {
+    public EvaluationResponse evaluate(Long sessionId, Long sentenceId, int step, MultipartFile audioFile, Long userId) {
         // 1. 세션 조회 및 소유권 검증 (트랜잭션 불필요 — 단순 조회)
         StudySession session = studySessionRepository.findById(sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));

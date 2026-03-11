@@ -5,7 +5,9 @@ import com.bremenband.shadowengapi.domain.study.dto.res.ActiveSessionResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.ActiveSessionsResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.LatestActiveSessionResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.RecentStudySessionResponse;
+import com.bremenband.shadowengapi.domain.study.dto.res.SentenceLearningResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.StudySessionCreateResponse;
+import com.bremenband.shadowengapi.domain.study.util.WordMasker;
 import com.bremenband.shadowengapi.domain.study.dto.transcription.TranscribedSentence;
 import com.bremenband.shadowengapi.domain.study.entity.SessionStatus;
 import com.bremenband.shadowengapi.domain.study.entity.StudySession;
@@ -170,6 +172,47 @@ public class StudySessionService {
         // 5. 세션 + 문장 저장 (단일 트랜잭션으로 원자성 보장)
         return studySessionWriter.saveSessionAndSentences(
                 user, video, request.startSec(), request.endSec(), transcriptions);
+    }
+
+    public SentenceLearningResponse getSentenceLearning(Long sessionId, Long sentenceId, int step, Long userId) {
+        // 1. 세션 조회 및 소유권 검증
+        StudySession session = studySessionRepository.findById(sessionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
+
+        if (!session.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
+
+        // 2. 문장 조회 및 세션 소속 검증
+        Sentence sentence = sentenceRepository.findById(sentenceId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SENTENCE_NOT_FOUND));
+
+        if (!sentence.getStudySession().getId().equals(sessionId)) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        // 3. 학습 횟수 조회
+        int studyCount = (int) evaluationRepository.countBySentence_Id(sentenceId);
+
+        // 4. step별 응답 결정
+        //    step 1: 청취/쉐도잉 단계      — 텍스트 없음 (sentence=null, hiddenSentence=null)
+        //    step 2: 원문 읽기 단계        — 원문만 제공
+        //    step 3: 원문+빈칸 채우기 단계  — 원문과 마스킹 문장 모두 제공
+        //    step 4: 청취/쉐도잉 반복 단계  — step 1과 동일, 텍스트 없음
+        String fullSentence   = (step == 2 || step == 3) ? sentence.getContent() : null;
+        String hiddenSentence = step == 3 ? WordMasker.mask(sentence.getContent()) : null;
+
+        return new SentenceLearningResponse(
+                step,
+                sessionId,
+                sentenceId,
+                fullSentence,
+                hiddenSentence,
+                sentence.getStartSec(),
+                sentence.getEndSec(),
+                sentence.getDurationSec(),
+                studyCount
+        );
     }
 
 }

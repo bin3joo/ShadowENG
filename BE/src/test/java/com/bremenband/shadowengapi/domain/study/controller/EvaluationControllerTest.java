@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -39,8 +40,11 @@ class EvaluationControllerTest {
     @MockitoBean private StudySessionService studySessionService;
     @MockitoBean private EvaluationService   evaluationService;
 
+    private static final MockMultipartFile REQUEST_PART = new MockMultipartFile(
+            "request", "", "application/json", "{\"step\": 3}".getBytes());
+
     @Test
-    @DisplayName("음성 파일과 sentenceId를 전송하면 평가 결과와 200을 반환한다")
+    @DisplayName("음성 파일과 step을 전송하면 평가 결과와 200을 반환한다")
     void sendVoice_성공_200() throws Exception {
         // given
         Long sessionId  = 1L;
@@ -58,7 +62,8 @@ class EvaluationControllerTest {
                 new EvaluationResponse.Scores(73.7, 93.8, 37.6, 73.0, 55.8, 76.0, 85.2, 100.0)
         );
 
-        given(evaluationService.evaluate(eq(sessionId), eq(sentenceId), any(), any())).willReturn(response);
+        given(evaluationService.evaluate(eq(sessionId), eq(sentenceId), anyInt(), any(), any()))
+                .willReturn(response);
 
         MockMultipartFile audio = new MockMultipartFile(
                 "file", "test.wav", "audio/wav", "audio-bytes".getBytes());
@@ -66,6 +71,7 @@ class EvaluationControllerTest {
         // when & then
         mockMvc.perform(multipart("/study-sessions/{sessionId}/evaluations", sessionId)
                         .file(audio)
+                        .file(REQUEST_PART)
                         .param("sentenceId", sentenceId.toString())
                         .with(authentication(
                                 new UsernamePasswordAuthenticationToken(userId, null, List.of())
@@ -87,7 +93,8 @@ class EvaluationControllerTest {
                 .andExpect(jsonPath("$.data.scores.totalScore").value(73.7))
                 .andExpect(jsonPath("$.data.scores.wordAccuracy").value(93.8));
 
-        then(evaluationService).should(times(1)).evaluate(eq(sessionId), eq(sentenceId), any(), any());
+        then(evaluationService).should(times(1))
+                .evaluate(eq(sessionId), eq(sentenceId), anyInt(), any(), any());
     }
 
     @Test
@@ -97,7 +104,7 @@ class EvaluationControllerTest {
         Long sessionId  = 999L;
         Long sentenceId = 10L;
 
-        given(evaluationService.evaluate(eq(sessionId), eq(sentenceId), any(), any()))
+        given(evaluationService.evaluate(eq(sessionId), eq(sentenceId), anyInt(), any(), any()))
                 .willThrow(new CustomException(ErrorCode.SESSION_NOT_FOUND));
 
         MockMultipartFile audio = new MockMultipartFile(
@@ -106,6 +113,7 @@ class EvaluationControllerTest {
         // when & then
         mockMvc.perform(multipart("/study-sessions/{sessionId}/evaluations", sessionId)
                         .file(audio)
+                        .file(REQUEST_PART)
                         .param("sentenceId", sentenceId.toString())
                         .with(authentication(
                                 new UsernamePasswordAuthenticationToken(1L, null, List.of())
@@ -123,7 +131,7 @@ class EvaluationControllerTest {
         Long sessionId  = 1L;
         Long sentenceId = 10L;
 
-        given(evaluationService.evaluate(eq(sessionId), eq(sentenceId), any(), any()))
+        given(evaluationService.evaluate(eq(sessionId), eq(sentenceId), anyInt(), any(), any()))
                 .willThrow(new CustomException(ErrorCode.VOICE_RECOGNITION_FAILED));
 
         MockMultipartFile audio = new MockMultipartFile(
@@ -132,6 +140,7 @@ class EvaluationControllerTest {
         // when & then
         mockMvc.perform(multipart("/study-sessions/{sessionId}/evaluations", sessionId)
                         .file(audio)
+                        .file(REQUEST_PART)
                         .param("sentenceId", sentenceId.toString())
                         .with(authentication(
                                 new UsernamePasswordAuthenticationToken(1L, null, List.of())
