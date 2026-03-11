@@ -53,7 +53,7 @@ class WordTimestamp(BaseModel):
     word: str
     start: float
     end: float
-    score: float = Field(ge=0.0, le=1.0)
+    score: float | None = Field(default=None, ge=0.0, le=1.0)
     speaker: str | None = None
 
     @model_validator(mode="after")
@@ -71,6 +71,21 @@ class ProsodyFeatures(BaseModel):
     rms_array: list[float]
 
 
+class ReferenceWordTimestamp(BaseModel):
+    """Public word timestamp data for generated references."""
+
+    word: str
+    start: float
+    end: float
+
+    @model_validator(mode="after")
+    def validate_time_range(self) -> "ReferenceWordTimestamp":
+        """Validate word timestamp range."""
+        if self.end < self.start:
+            raise ValueError("word timestamp end 는 start 이상이어야 합니다.")
+        return self
+
+
 class PartVocabularyData(BaseModel):
     """Per-part vocabulary item for learning support."""
 
@@ -82,29 +97,19 @@ class PartVocabularyData(BaseModel):
     example_ko: str
 
 
-class PartData(BaseModel):
-    """Sentence-level reference data."""
+class ReferencePartData(BaseModel):
+    """Public sentence-level reference data."""
 
     sentence: str
     start_sec: float
     end_sec: float
     duration_sec: float
-    word_count: int
-    wpm: float
     difficulty_score: float
     difficulty: str
-    reductions: list[dict] = Field(default_factory=list)
     key_expressions: list[str] = Field(default_factory=list)
-    word_timestamps: list[WordTimestamp] = Field(default_factory=list)
+    word_timestamps: list[ReferenceWordTimestamp] = Field(default_factory=list)
     pause_count: int = 0
     features: ProsodyFeatures | None = None
-    part_source: str = "sentence"
-    turn_id: int | None = None
-    turn_break_reason: str | None = None
-    speaker_risk: str = "low"
-    dominant_speaker: str | None = None
-    speaker_count: int = 0
-    audio_path: str | None = None
     sentence_ko: str | None = None
     source_part_ids: list[str] = Field(default_factory=list)
     vocabulary: list[PartVocabularyData] = Field(default_factory=list)
@@ -127,13 +132,11 @@ class GenerateReferenceResponse(BaseModel):
 
     status: str
     video_id: str
-    youtube_url: str
     start_sec: float
     end_sec: float
     final_script: str
     final_script_ko: str | None = None
-    stt_method: str
-    parts: list[PartData]
+    parts: list[ReferencePartData]
     trimmed_word_count: int
     pause_count: int
     active_speech_sec: float
@@ -141,25 +144,10 @@ class GenerateReferenceResponse(BaseModel):
     reference_quality: str = "good"
     quality_reasons: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
-    denoise_mode: str = "off"
-    speaker_mode: str = "single_speaker_assumed"
-    dialog_mode: str = "sentence"
-    turn_count: int = 0
-    caption_source: str = "none"
-    alignment_median_score: float = 0.0
-    low_alignment_ratio: float = 0.0
-    overlap_risk_ratio: float = 0.0
-    speaker_shift_ratio: float = 0.0
-    estimated_snr_db: float = 0.0
-    noise_level: str = "low"
-    speech_ratio: float = 0.0
-    diarization_used: bool = False
-    detected_speaker_count: int = 0
-    full_audio_path: str | None = None
     learning_expressions: list[LearningExpressionData] = Field(
         default_factory=list
     )
-    translation_status: str = "skipped"
+    translation_success: bool = False
     translation_retry_count: int = 0
     translation_provider: str | None = None
 

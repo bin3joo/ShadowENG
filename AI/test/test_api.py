@@ -112,8 +112,7 @@ def build_script_summary(data: dict) -> dict:
     return {
         "status": data.get("status"),
         "video_id": data.get("video_id"),
-        "stt_method": data.get("stt_method"),
-        "translation_status": data.get("translation_status"),
+        "translation_success": data.get("translation_success"),
         "translation_retry_count": data.get("translation_retry_count"),
         "translation_provider": data.get("translation_provider"),
         "final_script": data.get("final_script", ""),
@@ -123,7 +122,6 @@ def build_script_summary(data: dict) -> dict:
                 "part_index": index,
                 "start_sec": part.get("start_sec"),
                 "end_sec": part.get("end_sec"),
-                "part_source": part.get("part_source"),
                 "sentence": part.get("sentence", ""),
                 "sentence_ko": part.get("sentence_ko", ""),
                 "vocabulary": [
@@ -215,7 +213,6 @@ def test_generate_reference(
 
     print(f"\n✅ status      : {data.get('status')}")
     print(f"   video_id    : {data.get('video_id', 'N/A')}")
-    print(f"   stt_method  : {data.get('stt_method', 'N/A')}")
     print(f"   final_script: {data.get('final_script', '')[:100]}...")
     print(f"   trimmed     : {data.get('trimmed_word_count', 0)}개 제거됨")
     print(f"   pause_count : {data.get('pause_count', 0)}")
@@ -223,22 +220,7 @@ def test_generate_reference(
     print(f"   quality     : {data.get('reference_quality', 'N/A')}")
     print(f"   reasons     : {data.get('quality_reasons', [])}")
     print(f"   warnings    : {data.get('warnings', [])}")
-    print(f"   denoise     : {data.get('denoise_mode', 'N/A')}")
-    print(f"   speaker     : {data.get('speaker_mode', 'N/A')}")
-    print(f"   dialog      : {data.get('dialog_mode', 'N/A')}")
-    print(f"   turn_count  : {data.get('turn_count', 0)}")
-    print(f"   caption     : {data.get('caption_source', 'N/A')}")
-    print(f"   align_med   : {data.get('alignment_median_score', 0.0)}")
-    print(f"   align_low   : {data.get('low_alignment_ratio', 0.0)}")
-    print(f"   overlap     : {data.get('overlap_risk_ratio', 0.0)}")
-    print(f"   shift       : {data.get('speaker_shift_ratio', 0.0)}")
-    print(f"   noise_level : {data.get('noise_level', 'N/A')}")
-    print(f"   snr_db      : {data.get('estimated_snr_db', 0.0)}")
-    print(f"   speech_ratio: {data.get('speech_ratio', 0.0)}")
-    print(f"   diarization : {data.get('diarization_used', False)}")
-    print(f"   speakers    : {data.get('detected_speaker_count', 0)}")
-    print(f"   full_audio  : {data.get('full_audio_path', 'N/A')}")
-    print(f"   trans_stat  : {data.get('translation_status', 'N/A')}")
+    print(f"   trans_ok    : {data.get('translation_success', False)}")
     print(f"   trans_retry : {data.get('translation_retry_count', 0)}")
     print(f"   trans_prov  : {data.get('translation_provider', 'N/A')}")
     print(f"   final_ko    : {str(data.get('final_script_ko', ''))[:100]}...")
@@ -257,13 +239,8 @@ def test_generate_reference(
         print(
             f"     [Part {index}] {part.get('difficulty', '?'):6s} | "
             f"{part.get('start_sec', 0):.1f}s~{part.get('end_sec', 0):.1f}s | "
-            f"WPM={part.get('wpm', 0):.0f} | "
             f"F0={f0_len} RMS={rms_len} Words={wt_len} | "
-            f"Src={part.get('part_source', 'sentence')} "
             f"Pause={part.get('pause_count', 0)} "
-            f"SpkRisk={part.get('speaker_risk', 'low')} "
-            f"Dom={part.get('dominant_speaker', '-') or '-'} "
-            f"Cnt={part.get('speaker_count', 0)} | "
             f"{part.get('sentence', '')[:50]}"
         )
         if part.get("sentence_ko"):
