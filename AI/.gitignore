@@ -14,3 +14,6 @@ env/
 temp/
 test/result/*
 !test/result/.gitkeep
+*.m4a
+*.mp3
+*.wav

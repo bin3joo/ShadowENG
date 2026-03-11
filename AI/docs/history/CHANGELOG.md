@@ -1,5 +1,13 @@
 # Pipe Change Log
 
+## 2026-03-11
+
+- `generate-reference`의 내부 패딩은 유지하되 최종 `reference.json`, `full_audio.wav`, part 오디오의 시간 기준을 요청 구간 기준(A)으로 통일했습니다.
+- manual caption 경로에서 padded clip 기준 timestamp 가 외부 응답으로 섞이던 문제를 줄이기 위해 word timestamp rebasing 로직을 추가했습니다.
+- evaluate 경로의 `_align_user_words_to_ref()`를 연음/축약 canonical token sequence 기반으로 재구성했습니다.
+- `gonna`, `wanna`, `gotta`, `lemme`, `gimme`, `I'm` 류 표현이 evaluate 정렬에서 더 자연스럽게 매칭되도록 `engine_utils` canonicalization 유틸을 추가했습니다.
+- 관련 변경 배경과 검증 포인트를 `docs/review/timebase_and_alignment_2026-03-11.md`에 기록했습니다.
+
 ## 2026-03-10
 
 - active 문서와 archive 문서를 분리하는 기준을 정리했습니다.

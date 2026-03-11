@@ -69,10 +69,15 @@ def prepare_reference_audio_dir(
     return str(target_dir)
 
 
-def persist_reference_audio(source_path: str, target_dir: str) -> str:
-    """Copy downloaded full reference audio to the persistent target directory."""
+def persist_reference_audio(
+    audio_array: np.ndarray,
+    sample_rate: int,
+    target_dir: str,
+) -> str:
+    """요청 구간 기준 full reference audio를 영구 저장 디렉터리에 저장합니다."""
     target_path = os.path.join(target_dir, "full_audio.wav")
-    shutil.copy2(source_path, target_path)
+    segment = np.asarray(audio_array, dtype=np.float32)
+    wavfile.write(target_path, sample_rate, segment)
     logger.info("Saved full reference audio: %s", target_path)
     return target_path
 

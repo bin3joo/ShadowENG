@@ -30,8 +30,23 @@ class LearningExpression(BaseModel):
     """A useful learning expression extracted from the reference."""
 
     expression: str
-    meaning_ko: str
-    context: str
+    meaning: str
+    pronunciation_en: str
+    pronunciation_ko: str
+    nuance_in_sentence: str
+    example_en: str
+    example_ko: str
+
+
+class PartVocabulary(BaseModel):
+    """A vocabulary item extracted for a merged part."""
+
+    word: str = Field(min_length=1)
+    meaning_ko: str = Field(min_length=1)
+    phonetic_en: str = Field(min_length=1)
+    phonetic_ko: str = Field(min_length=1)
+    example_en: str = Field(min_length=1)
+    example_ko: str = Field(min_length=1)
 
 
 class GeminiMergedPart(BaseModel):
@@ -39,6 +54,7 @@ class GeminiMergedPart(BaseModel):
 
     source_part_ids: list[str] = Field(min_length=1)
     translated_text: str = Field(min_length=1)
+    vocabulary: list[PartVocabulary] = Field(default_factory=list)
 
 
 class GeminiTranslationResponse(BaseModel):
@@ -123,8 +139,11 @@ def _build_llm_input_parts(sentence_data: list[dict]) -> list[dict]:
     for index, part in enumerate(sentence_data, start=1):
         payload_parts.append(
             {
+                "part_index": index,
                 "part_id": f"part{index}",
-                "text": part.get("sentence", ""),
+                "start_sec": float(part.get("start_sec", 0.0) or 0.0),
+                "end_sec": float(part.get("end_sec", 0.0) or 0.0),
+                "sentence": part.get("sentence", ""),
                 "word_count": int(part.get("word_count", 0) or 0),
                 "duration_sec": float(part.get("duration_sec", 0.0) or 0.0),
                 "part_source": part.get("part_source", "sentence"),
@@ -143,31 +162,40 @@ def _build_prompt(full_text: str, sentence_data: list[dict]) -> str:
     preprocessed_parts = _build_llm_input_parts(sentence_data)
     payload = {
         "full_text": full_text,
-        "preprocessed_parts": preprocessed_parts,
+        "parts": preprocessed_parts,
     }
     return (
         "You are processing English learning reference text. "
         "Return JSON only. Do not wrap the response in markdown.\n"
         "Tasks:\n"
-        "1. Translate the full English text into natural, fluent Korean. "
-        "Use conversational phrasing suitable for the context, and actively omit unnecessary pronouns.\n"
-        "2. Merge only adjacent preprocessed parts when they are clearly "
-        "the same speaker's continuous utterance and the merged result "
-        "remains natural for learning.\n"
+        "1. [CRITICAL] Translate the full English text into extremely natural, fluent Korean (구어체). Act as a professional movie subtitle translator. Actively omit unnatural pronouns (e.g., 나는, 당신은, 그것은) and completely avoid word-for-word literal translation.\n"
+        "2. Merge adjacent preprocessed parts ONLY IF they form a logically and grammatically continuous thought. "
+        "Ignore external speaker_hints if they conflict with logical continuity.\n"
         "3. Keep questions or speaker changes separate unless there is very "
         "strong evidence to merge.\n"
-        "4. For each final merged part, provide source_part_ids and translated_text.\n"
-        "5. Extract 3 to 5 highly reusable English expressions (such as phrasal verbs, idioms, collocations, or versatile sentence patterns) that are practical for Korean learners.\n"
+        "4. For each final merged part, provide source_part_ids, translated_text, and vocabulary. Ensure 'translated_text' matches the movie-subtitle quality.\n"
+        "5. Extract 3 to 5 highly reusable English learning expressions based on the rules below.\n"
+        "6. For each merged part, extract 3 to 5 highly useful expressions, idioms, slang items, collocations, or key vocabulary.\n"
+        "7. For each vocabulary item, provide word, meaning_ko, phonetic_en, phonetic_ko, example_en, and example_ko.\n"
+        "8. For each learning_expressions item, provide expression, meaning, pronunciation_en, pronunciation_ko, nuance_in_sentence, example_en, and example_ko.\n"
         "Rules:\n"
-        "- Prioritize natural Korean phrasing and localization over literal translation.\n"
-        "- Maintain a consistent and context-appropriate politeness level (존댓말 or 반말) throughout the dialogue.\n"
+        "- [CRITICAL TRANSLATION RULE] Prioritize natural Korean phrasing and localization over literal translation. The output MUST sound like a natural Korean conversation. Maintain a consistent and context-appropriate politeness level (존댓말 or 반말) throughout the dialogue.\n"
         "- source_part_ids must cover every part exactly once and keep the original order.\n"
         "- Merge only adjacent parts. Do not omit any source part.\n"
-        '- For learning_expressions, strictly AVOID simple vocabulary (e.g., nouns, names), interjections (e.g., "Ugh", "Ah"), or overly specific full sentences.\n'
-        "- Focus on chunk-level expressions or sentence frames that can be applied to other situations.\n"
+        "- Preserve part metadata from the input when deciding merges, especially part_index, start_sec, end_sec, part_id, and sentence.\n"
+        "- Each merged part vocabulary list must be created from that merged part only, not from the full text in general.\n"
+        "- Avoid overly basic words such as articles, be-verbs, pronouns, and names unless they are part of a real idiom or useful expression.\n"
+        "- phonetic_en must be written as English IPA.\n"
+        "- phonetic_ko must describe how the expression is naturally read in Hangeul based on actual pronunciation, not simple letter-by-letter transliteration.\n"
+        "- example_en must be short, practical, and reusable for learners.\n"
+        '- For learning_expressions, avoid interjections (e.g., "Ugh", "Ah"), names, or overly specific full sentences that are not reusable.\n'
+        "- Prefer chunk-level expressions or sentence frames that can be applied to other situations.\n"
+        "- A single word is allowed only if it is highly reusable, educationally valuable, and has a meaningful nuance in context.\n"
+        "- Keep meaning concise, nuance_in_sentence within 1 to 2 sentences, and example sentences short and practical.\n"
         "- Output schema keys must be exactly: full_text_translation, merged_parts, learning_expressions.\n"
-        "- Each merged_parts item must contain exactly: source_part_ids, translated_text.\n"
-        "- Each learning_expressions item must contain exactly: expression, meaning_ko, context.\n"
+        "- Each merged_parts item must contain exactly: source_part_ids, translated_text, vocabulary.\n"
+        "- Each vocabulary item must contain exactly: word, meaning_ko, phonetic_en, phonetic_ko, example_en, example_ko.\n"
+        "- Each learning_expressions item must contain exactly: expression, meaning, pronunciation_en, pronunciation_ko, nuance_in_sentence, example_en, example_ko.\n"
         f"Input JSON:\n{json.dumps(payload, ensure_ascii=False)}"
     )
 
@@ -336,6 +364,9 @@ def _merge_source_parts(
             raise ValueError("Failed to rebuild a merged reference part.")
         rebuilt_part["sentence_ko"] = merged_part.translated_text.strip()
         rebuilt_part["source_part_ids"] = merged_part.source_part_ids
+        rebuilt_part["vocabulary"] = [
+            vocabulary.model_dump() for vocabulary in merged_part.vocabulary
+        ]
         merged_payload_parts.append(rebuilt_part)
     return merged_payload_parts
 
@@ -349,6 +380,7 @@ def translate_reference_parts_with_gemini(
     base_parts = [dict(part) for part in sentence_data]
     for part in base_parts:
         part.setdefault("sentence_ko", None)
+        part.setdefault("vocabulary", [])
 
     if not final_script.strip() or not sentence_data:
         return TranslationMetadata(

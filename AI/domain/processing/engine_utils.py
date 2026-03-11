@@ -12,16 +12,50 @@ import jiwer
 
 try:
     from ... import config
+    from .constants import REDUCTION_PATTERNS
 except ImportError:
     import config
+    from domain.processing.constants import REDUCTION_PATTERNS
 
 _REMOVE_PUNCT = jiwer.RemovePunctuation()
 _CLEAN_WORD_RE = re.compile(r"[^a-zA-Z']")
+_MULTI_SPACE_RE = re.compile(r"\s+")
+
+
+def _normalize_alignment_text(text: str) -> str:
+    """평가 정렬용으로 구두점을 정리하고 소문자 기준으로 정규화합니다."""
+    cleaned = _CLEAN_WORD_RE.sub(" ", text.lower())
+    return _MULTI_SPACE_RE.sub(" ", cleaned).strip()
+
+
+def _build_canonical_phrase_map() -> dict[str, tuple[str, ...]]:
+    """연음/축약 표현을 공통 canonical token 시퀀스로 매핑합니다."""
+    phrase_map: dict[str, tuple[str, ...]] = {}
+    for original, reduced in REDUCTION_PATTERNS.items():
+        canonical = tuple(_normalize_alignment_text(original).split())
+        if not canonical:
+            continue
+        phrase_map[_normalize_alignment_text(original)] = canonical
+        phrase_map[_normalize_alignment_text(reduced)] = canonical
+    return phrase_map
+
+
+_CANONICAL_PHRASE_MAP = _build_canonical_phrase_map()
 
 
 def _normalize_word(text: str) -> str:
     """구두점을 제거하고 소문자 기준으로 단어를 정규화합니다."""
-    return " ".join(_REMOVE_PUNCT(text.lower()).split())
+    return " ".join(_canonicalize_tokens(text))
+
+
+def _canonicalize_tokens(text: str) -> list[str]:
+    """연음/축약을 원형 기준 토큰 시퀀스로 변환합니다."""
+    normalized = _normalize_alignment_text(text)
+    if not normalized:
+        return []
+    return list(
+        _CANONICAL_PHRASE_MAP.get(normalized, tuple(normalized.split()))
+    )
 
 
 def _sum_word_durations(words: list[dict]) -> float:
