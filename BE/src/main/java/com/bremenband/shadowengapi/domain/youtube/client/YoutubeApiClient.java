@@ -3,14 +3,13 @@ package com.bremenband.shadowengapi.domain.youtube.client;
 import com.bremenband.shadowengapi.domain.youtube.dto.YoutubeApiResponse;
 import com.bremenband.shadowengapi.global.exception.CustomException;
 import com.bremenband.shadowengapi.global.exception.ErrorCode;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 @Component
-@RequiredArgsConstructor
 public class YoutubeApiClient {
 
     private final RestClient restClient;
@@ -20,6 +19,10 @@ public class YoutubeApiClient {
 
     @Value("${youtube.api.base-url}")
     private String baseUrl;
+
+    public YoutubeApiClient(@Qualifier("youtubeRestClient") RestClient restClient) {
+        this.restClient = restClient;
+    }
 
     public YoutubeApiResponse fetchVideoInfo(String videoId) {
         try {
