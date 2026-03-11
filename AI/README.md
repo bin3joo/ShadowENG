@@ -225,6 +225,17 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 서버 시작 시 WhisperX 모델이 preload 됩니다. 첫 실행 시 모델 다운로드로 시간이 걸릴 수 있습니다.
 
+### 6.6.1. 프로토타입 운영 메모
+
+- 현재 구성은 **실서비스 배포용이 아니라 검증용 프로토타입**을 전제로 합니다.
+- 메인 백엔드는 AWS에서 실행하고, AI 서버는 **GPU가 있는 개인 노트북**에서 실행할 수 있습니다.
+- 이 경우 AI 서버는 직접 공인 포트로 노출하기보다 **로컬 바인딩 + 터널링 도구** 사용을 권장합니다.
+- 권장 흐름은 다음과 같습니다.
+  - AI 서버: `uvicorn main:app --host 127.0.0.1 --port 8000`
+  - 외부 연결: `ngrok` 또는 유사 터널을 통해 임시 공개 URL 발급
+  - 메인 백엔드: 해당 터널 URL로만 AI API 호출
+- 이 구성은 어디까지나 시연/검증 단계용이며, 실제 운영 단계에서는 **AWS 내부 네트워크 또는 별도 GPU 서버**로 이전하는 것을 권장합니다.
+
 ### 6.7. API 테스트
 
 서버가 실행 중인 상태에서 별도 터미널을 열어 실행합니다.
@@ -249,7 +260,6 @@ python -m test.test_api evaluate "./my_recording.wav" --ref "./test/result/VIDEO
 cd S14P21A306/AI
 
 python -m test.sentence_verify    # 문장 분리 검증
-python -m test.scoring_verify     # 채점 로직 검증
 python -m test.trim_verify        # trim 로직 검증
 python -m test.fix_verify         # 보정 로직 검증
 ```

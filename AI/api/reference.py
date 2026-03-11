@@ -1,6 +1,7 @@
 """Reference generation API routes."""
 
 from fastapi import APIRouter, BackgroundTasks
+from fastapi.concurrency import run_in_threadpool
 
 try:
     from ..schemas import GenerateReferenceRequest, GenerateReferenceResponse
@@ -21,4 +22,8 @@ async def generate_reference_endpoint(
     background_tasks: BackgroundTasks,
 ) -> dict:
     """Generate a StyleEcho reference payload from YouTube input."""
-    return generate_reference(req, background_tasks)
+    return await run_in_threadpool(
+        generate_reference,
+        req,
+        background_tasks,
+    )

@@ -69,8 +69,11 @@ def evaluate_audio_request(
         if tmp_user_path and os.path.exists(tmp_user_path):
             remove_file(tmp_user_path)
         raise
-    except Exception as exc:
+    except Exception:
         logger.exception("evaluate-audio failed")
         if tmp_user_path and os.path.exists(tmp_user_path):
             remove_file(tmp_user_path)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(
+            status_code=500,
+            detail="오디오 평가 중 내부 오류가 발생했습니다.",
+        )
