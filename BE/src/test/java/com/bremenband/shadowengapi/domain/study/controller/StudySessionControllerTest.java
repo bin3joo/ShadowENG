@@ -2,15 +2,18 @@ package com.bremenband.shadowengapi.domain.study.controller;
 
 import com.bremenband.shadowengapi.domain.study.dto.res.LatestActiveSessionResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.RecentStudySessionResponse;
+<<<<<<< Updated upstream
+=======
+import com.bremenband.shadowengapi.domain.study.service.EvaluationService;
+>>>>>>> Stashed changes
 import com.bremenband.shadowengapi.domain.study.service.StudySessionService;
+import com.bremenband.shadowengapi.global.config.SecurityConfig;
+import com.bremenband.shadowengapi.global.jwt.JwtProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.bremenband.shadowengapi.domain.study.service.EvaluationService;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import com.bremenband.shadowengapi.global.config.SecurityConfig;
-import com.bremenband.shadowengapi.global.jwt.JwtProvider;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -38,16 +41,26 @@ class StudySessionControllerTest {
     @MockitoBean private EvaluationService   evaluationService;
 
     @Test
-    @DisplayName("ACTIVE 세션이 존재하면 세션 정보와 썸네일을 담은 200 응답을 반환한다")
+    @DisplayName("ACTIVE 세션이 존재하면 세션 정보, 썸네일, 영상 제목, 문장 진행 현황을 담은 200 응답을 반환한다")
     void getRecentSession_ACTIVE세션존재_200() throws Exception {
         // given
-        Long userId = 1L;
+        Long userId  = 1L;
         String videoId = "dQw4w9WgXcQ";
-        String base = "https://i.ytimg.com/vi/" + videoId + "/";
+        String base    = "https://i.ytimg.com/vi/" + videoId + "/";
 
         RecentStudySessionResponse response = new RecentStudySessionResponse(
+<<<<<<< Updated upstream
                 new LatestActiveSessionResponse(12345L, base + "sddefault.jpg",
                         "Never Gonna Give You Up", 8L, 5L)
+=======
+                new LatestActiveSessionResponse(
+                        12345L,
+                        base + "sddefault.jpg",
+                        "Never Gonna Give You Up",
+                        8L,
+                        5L
+                )
+>>>>>>> Stashed changes
         );
 
         given(studySessionService.getRecentSession(userId)).willReturn(response);
