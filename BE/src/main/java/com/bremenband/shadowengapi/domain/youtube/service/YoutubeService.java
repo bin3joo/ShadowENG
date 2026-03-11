@@ -50,7 +50,7 @@ public class YoutubeService {
         );
     }
 
-    String extractVideoId(String url) {
+    public String extractVideoId(String url) {
         Matcher matcher = VIDEO_ID_PATTERN.matcher(url);
         if (!matcher.find()) {
             throw new CustomException(ErrorCode.INVALID_YOUTUBE_URL);

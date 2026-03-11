@@ -29,6 +29,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
@@ -100,6 +101,7 @@ class StudySessionCreateServiceTest {
                 VIDEO_ID, EMBED_URL, "Never Gonna Give You Up",
                 "https://i.ytimg.com/vi/" + VIDEO_ID + "/maxresdefault.jpg", 212L, "Rick Astley");
 
+        given(youtubeService.extractVideoId(EMBED_URL)).willReturn(VIDEO_ID);
         given(videoRepository.findById(VIDEO_ID)).willReturn(Optional.empty());
         given(youtubeService.getVideo(EMBED_URL)).willReturn(youtubeInfo);
         given(videoRepository.save(any(Video.class))).willReturn(video);
@@ -115,7 +117,7 @@ class StudySessionCreateServiceTest {
                 .studySession(session).content("Hello world")
                 .startSec(15.5).endSec(20.0).durationSec(4.5).build();
         ReflectionTestUtils.setField(sentence, "id", 1L);
-        given(sentenceRepository.save(any(Sentence.class))).willReturn(sentence);
+        given(sentenceRepository.saveAll(anyList())).willReturn(List.of(sentence));
 
         // when
         StudySessionCreateResponse response = studySessionService.createStudySession(userId, request);
@@ -132,7 +134,7 @@ class StudySessionCreateServiceTest {
         then(youtubeService).should(times(1)).getVideo(EMBED_URL);
         then(videoRepository).should(times(1)).save(any(Video.class));
         then(studySessionRepository).should(times(1)).save(any(StudySession.class));
-        then(sentenceRepository).should(times(1)).save(any(Sentence.class));
+        then(sentenceRepository).should(times(1)).saveAll(anyList());
     }
 
     @Test
@@ -147,6 +149,7 @@ class StudySessionCreateServiceTest {
         User user     = buildUser(userId);
         StudySession session = buildSession(12345L, video, user);
 
+        given(youtubeService.extractVideoId(EMBED_URL)).willReturn(VIDEO_ID);
         given(videoRepository.findById(VIDEO_ID)).willReturn(Optional.of(video));
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(studySessionRepository.save(any(StudySession.class))).willReturn(session);
@@ -170,6 +173,7 @@ class StudySessionCreateServiceTest {
         StudySessionCreateRequest request =
                 new StudySessionCreateRequest(EMBED_URL, 15.5, 45.0);
 
+        given(youtubeService.extractVideoId(EMBED_URL)).willReturn(VIDEO_ID);
         given(videoRepository.findById(VIDEO_ID)).willReturn(Optional.of(buildVideo()));
         given(userRepository.findById(userId)).willReturn(Optional.empty());
 
