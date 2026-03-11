@@ -125,8 +125,8 @@ public class StudySessionService {
 
     @Transactional
     public StudySessionCreateResponse createStudySession(Long userId, StudySessionCreateRequest request) {
-        // 1. embedUrl에서 videoId 추출
-        String videoId = extractVideoId(request.embedUrl());
+        // 1. URL에서 videoId 추출 (watch/youtu.be/embed 형식 모두 지원)
+        String videoId = youtubeService.extractVideoId(request.embedUrl());
 
         // 2. Video 조회 or YouTube API에서 가져와 저장
         Video video = videoRepository.findById(videoId)
@@ -159,8 +159,8 @@ public class StudySessionService {
                 transcriptionService.transcribe(videoId, request.startSec(), request.endSec());
 
         // 6. Sentence 저장
-        List<Sentence> sentences = transcriptions.stream()
-                .map(t -> sentenceRepository.save(Sentence.builder()
+        List<Sentence> sentencesToSave = transcriptions.stream()
+                .map(t -> Sentence.builder()
                         .studySession(session)
                         .content(t.content())
                         .startSec(t.startSec())
@@ -168,8 +168,9 @@ public class StudySessionService {
                         .durationSec(t.durationSec())
                         .wordTimestamps(t.wordTimestamps())
                         .features(t.features())
-                        .build()))
+                        .build())
                 .toList();
+        List<Sentence> sentences = sentenceRepository.saveAll(sentencesToSave);
 
         // 7. 응답 빌드
         return new StudySessionCreateResponse(
@@ -195,10 +196,4 @@ public class StudySessionService {
         );
     }
 
-    // "https://www.youtube.com/embed/dQw4w9WgXcQ?start=10" → "dQw4w9WgXcQ"
-    private String extractVideoId(String embedUrl) {
-        String path = embedUrl.substring(embedUrl.lastIndexOf('/') + 1);
-        int queryIndex = path.indexOf('?');
-        return queryIndex == -1 ? path : path.substring(0, queryIndex);
-    }
 }
