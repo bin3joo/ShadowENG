@@ -128,10 +128,8 @@ class EvaluationServiceTest {
         assertThat(response.details().wordLevelFeedback().get(0).status()).isEqualTo("good");
 
         assertThat(response.details().boundaryToneFeedback().status()).isEqualTo("weak");
-        assertThat(response.details().boundaryToneFeedback().message()).isEqualTo("더 높게 말해보세요");
 
         assertThat(response.details().dynamicStressFeedback().status()).isEqualTo("exaggerated");
-        assertThat(response.details().dynamicStressFeedback().message()).isEqualTo("강세를 줄여보세요");
 
         assertThat(response.scores().totalScore()).isEqualTo(73.7);
         assertThat(response.scores().wordAccuracy()).isEqualTo(93.8);

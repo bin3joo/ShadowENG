@@ -56,8 +56,8 @@ class EvaluationControllerTest {
                 "I got it bad",
                 new EvaluationResponse.Details(
                         List.of(new EvaluationResponse.WordLevelFeedback("I", "good")),
-                        new EvaluationResponse.BoundaryToneFeedback("weak", "더 높게 말해보세요"),
-                        new EvaluationResponse.DynamicStressFeedback("exaggerated", "강세를 줄여보세요")
+                        new EvaluationResponse.BoundaryToneFeedback("weak"),
+                        new EvaluationResponse.DynamicStressFeedback("exaggerated")
                 ),
                 new EvaluationResponse.Scores(73.7, 93.8, 37.6, 73.0, 55.8, 76.0, 85.2, 100.0)
         );
@@ -87,9 +87,7 @@ class EvaluationControllerTest {
                 .andExpect(jsonPath("$.data.details.wordLevelFeedback[0].word").value("I"))
                 .andExpect(jsonPath("$.data.details.wordLevelFeedback[0].status").value("good"))
                 .andExpect(jsonPath("$.data.details.boundaryToneFeedback.status").value("weak"))
-                .andExpect(jsonPath("$.data.details.boundaryToneFeedback.message").value("더 높게 말해보세요"))
                 .andExpect(jsonPath("$.data.details.dynamicStressFeedback.status").value("exaggerated"))
-                .andExpect(jsonPath("$.data.details.dynamicStressFeedback.message").value("강세를 줄여보세요"))
                 .andExpect(jsonPath("$.data.scores.totalScore").value(73.7))
                 .andExpect(jsonPath("$.data.scores.wordAccuracy").value(93.8));
 
