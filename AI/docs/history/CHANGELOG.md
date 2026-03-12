@@ -1,4 +1,13 @@
 # Pipe Change Log
+ 
+## 2026-03-12
+
+- `pipeline.py` 내의 중복 F0 정규화 및 빈 결과 dict 생성 로직을 헬퍼 함수로 통합했습니다.
+- `pipeline.py`의 단어 매칭 검색 알고리즘을 선형 스캔($O(n^2)$)에서 `dict` 기반 룩업($O(n)$)으로 최적화했습니다.
+- `reference_service.py`의 리소스 정리 로직을 `finally` 블록으로 통합하여 안정성을 높이고 코드 중복을 제거했습니다.
+- `quality.py`와 `reference_service.py` 간의 오디오 메트릭 계산 중복 호출을 제거하고 결과를 재사용하도록 개선했습니다.
+- `A1_WORDS` 상수 내 중복 항목 제거 및 번역 서비스 내 화자 분석 로직 임포트 재사용 등 전반적인 코드 클린업을 수행했습니다.
+- 상세 변경 내역은 `docs/review/code_refactoring_optimization_2026-03-12.md`에 기록했습니다.
 
 ## 2026-03-11
 
