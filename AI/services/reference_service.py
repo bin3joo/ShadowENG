@@ -244,6 +244,11 @@ def generate_reference(
         stt_method = stats.get("stt_method", "whisper_stt")
         target_sr = config.TARGET_SR
         audio_array, _ = librosa.load(actual_audio, sr=target_sr)
+        
+        # 적용: 레퍼런스 오디오 전체 볼륨 정규화 (Peak Normalization)
+        from domain.processing.audio_processing import peak_normalize_audio
+        audio_array = peak_normalize_audio(audio_array)
+
         audio_duration_sec = float(len(audio_array) / target_sr)
         request_offset_sec = min(req.start_sec, audio_padding_sec)
         request_duration_sec = max(0.0, req.end_sec - req.start_sec)

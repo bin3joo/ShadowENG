@@ -48,6 +48,17 @@ def denoise_for_analysis(
     )
 
 
+def peak_normalize_audio(y: np.ndarray) -> np.ndarray:
+    """
+    오디오 볼륨을 디스토션 없이 최대치(Peak)로 일정하게 맞춥니다.
+    입력이 비어있거나 무음(0)이면 그대로 반환합니다.
+    """
+    max_amp = np.max(np.abs(y))
+    if max_amp > 0:
+        return y / max_amp
+    return y
+
+
 def trim_boundary_fragments(
     word_timestamps: list[dict],
     full_text: str,

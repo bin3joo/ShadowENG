@@ -858,8 +858,24 @@ class StyleEchoPipeline:
                 return "flat", 0.0, 0.0
             segment = f0_arr[s_frame:e_frame]
             valid = segment[segment > 0]
-            if len(valid) < 4:
+            
+            if len(valid) == 0:
                 return "flat", 0.0, 0.0
+            elif len(valid) == 1:
+                val = float(valid[0])
+                return "flat", val, val
+            elif len(valid) < 4:
+                first_half = float(valid[0])
+                second_half = float(valid[-1])
+                diff = second_half - first_half
+                if abs(diff) < 5.0:
+                    return "flat", first_half, second_half
+                return (
+                    ("rising" if diff > 0 else "falling"),
+                    first_half,
+                    second_half,
+                )
+
             mid = len(valid) // 2
             first_half = float(np.mean(valid[:mid]))
             second_half = float(np.mean(valid[mid:]))
@@ -1011,6 +1027,10 @@ class StyleEchoPipeline:
         user_y = user_stats.get("audio_array")
         if user_y is None or target_sr != 16000:
             user_y, _ = librosa.load(user_audio_path, sr=target_sr)
+
+        # 적용: 유저 오디오 피처 추출 전 Peak 정규화
+        from domain.processing.audio_processing import peak_normalize_audio
+        user_y = peak_normalize_audio(user_y)
 
         start_idx = int(user_stats["start_time"] * target_sr)
         end_idx = int(user_stats["end_time"] * target_sr)
