@@ -182,7 +182,6 @@ A1_WORDS: frozenset[str] = frozenset(
         "than",
         "about",
         "out",
-        "about",
         "over",
         "after",
         "before",
@@ -224,7 +223,6 @@ A1_WORDS: frozenset[str] = frozenset(
         "fact",
         "month",
         "lot",
-        "right",
         "study",
         "book",
         "eye",
@@ -245,15 +243,10 @@ A1_WORDS: frozenset[str] = frozenset(
         "line",
         "end",
         "among",
-        "never",
-        "last",
-        "found",
-        "still",
         "since",
-        "must",
+        "found",
         "came",
-        "had",
         "said",
-        "has",
     }
 )
+
