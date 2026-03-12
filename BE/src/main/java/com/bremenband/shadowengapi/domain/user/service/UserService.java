@@ -21,4 +21,11 @@ public class UserService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         return UserInfoResponse.from(user);
     }
+
+    @Transactional
+    public void incrementVisitedCount(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        user.incrementVisitedCount();
+    }
 }

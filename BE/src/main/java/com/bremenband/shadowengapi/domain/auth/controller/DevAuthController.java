@@ -1,6 +1,7 @@
 package com.bremenband.shadowengapi.domain.auth.controller;
 
 import com.bremenband.shadowengapi.domain.auth.dto.res.TokenResponse;
+import com.bremenband.shadowengapi.domain.user.service.UserService;
 import com.bremenband.shadowengapi.global.common.ApiResponse;
 import com.bremenband.shadowengapi.global.jwt.JwtProvider;
 import com.bremenband.shadowengapi.global.jwt.RefreshTokenService;
@@ -20,6 +21,7 @@ public class DevAuthController {
 
     private final JwtProvider jwtProvider;
     private final RefreshTokenService refreshTokenService;
+    private final UserService userService;
 
     @PostMapping("/login/dev")
     @Operation(
@@ -30,6 +32,7 @@ public class DevAuthController {
         String accessToken  = jwtProvider.generateAccessToken(userId);
         String refreshToken = jwtProvider.generateRefreshToken(userId);
         refreshTokenService.save(userId, refreshToken);
+        userService.incrementVisitedCount(userId);
         return ApiResponse.success(new TokenResponse(accessToken, refreshToken));
     }
 }

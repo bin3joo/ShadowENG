@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Getter
@@ -38,6 +39,9 @@ public class User extends BaseTimeEntity {
     @Column(name = "visited_count", nullable = false)
     private int visitedCount = 0;
 
+    @Column(name = "last_visited_date")
+    private LocalDate lastVisitedDate;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
@@ -48,6 +52,15 @@ public class User extends BaseTimeEntity {
         this.provider = provider;
         this.providerId = providerId;
         this.visitedCount = 0;
+    }
+
+    public void incrementVisitedCount() {
+        LocalDate today = LocalDate.now();
+        if (today.equals(this.lastVisitedDate)) {
+            return;
+        }
+        this.visitedCount++;
+        this.lastVisitedDate = today;
     }
 
     public void delete() {
