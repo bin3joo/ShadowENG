@@ -23,6 +23,7 @@ services:
       - '6379:6379'
 
   springboot:
+    build: ../BE
     image: springboot-app
     container_name: springboot-container
     restart: always
