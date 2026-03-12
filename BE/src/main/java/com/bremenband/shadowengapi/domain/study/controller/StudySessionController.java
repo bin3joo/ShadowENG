@@ -18,10 +18,11 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/study-sessions")
+@RequestMapping(value = "/study-sessions", produces = MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
 @Tag(name = "학습세션 API", description = "학습 세션 관련 기능을 위한 REST API")
 public class StudySessionController {
@@ -40,7 +41,7 @@ public class StudySessionController {
         return ApiResponse.success(studySessionService.getActiveSessions(userId));
     }
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
             summary = "학습 세션 생성",
             description = "embedUrl과 학습 구간(startSec, endSec)을 전달받아 세션을 생성하고 전사된 문장 목록을 반환합니다."
@@ -63,7 +64,7 @@ public class StudySessionController {
         return ApiResponse.success(studySessionService.getRecentSession(userId));
     }
 
-    @PostMapping("/{sessionId}/evaluations")
+    @PostMapping(value = "/{sessionId}/evaluations", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "사용자의 음성 데이터 전송",
             description = "녹음한 음성 파일과 평가 대상 문장 ID를 전달받아 Python AI 서버에서 발화를 분석하고 결과를 반환합니다."

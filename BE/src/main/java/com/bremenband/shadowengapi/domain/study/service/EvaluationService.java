@@ -78,7 +78,6 @@ public class EvaluationService {
                 .wordLevelFeedback(toJson(d.wordLevelFeedback()))
                 .boundaryToneFeedback(toJson(d.boundaryToneFeedback()))
                 .dynamicStressFeedback(toJson(d.dynamicStressFeedback()))
-                .pitchContourFeedback(toJson(d.pitchContourFeedback()))
                 .totalScore(bd(s.totalScore()))
                 .wordAccuracy(bd(s.wordAccuracy()))
                 .prosodyAndStress(bd(s.prosodyAndStress()))

@@ -11,11 +11,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 
 @RestController
 @RequiredArgsConstructor
+@RequestMapping(produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "북마크 API", description = "북마크 관련 기능을 위한 REST API")
 public class BookmarkController {
 
@@ -32,7 +34,7 @@ public class BookmarkController {
         return ApiResponse.success(bookmarkService.getBookmarks(userId));
     }
 
-    @PatchMapping("/bookmarks/{sentenceId}")
+    @PatchMapping(value = "/bookmarks/{sentenceId}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
             summary = "문장 북마크 상태 변경",
             description = "특정 문장의 북마크 상태를 변경(추가 또는 해제)합니다."
