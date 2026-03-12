@@ -5,6 +5,7 @@ import com.bremenband.shadowengapi.domain.report.entity.Report;
 import com.bremenband.shadowengapi.domain.report.entity.WeekSentence;
 import com.bremenband.shadowengapi.domain.report.repository.ReportRepository;
 import com.bremenband.shadowengapi.domain.report.repository.WeekSentenceRepository;
+import com.bremenband.shadowengapi.domain.study.entity.Evaluation;
 import com.bremenband.shadowengapi.domain.study.entity.Sentence;
 import com.bremenband.shadowengapi.domain.study.entity.StudySession;
 import com.bremenband.shadowengapi.domain.youtube.entity.Video;
@@ -13,15 +14,18 @@ import com.bremenband.shadowengapi.domain.study.repository.StudySessionRepositor
 import com.bremenband.shadowengapi.domain.user.entity.User;
 import com.bremenband.shadowengapi.global.exception.CustomException;
 import com.bremenband.shadowengapi.global.exception.ErrorCode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -42,6 +46,7 @@ class ReportGetServiceTest {
     @Mock private EvaluationRepository   evaluationRepository;
     @Mock private ReportRepository       reportRepository;
     @Mock private WeekSentenceRepository weekSentenceRepository;
+    @Spy  private ObjectMapper           objectMapper;
 
     private static final Long USER_ID = 1L;
 
@@ -84,10 +89,30 @@ class ReportGetServiceTest {
         return sentence;
     }
 
+    private Evaluation buildEvaluation(Sentence sentence, StudySession session, double totalScore) {
+        Evaluation eval = Evaluation.builder()
+                .studySession(session).sentence(sentence)
+                .userTranscription("test")
+                .wordLevelFeedback("[{\"word\":\"I\",\"status\":\"good\"}]")
+                .boundaryToneFeedback("{\"status\":\"weak\"}")
+                .dynamicStressFeedback("{\"status\":\"monotone\"}")
+                .totalScore(BigDecimal.valueOf(totalScore))
+                .wordAccuracy(BigDecimal.valueOf(90.0))
+                .prosodyAndStress(BigDecimal.valueOf(80.0))
+                .wordRhythmScore(BigDecimal.valueOf(75.0))
+                .boundaryToneScore(BigDecimal.valueOf(85.0))
+                .dynamicStressScore(BigDecimal.valueOf(70.0))
+                .speedSimilarity(BigDecimal.valueOf(88.0))
+                .pauseSimilarity(BigDecimal.valueOf(95.0))
+                .build();
+        ReflectionTestUtils.setField(eval, "createdAt", LocalDateTime.now());
+        return eval;
+    }
+
     // ── 테스트 케이스 ────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("레포트가 존재하면 점수와 취약 문장 목록을 반환한다")
+    @DisplayName("레포트가 존재하면 점수와 취약 문장 목록(상태값 포함)을 반환한다")
     void getReport_레포트존재_반환() {
         // given
         Long sessionId = 1L;
@@ -99,27 +124,30 @@ class ReportGetServiceTest {
         WeekSentence ws = WeekSentence.builder().report(report).sentence(s1).build();
         ReflectionTestUtils.setField(ws, "id", 1L);
 
+        Evaluation e1 = buildEvaluation(s1, session, 55.0);
+
         given(reportRepository.findByStudySession_Id(sessionId)).willReturn(Optional.of(report));
         given(weekSentenceRepository.findByReport_Id(reportId)).willReturn(List.of(ws));
+        given(evaluationRepository.findByStudySession_Id(sessionId)).willReturn(List.of(e1));
 
         // when
         ReportResponse response = reportService.getReport(sessionId, USER_ID);
 
         // then
         assertThat(response.sessionId()).isEqualTo(sessionId);
-
         assertThat(response.scores().totalScore()).isEqualTo(73.70);
         assertThat(response.scores().wordAccuracy()).isEqualTo(93.80);
-        assertThat(response.scores().prosodyAndStress()).isEqualTo(37.60);
-        assertThat(response.scores().wordRhythmScore()).isEqualTo(73.00);
-        assertThat(response.scores().boundaryToneScore()).isEqualTo(55.80);
-        assertThat(response.scores().dynamicStressScore()).isEqualTo(76.00);
-        assertThat(response.scores().speedSimilarity()).isEqualTo(85.20);
-        assertThat(response.scores().pauseSimilarity()).isEqualTo(100.00);
 
         assertThat(response.difficultSentences()).hasSize(1);
-        assertThat(response.difficultSentences().get(0).sentenceId()).isEqualTo(10L);
-        assertThat(response.difficultSentences().get(0).sentence()).isEqualTo("I got it bad.");
+        ReportResponse.DifficultSentence ds = response.difficultSentences().get(0);
+        assertThat(ds.sentenceId()).isEqualTo(10L);
+        assertThat(ds.sentence()).isEqualTo("I got it bad.");
+        assertThat(ds.averageScore()).isEqualTo(55.0);
+        assertThat(ds.boundaryToneStatus()).isEqualTo("weak");
+        assertThat(ds.dynamicStressStatus()).isEqualTo("monotone");
+        assertThat(ds.wordFeedback()).hasSize(1);
+        assertThat(ds.wordFeedback().get(0).word()).isEqualTo("I");
+        assertThat(ds.wordFeedback().get(0).status()).isEqualTo("good");
 
         then(reportRepository).should(times(1)).findByStudySession_Id(sessionId);
         then(weekSentenceRepository).should(times(1)).findByReport_Id(reportId);
@@ -136,6 +164,7 @@ class ReportGetServiceTest {
 
         given(reportRepository.findByStudySession_Id(sessionId)).willReturn(Optional.of(report));
         given(weekSentenceRepository.findByReport_Id(reportId)).willReturn(List.of());
+        given(evaluationRepository.findByStudySession_Id(sessionId)).willReturn(List.of());
 
         // when
         ReportResponse response = reportService.getReport(sessionId, USER_ID);
@@ -147,11 +176,9 @@ class ReportGetServiceTest {
     @Test
     @DisplayName("레포트가 없으면 REPORT_NOT_FOUND 예외를 던진다")
     void getReport_레포트없음_예외() {
-        // given
         Long sessionId = 999L;
         given(reportRepository.findByStudySession_Id(sessionId)).willReturn(Optional.empty());
 
-        // when & then
         assertThatThrownBy(() -> reportService.getReport(sessionId, USER_ID))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")

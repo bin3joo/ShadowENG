@@ -13,6 +13,8 @@ import com.bremenband.shadowengapi.domain.study.repository.EvaluationRepository;
 import com.bremenband.shadowengapi.domain.study.repository.StudySessionRepository;
 import com.bremenband.shadowengapi.global.exception.CustomException;
 import com.bremenband.shadowengapi.global.exception.ErrorCode;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -30,11 +34,13 @@ import java.util.stream.Collectors;
 public class ReportService {
 
     private static final double DIFFICULT_THRESHOLD = 70.0;
+    private static final int    DIFFICULT_SENTENCE_LIMIT = 3;
 
     private final StudySessionRepository studySessionRepository;
-    private final EvaluationRepository evaluationRepository;
-    private final ReportRepository reportRepository;
+    private final EvaluationRepository   evaluationRepository;
+    private final ReportRepository       reportRepository;
     private final WeekSentenceRepository weekSentenceRepository;
+    private final ObjectMapper           objectMapper;
 
     @Transactional
     public ReportResponse createReport(Long sessionId, Long userId) {
@@ -59,14 +65,14 @@ public class ReportService {
         });
 
         // 4. 평균 점수 계산
-        double avgTotal      = avg(evaluations, e -> e.getTotalScore().doubleValue());
-        double avgAccuracy   = avg(evaluations, e -> e.getWordAccuracy().doubleValue());
-        double avgProsody    = avg(evaluations, e -> e.getProsodyAndStress().doubleValue());
-        double avgRhythm     = avg(evaluations, e -> e.getWordRhythmScore().doubleValue());
-        double avgBoundary   = avg(evaluations, e -> e.getBoundaryToneScore().doubleValue());
-        double avgDynamic    = avg(evaluations, e -> e.getDynamicStressScore().doubleValue());
-        double avgSpeed      = avg(evaluations, e -> e.getSpeedSimilarity().doubleValue());
-        double avgPause      = avg(evaluations, e -> e.getPauseSimilarity().doubleValue());
+        double avgTotal    = avg(evaluations, e -> e.getTotalScore().doubleValue());
+        double avgAccuracy = avg(evaluations, e -> e.getWordAccuracy().doubleValue());
+        double avgProsody  = avg(evaluations, e -> e.getProsodyAndStress().doubleValue());
+        double avgRhythm   = avg(evaluations, e -> e.getWordRhythmScore().doubleValue());
+        double avgBoundary = avg(evaluations, e -> e.getBoundaryToneScore().doubleValue());
+        double avgDynamic  = avg(evaluations, e -> e.getDynamicStressScore().doubleValue());
+        double avgSpeed    = avg(evaluations, e -> e.getSpeedSimilarity().doubleValue());
+        double avgPause    = avg(evaluations, e -> e.getPauseSimilarity().doubleValue());
 
         // 5. 레포트 저장
         Report report = reportRepository.save(Report.builder()
@@ -81,26 +87,29 @@ public class ReportService {
                 .pauseSimilarity(bd(avgPause))
                 .build());
 
-        // 6. 취약 문장 추출 (문장별 평균 totalScore < 70)
+        // 6. 취약 문장 추출 — avgScore 낮은 순 정렬
         Map<Long, List<Evaluation>> bySentence = evaluations.stream()
                 .collect(Collectors.groupingBy(e -> e.getSentence().getId()));
 
-        List<WeekSentence> weekSentences = bySentence.entrySet().stream()
+        List<Map.Entry<Long, List<Evaluation>>> difficultEntries = bySentence.entrySet().stream()
                 .filter(entry -> avgScore(entry.getValue()) < DIFFICULT_THRESHOLD)
-                .map(entry -> {
-                    Sentence sentence = entry.getValue().get(0).getSentence();
-                    return weekSentenceRepository.save(WeekSentence.builder()
-                            .report(report)
-                            .sentence(sentence)
-                            .build());
-                })
+                .sorted(Comparator.comparingDouble(entry -> avgScore(entry.getValue())))
                 .toList();
 
-        // 7. 응답 빌드
-        List<ReportResponse.DifficultSentence> difficultSentences = weekSentences.stream()
-                .map(ws -> new ReportResponse.DifficultSentence(
-                        ws.getSentence().getId(),
-                        ws.getSentence().getContent()))
+        // DB에 전체 저장
+        difficultEntries.forEach(entry -> {
+            Sentence sentence = entry.getValue().get(0).getSentence();
+            weekSentenceRepository.save(WeekSentence.builder()
+                    .report(report).sentence(sentence).build());
+        });
+
+        // 7. 응답 (상위 3개)
+        List<ReportResponse.DifficultSentence> difficultSentences = difficultEntries.stream()
+                .limit(DIFFICULT_SENTENCE_LIMIT)
+                .map(entry -> buildDifficultSentence(
+                        entry.getValue().get(0).getSentence(),
+                        avgScore(entry.getValue()),
+                        getLatestEvaluation(entry.getValue())))
                 .toList();
 
         return new ReportResponse(
@@ -144,10 +153,21 @@ public class ReportService {
 
         List<WeekSentence> weekSentences = weekSentenceRepository.findByReport_Id(report.getId());
 
+        // 평가 데이터 조회 (avgScore 계산 및 상태값 추출용)
+        List<Evaluation> allEvaluations = evaluationRepository.findByStudySession_Id(sessionId);
+        Map<Long, List<Evaluation>> evalsBySentence = allEvaluations.stream()
+                .collect(Collectors.groupingBy(e -> e.getSentence().getId()));
+
         List<ReportResponse.DifficultSentence> difficultSentences = weekSentences.stream()
-                .map(ws -> new ReportResponse.DifficultSentence(
-                        ws.getSentence().getId(),
-                        ws.getSentence().getContent()))
+                .map(ws -> {
+                    List<Evaluation> evals = evalsBySentence.getOrDefault(ws.getSentence().getId(), List.of());
+                    return buildDifficultSentence(
+                            ws.getSentence(),
+                            avgScore(evals),
+                            getLatestEvaluation(evals));
+                })
+                .sorted(Comparator.comparingDouble(ReportResponse.DifficultSentence::averageScore))
+                .limit(DIFFICULT_SENTENCE_LIMIT)
                 .toList();
 
         return new ReportResponse(
@@ -165,6 +185,58 @@ public class ReportService {
     }
 
     // ── 헬퍼 ────────────────────────────────────────────────────────────────────
+
+    private ReportResponse.DifficultSentence buildDifficultSentence(
+            Sentence sentence, double avgScore, Evaluation latest) {
+        String boundaryStatus = null;
+        String dynamicStatus  = null;
+        List<ReportResponse.DifficultSentence.WordFeedback> wordFeedback = List.of();
+
+        if (latest != null) {
+            boundaryStatus = parseStatus(latest.getBoundaryToneFeedback());
+            dynamicStatus  = parseStatus(latest.getDynamicStressFeedback());
+            wordFeedback   = parseWordFeedback(latest.getWordLevelFeedback());
+        }
+
+        return new ReportResponse.DifficultSentence(
+                sentence.getId(),
+                sentence.getContent(),
+                round(avgScore),
+                boundaryStatus,
+                dynamicStatus,
+                wordFeedback);
+    }
+
+    private Evaluation getLatestEvaluation(List<Evaluation> evaluations) {
+        return evaluations.stream()
+                .max(Comparator.comparing(Evaluation::getCreatedAt))
+                .orElse(null);
+    }
+
+    private String parseStatus(String json) {
+        if (json == null) return null;
+        try {
+            return objectMapper.readTree(json).path("status").asText(null);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private List<ReportResponse.DifficultSentence.WordFeedback> parseWordFeedback(String json) {
+        if (json == null) return List.of();
+        try {
+            JsonNode arr = objectMapper.readTree(json);
+            List<ReportResponse.DifficultSentence.WordFeedback> list = new ArrayList<>();
+            for (JsonNode node : arr) {
+                list.add(new ReportResponse.DifficultSentence.WordFeedback(
+                        node.path("word").asText(),
+                        node.path("status").asText()));
+            }
+            return list;
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
 
     private double avg(List<Evaluation> evaluations, java.util.function.ToDoubleFunction<Evaluation> mapper) {
         return evaluations.stream().mapToDouble(mapper).average().orElse(0.0);
