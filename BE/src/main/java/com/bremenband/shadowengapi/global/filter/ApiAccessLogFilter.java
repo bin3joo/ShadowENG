@@ -21,7 +21,7 @@ import java.nio.charset.StandardCharsets;
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RequiredArgsConstructor
-public class ApiAccessLogFilter extends OncePerRequestFilter {
+public class  ApiAccessLogFilter extends OncePerRequestFilter {
 
     private static final Logger ACCESS_LOG = LoggerFactory.getLogger("ACCESS");
 
