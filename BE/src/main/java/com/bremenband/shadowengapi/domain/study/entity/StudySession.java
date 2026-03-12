@@ -37,6 +37,10 @@ public class StudySession extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private SessionStatus status = SessionStatus.ACTIVE;
 
+    public void complete() {
+        this.status = SessionStatus.COMPLETED;
+    }
+
     @Builder
     private StudySession(Video video, User user, double startSec, double endSec) {
         this.video = video;

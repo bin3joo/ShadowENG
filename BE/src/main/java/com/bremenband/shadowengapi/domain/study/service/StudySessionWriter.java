@@ -4,8 +4,11 @@ import com.bremenband.shadowengapi.domain.study.dto.res.StudySessionCreateRespon
 import com.bremenband.shadowengapi.domain.study.dto.transcription.TranscribedSentence;
 import com.bremenband.shadowengapi.domain.study.entity.Sentence;
 import com.bremenband.shadowengapi.domain.study.entity.StudySession;
+import com.bremenband.shadowengapi.domain.study.repository.EvaluationRepository;
 import com.bremenband.shadowengapi.domain.study.repository.SentenceRepository;
 import com.bremenband.shadowengapi.domain.study.repository.StudySessionRepository;
+import com.bremenband.shadowengapi.global.exception.CustomException;
+import com.bremenband.shadowengapi.global.exception.ErrorCode;
 import com.bremenband.shadowengapi.domain.user.entity.User;
 import com.bremenband.shadowengapi.domain.youtube.entity.Video;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +27,19 @@ public class StudySessionWriter {
 
     private final StudySessionRepository studySessionRepository;
     private final SentenceRepository sentenceRepository;
+    private final EvaluationRepository evaluationRepository;
+
+    @Transactional
+    public void completeSessionIfAllEvaluated(Long sessionId) {
+        long total     = sentenceRepository.countByStudySession_Id(sessionId);
+        long completed = evaluationRepository.countDistinctEvaluatedSentencesBySessionId(sessionId);
+
+        if (total > 0 && completed >= total) {
+            StudySession session = studySessionRepository.findById(sessionId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
+            session.complete();
+        }
+    }
 
     @Transactional
     public StudySessionCreateResponse saveSessionAndSentences(
