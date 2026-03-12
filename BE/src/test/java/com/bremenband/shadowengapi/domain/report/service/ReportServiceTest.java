@@ -197,13 +197,13 @@ class ReportServiceTest {
     }
 
     @Test
-    @DisplayName("모든 문장의 점수가 70 이상이면 취약 문장이 없는 레포트를 생성한다")
+    @DisplayName("모든 문장의 점수가 90 이상이면 취약 문장이 없는 레포트를 생성한다")
     void createReport_성공_취약문장없음() {
         // given
         Long sessionId = 1L;
         StudySession session = buildSession(sessionId);
         Sentence s1 = buildSentence(10L, session, "Good sentence.");
-        Evaluation e1 = buildEvaluation(s1, session, 85.0, LocalDateTime.now());
+        Evaluation e1 = buildEvaluation(s1, session, 95.0, LocalDateTime.now());
         Report savedReport = buildReport(100L, session);
 
         given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(session));
@@ -234,6 +234,7 @@ class ReportServiceTest {
         given(evaluationRepository.findByStudySession_Id(sessionId)).willReturn(List.of(e1));
         given(reportRepository.findByStudySession_Id(sessionId)).willReturn(Optional.of(existingReport));
         given(reportRepository.save(any(Report.class))).willReturn(savedReport);
+        given(weekSentenceRepository.save(any(WeekSentence.class))).willAnswer(inv -> inv.getArgument(0));
 
         // when
         reportService.createReport(sessionId, USER_ID);
