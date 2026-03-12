@@ -165,12 +165,10 @@ def estimate_reference_audio_metrics(
     }
 
 
-def select_reference_denoise_mode(
-    y: np.ndarray,
-    sr: int,
-    word_timestamps: list[dict],
+def select_reference_denoise_mode_from_metrics(
+    metrics: dict,
 ) -> str:
-    """레퍼런스 품질에 따라 분석용 디노이즈 강도를 선택합니다."""
+    """사전 계산된 메트릭으로 분석용 디노이즈 강도를 선택합니다."""
     if not config.DENOISE_ENABLED:
         return "off"
 
@@ -178,12 +176,21 @@ def select_reference_denoise_mode(
     if configured_mode in {"off", "mild", "moderate"}:
         return configured_mode
 
-    metrics = estimate_reference_audio_metrics(y, sr, word_timestamps)
     if metrics["noise_level"] == "high":
         return "moderate"
     if metrics["noise_level"] == "medium":
         return "mild"
     return "off"
+
+
+def select_reference_denoise_mode(
+    y: np.ndarray,
+    sr: int,
+    word_timestamps: list[dict],
+) -> str:
+    """레퍼런스 품질에 따라 분석용 디노이즈 강도를 선택합니다."""
+    metrics = estimate_reference_audio_metrics(y, sr, word_timestamps)
+    return select_reference_denoise_mode_from_metrics(metrics)
 
 
 def assess_reference_quality(
@@ -194,9 +201,14 @@ def assess_reference_quality(
     caption_source: str,
     stt_method: str,
     denoise_mode: str,
+    precomputed_metrics: dict | None = None,
 ) -> dict:
     """레퍼런스 suitability, speaker risk, dialog risk 메타데이터를 계산합니다."""
-    metrics = estimate_reference_audio_metrics(y, sr, word_timestamps)
+    metrics = (
+        precomputed_metrics
+        if precomputed_metrics is not None
+        else estimate_reference_audio_metrics(y, sr, word_timestamps)
+    )
     speaker_stats = annotate_reference_part_speakers(sentence_data)
     word_scores = [word.get("score", 0.0) for word in word_timestamps]
     median_alignment = float(np.median(word_scores)) if word_scores else 0.0

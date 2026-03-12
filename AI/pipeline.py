@@ -52,6 +52,40 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _normalize_f0(f0: np.ndarray) -> np.ndarray:
+    """유성음 구간 기준 F0 화자 정규화 (공통 헬퍼)."""
+    valid_f0 = f0[f0 > 0]
+    if len(valid_f0) > 0:
+        return np.where(
+            f0 > 0,
+            (f0 - np.mean(valid_f0)) / (np.std(valid_f0) + 1e-8),
+            0,
+        )
+    return f0
+
+
+def _empty_stats(
+    audio: np.ndarray | None = None,
+    *,
+    stt_method: str | None = None,
+    diarization_used: bool = False,
+) -> dict:
+    """비어 있는 STT 결과 dict 팩토리."""
+    result: dict = {
+        "text": "",
+        "active_speech_sec": 0.0,
+        "pause_count": 0,
+        "start_time": 0.0,
+        "end_time": 0.0,
+        "word_timestamps": [],
+        "audio_array": audio,
+        "diarization_used": diarization_used,
+    }
+    if stt_method is not None:
+        result["stt_method"] = stt_method
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Singleton 관리
 # ---------------------------------------------------------------------------
@@ -259,22 +293,13 @@ class StyleEchoPipeline:
         segments = result["segments"]
 
         if not segments:
-            return {
-                "text": "",
-                "active_speech_sec": 0.0,
-                "pause_count": 0,
-                "start_time": 0.0,
-                "end_time": 0.0,
-                "word_timestamps": [],
-                "audio_array": audio,
-                "diarization_used": False,
-            }
+            return _empty_stats(audio)
 
-        full_text = ""
+        text_parts: list[str] = []
         word_timestamps: list[dict] = []
 
         for seg in segments:
-            full_text += seg["text"] + " "
+            text_parts.append(seg["text"])
             if "words" in seg:
                 for word_info in seg["words"]:
                     if "start" in word_info and "end" in word_info:
@@ -299,7 +324,7 @@ class StyleEchoPipeline:
         last_speech_end = segments[-1]["end"]
 
         return {
-            "text": full_text.strip(),
+            "text": " ".join(text_parts).strip(),
             "active_speech_sec": active_speech_sec,
             "pause_count": pause_count,
             "start_time": first_speech_start,
@@ -364,17 +389,9 @@ class StyleEchoPipeline:
 
         segments = result.get("segments", [])
         if not segments:
-            return {
-                "text": "",
-                "active_speech_sec": 0.0,
-                "pause_count": 0,
-                "start_time": 0.0,
-                "end_time": 0.0,
-                "word_timestamps": [],
-                "stt_method": "caption_align",
-                "audio_array": audio,
-                "diarization_used": False,
-            }
+            return _empty_stats(
+                audio, stt_method="caption_align",
+            )
 
         # -------------------------------------------------------
         # 유령 단어 필터링:
@@ -398,17 +415,11 @@ class StyleEchoPipeline:
                     )
 
         if not valid_words:
-            return {
-                "text": "",
-                "active_speech_sec": 0.0,
-                "pause_count": 0,
-                "start_time": 0.0,
-                "end_time": 0.0,
-                "word_timestamps": [],
-                "stt_method": "caption_align",
-                "audio_array": audio,
-                "diarization_used": diarization_used,
-            }
+            return _empty_stats(
+                audio,
+                stt_method="caption_align",
+                diarization_used=diarization_used,
+            )
 
         # -------------------------------------------------------
         # 진짜 단어들로 stats 재조립
@@ -500,15 +511,7 @@ class StyleEchoPipeline:
         rms_norm = (rms - np.mean(rms)) / (np.std(rms) + 1e-8)
 
         # F0 화자 정규화 (유성음 구간 기준)
-        valid_f0 = f0[f0 > 0]
-        if len(valid_f0) > 0:
-            f0_norm = np.where(
-                f0 > 0,
-                (f0 - np.mean(valid_f0)) / (np.std(valid_f0) + 1e-8),
-                0,
-            )
-        else:
-            f0_norm = f0
+        f0_norm = _normalize_f0(f0)
 
         features = np.stack([f0_norm, rms_norm], axis=-1)
         return f0, rms, features
@@ -726,7 +729,14 @@ class StyleEchoPipeline:
 
         word_scores: list[float] = []
         word_feedback: list[dict] = []
-        available_u_words = user_words.copy()
+
+        # dict 기반 O(n) 매칭용 인덱스 구축
+        _user_word_index: dict[str, list[int]] = {}
+        for _ui, _uw in enumerate(user_words):
+            _key = _normalize_word(_uw["word"])
+            if _key:
+                _user_word_index.setdefault(_key, []).append(_ui)
+        _used_indices: set[int] = set()
 
         k = config.RHYTHM_K
 
@@ -736,14 +746,15 @@ class StyleEchoPipeline:
                 continue
 
             matched_idx = -1
-            for idx, u_word in enumerate(available_u_words):
-                u_text = _normalize_word(u_word["word"])
-                if r_text == u_text:
-                    matched_idx = idx
+            candidates = _user_word_index.get(r_text, [])
+            for ci in candidates:
+                if ci not in _used_indices:
+                    matched_idx = ci
                     break
 
             if matched_idx != -1:
-                u_word = available_u_words.pop(matched_idx)
+                _used_indices.add(matched_idx)
+                u_word = user_words[matched_idx]
 
                 r_dur = r_word["end"] - r_word["start"]
                 u_dur = u_word["end"] - u_word["start"]
@@ -862,7 +873,14 @@ class StyleEchoPipeline:
             )
 
         pitch_feedback: list[dict] = []
-        available_u = list(user_words)
+
+        # dict 기반 O(n) 매칭용 인덱스 구축
+        _pitch_user_index: dict[str, list[int]] = {}
+        for _pi, _pw in enumerate(user_words):
+            _pkey = _normalize_word(_pw.get("word", ""))
+            if _pkey:
+                _pitch_user_index.setdefault(_pkey, []).append(_pi)
+        _pitch_used: set[int] = set()
 
         for r_word in ref_words:
             r_text_clean = _normalize_word(r_word.get("word", ""))
@@ -870,10 +888,10 @@ class StyleEchoPipeline:
                 continue
 
             matched_u = None
-            for idx, u_word in enumerate(available_u):
-                u_text = _normalize_word(u_word.get("word", ""))
-                if r_text_clean == u_text:
-                    matched_u = available_u.pop(idx)
+            for _ci in _pitch_user_index.get(r_text_clean, []):
+                if _ci not in _pitch_used:
+                    _pitch_used.add(_ci)
+                    matched_u = user_words[_ci]
                     break
 
             if matched_u is None:
@@ -1010,15 +1028,7 @@ class StyleEchoPipeline:
             ref_f0_t = ref_f0[:min_len]
             ref_rms_t = ref_rms[:min_len]
 
-            valid_f0 = ref_f0_t[ref_f0_t > 0]
-            if len(valid_f0) > 0:
-                ref_f0_norm = np.where(
-                    ref_f0_t > 0,
-                    (ref_f0_t - np.mean(valid_f0)) / (np.std(valid_f0) + 1e-8),
-                    0,
-                )
-            else:
-                ref_f0_norm = ref_f0_t
+            ref_f0_norm = _normalize_f0(ref_f0_t)
 
             ref_rms_norm = (ref_rms_t - np.mean(ref_rms_t)) / (
                 np.std(ref_rms_t) + 1e-8

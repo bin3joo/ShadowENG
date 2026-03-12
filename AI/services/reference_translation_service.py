@@ -5,7 +5,6 @@ import logging
 import os
 import threading
 import time
-from collections import Counter
 from typing import Any
 
 from google import genai
@@ -14,11 +13,17 @@ from pydantic import BaseModel, Field
 
 try:
     from .. import config
-    from ..domain.processing.speaker_analysis import _get_word_speaker_label
+    from ..domain.processing.speaker_analysis import (
+        _dominant_speaker_label,
+        _get_word_speaker_label,
+    )
     from ..domain.processing.text_processing import _build_reference_part
 except ImportError:
     import config
-    from domain.processing.speaker_analysis import _get_word_speaker_label
+    from domain.processing.speaker_analysis import (
+        _dominant_speaker_label,
+        _get_word_speaker_label,
+    )
     from domain.processing.text_processing import _build_reference_part
 
 logger = logging.getLogger(__name__)
@@ -123,14 +128,7 @@ def _get_gemini_client() -> Any:
 
 def _get_part_speaker_hint(part: dict) -> str | None:
     """Return the dominant speaker label for a part if available."""
-    labels = [
-        _get_word_speaker_label(word)
-        for word in part.get("word_timestamps", [])
-    ]
-    labels = [label for label in labels if label]
-    if not labels:
-        return None
-    return Counter(labels).most_common(1)[0][0]
+    return _dominant_speaker_label(part.get("word_timestamps", []))
 
 
 def _build_llm_input_parts(sentence_data: list[dict]) -> list[dict]:

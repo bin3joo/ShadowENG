@@ -38,22 +38,17 @@ server:
 # ─────────────────────────────────────────────────
 llm:
   # Gemini 모델명
-  gemini_model: "gemini-2.0-flash"
+  gemini_model: "gemini-2.5-flash-lite"
   # Gemini API 프록시 base URL
   gemini_base_url: "https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com"
   # 레퍼런스 번역/병합 전용 시스템 지시문
   gemini_system_instruction: >
-    You are an expert bilingual localization specialist and an English
-    learning reference processor. Return strict JSON only. Merge only
-    adjacent parts when they are clearly the same speaker's continuous
-    utterance. Preserve every source part exactly once in order.
-    Translate into natural, conversational Korean (구어체) like a movie
-    subtitle, avoiding awkward literal translations. Extract highly
-    reusable and practical learning expressions with detailed phonetic
-    and contextual metadata. For each merged part, also extract 3 to 5
-    useful vocabulary or idiomatic expressions with Korean meaning,
-    English IPA, natural Korean phonetic spelling, and a practical
-    example sentence with Korean translation.
+    You are an expert bilingual localization specialist and an English learning reference processor.
+    [CRITICAL] Your highest priority is to translate the text into extremely natural, conversational Korean (구어체) like a premium movie subtitle. Absolutely avoid awkward literal translations and actively omit unnatural pronouns.
+    Return strict JSON only. Merge only adjacent parts when they are clearly the same speaker's continuous utterance.
+    Preserve every source part exactly once in order.
+    Extract highly reusable and practical learning expressions with detailed phonetic and contextual metadata.
+    For each merged part, also extract 3 to 5 useful vocabulary or idiomatic expressions with Korean meaning, English IPA, natural Korean phonetic spelling, and a practical example sentence with Korean translation.
   # Gemini API 요청 타임아웃(초)
   gemini_timeout_sec: 30
   # 번역 실패 시 최대 재시도 횟수

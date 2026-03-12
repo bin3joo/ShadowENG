@@ -14,7 +14,8 @@ try:
     from ..domain.processing.audio_processing import trim_boundary_fragments
     from ..domain.processing.quality import (
         assess_reference_quality,
-        select_reference_denoise_mode,
+        estimate_reference_audio_metrics,
+        select_reference_denoise_mode_from_metrics,
     )
     from ..domain.processing.speaker_analysis import (
         annotate_reference_part_speakers,
@@ -49,7 +50,8 @@ except ImportError:
     from domain.processing.audio_processing import trim_boundary_fragments
     from domain.processing.quality import (
         assess_reference_quality,
-        select_reference_denoise_mode,
+        estimate_reference_audio_metrics,
+        select_reference_denoise_mode_from_metrics,
     )
     from domain.processing.speaker_analysis import (
         annotate_reference_part_speakers,
@@ -187,6 +189,7 @@ def generate_reference(
     actual_audio: str | None = None
     quality_metadata: dict | None = None
     save_dir: str | None = None
+    _succeeded = False
 
     try:
         pipeline = get_pipeline()
@@ -286,11 +289,12 @@ def generate_reference(
             request_offset_sec + request_duration_sec,
         )
 
-        denoise_mode = select_reference_denoise_mode(
+        audio_metrics = estimate_reference_audio_metrics(
             request_audio,
             target_sr,
             final_words,
         )
+        denoise_mode = select_reference_denoise_mode_from_metrics(audio_metrics)
 
         speech_start_sec = (
             float(final_words[0].get("start", 0.0)) if final_words else 0.0
@@ -336,6 +340,7 @@ def generate_reference(
             caption_source,
             stt_method,
             denoise_mode,
+            precomputed_metrics=audio_metrics,
         )
         _apply_speaker_risk_policy(sentence_data, quality_metadata)
 
@@ -391,6 +396,7 @@ def generate_reference(
         background_tasks.add_task(remove_file, actual_audio)
         background_tasks.add_task(remove_dir, tmp_dir)
 
+        _succeeded = True
         return build_reference_response(
             req.video_id,
             req.start_sec,
@@ -412,22 +418,18 @@ def generate_reference(
         )
 
     except HTTPException:
-        if actual_audio and os.path.exists(actual_audio):
-            remove_file(actual_audio)
-        if tmp_dir and os.path.exists(tmp_dir):
-            remove_dir(tmp_dir)
-        if save_dir and os.path.exists(save_dir):
-            remove_dir(save_dir)
         raise
     except Exception:
         logger.exception("generate-reference failed")
-        if actual_audio and os.path.exists(actual_audio):
-            remove_file(actual_audio)
-        if tmp_dir and os.path.exists(tmp_dir):
-            remove_dir(tmp_dir)
-        if save_dir and os.path.exists(save_dir):
-            remove_dir(save_dir)
         raise HTTPException(
             status_code=500,
             detail="레퍼런스 생성 중 내부 오류가 발생했습니다.",
         )
+    finally:
+        if not _succeeded:
+            if actual_audio and os.path.exists(actual_audio):
+                remove_file(actual_audio)
+            if tmp_dir and os.path.exists(tmp_dir):
+                remove_dir(tmp_dir)
+            if save_dir and os.path.exists(save_dir):
+                remove_dir(save_dir)
