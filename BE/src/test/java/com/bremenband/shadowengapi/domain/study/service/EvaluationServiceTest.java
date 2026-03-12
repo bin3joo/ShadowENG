@@ -47,6 +47,7 @@ class EvaluationServiceTest {
     @Mock private EvaluationRepository evaluationRepository;
     @Mock private PythonApiClient pythonApiClient;
     @Spy  private ObjectMapper objectMapper;
+    @Mock private StudySessionWriter studySessionWriter;
 
     private static final Long USER_ID = 1L;
 
@@ -136,6 +137,7 @@ class EvaluationServiceTest {
         assertThat(response.scores().wordAccuracy()).isEqualTo(93.8);
 
         then(evaluationRepository).should(times(1)).save(any(Evaluation.class));
+        then(studySessionWriter).should(times(1)).completeSessionIfAllEvaluated(sessionId);
     }
 
     @Test

@@ -31,6 +31,7 @@ public class EvaluationService {
     private final EvaluationRepository evaluationRepository;
     private final PythonApiClient pythonApiClient;
     private final ObjectMapper objectMapper;
+    private final StudySessionWriter studySessionWriter;
 
     public EvaluationResponse evaluate(Long sessionId, Long sentenceId, int step, MultipartFile audioFile, Long userId) {
         // 1. 세션 조회 및 소유권 검증 (트랜잭션 불필요 — 단순 조회)
@@ -88,7 +89,10 @@ public class EvaluationService {
                 .pauseSimilarity(bd(s.pauseSimilarity()))
                 .build());
 
-        // 7. 응답 빌드
+        // 7. 모든 문장이 평가됐으면 세션 완료 처리
+        studySessionWriter.completeSessionIfAllEvaluated(sessionId);
+
+        // 8. 응답 빌드
         return buildResponse(sentence, pythonResponse);
     }
 
