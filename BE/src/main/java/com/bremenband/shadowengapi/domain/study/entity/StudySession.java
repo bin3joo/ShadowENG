@@ -33,9 +33,6 @@ public class StudySession extends BaseTimeEntity {
     @Column(name = "end_sec", nullable = false)
     private double endSec;
 
-    @Column(name = "progress_rate", nullable = false)
-    private int progressRate = 0;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private SessionStatus status = SessionStatus.ACTIVE;
@@ -46,7 +43,6 @@ public class StudySession extends BaseTimeEntity {
         this.user = user;
         this.startSec = startSec;
         this.endSec = endSec;
-        this.progressRate = 0;
         this.status = SessionStatus.ACTIVE;
     }
 }
