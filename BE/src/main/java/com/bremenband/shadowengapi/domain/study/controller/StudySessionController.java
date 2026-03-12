@@ -1,7 +1,6 @@
 package com.bremenband.shadowengapi.domain.study.controller;
 
 import com.bremenband.shadowengapi.domain.study.dto.req.EvaluationRequest;
-import com.bremenband.shadowengapi.domain.study.dto.req.SentenceLearningRequest;
 import com.bremenband.shadowengapi.domain.study.dto.req.StudySessionCreateRequest;
 import com.bremenband.shadowengapi.domain.study.dto.res.ActiveSessionsResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.EvaluationResponse;
@@ -12,15 +11,19 @@ import com.bremenband.shadowengapi.domain.study.service.EvaluationService;
 import com.bremenband.shadowengapi.domain.study.service.StudySessionService;
 import org.springframework.web.multipart.MultipartFile;
 import com.bremenband.shadowengapi.global.common.ApiResponse;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
+@Validated
 @RestController
 @RequestMapping(value = "/study-sessions", produces = MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
@@ -108,10 +111,11 @@ public class StudySessionController {
             @PathVariable Long sessionId,
             @Parameter(description = "문장 ID", example = "1234")
             @PathVariable Long sentenceId,
-            @Valid @RequestBody SentenceLearningRequest request,
+            @Parameter(description = "학습 단계 (1~4)", example = "1")
+            @RequestParam @Min(1) @Max(4) int step,
             @Parameter(hidden = true) @AuthenticationPrincipal Long userId
     ) {
-        return ApiResponse.success(studySessionService.getSentenceLearning(sessionId, sentenceId, request.step(), userId));
+        return ApiResponse.success(studySessionService.getSentenceLearning(sessionId, sentenceId, step, userId));
     }
 
 }
