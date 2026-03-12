@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ReportService {
 
-    private static final double DIFFICULT_THRESHOLD = 70.0;
+    private static final double DIFFICULT_THRESHOLD = 90.0;
     private static final int    DIFFICULT_SENTENCE_LIMIT = 3;
 
     private final StudySessionRepository studySessionRepository;

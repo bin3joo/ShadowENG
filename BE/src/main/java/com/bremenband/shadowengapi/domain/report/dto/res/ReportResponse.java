@@ -13,7 +13,7 @@ public record ReportResponse(
         @Schema(description = "종합 점수")
         Scores scores,
 
-        @Schema(description = "취약 문장 목록 (평균 totalScore 낮은 순 최대 3개)")
+        @Schema(description = "취약 문장 목록 (평균 totalScore 90점 미만, 낮은 순 최대 3개)")
         List<DifficultSentence> difficultSentences
 
 ) {
