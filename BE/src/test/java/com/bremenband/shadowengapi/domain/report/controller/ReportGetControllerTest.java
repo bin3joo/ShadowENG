@@ -46,7 +46,7 @@ class ReportGetControllerTest {
         ReportResponse response = new ReportResponse(
                 sessionId,
                 new ReportResponse.Scores(73.7, 93.8, 37.6, 73.0, 55.8, 76.0, 85.2, 100.0),
-                List.of(new ReportResponse.DifficultSentence(10L, "I got it bad."))
+                List.of(new ReportResponse.DifficultSentence(10L, "I got it bad.", 55.0, "weak", "monotone", List.of()))
         );
 
         given(reportService.getReport(eq(sessionId), any())).willReturn(response);

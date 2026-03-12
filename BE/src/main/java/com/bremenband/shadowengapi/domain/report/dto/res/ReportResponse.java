@@ -13,7 +13,7 @@ public record ReportResponse(
         @Schema(description = "종합 점수")
         Scores scores,
 
-        @Schema(description = "취약 문장 목록 (평균 totalScore < 70)")
+        @Schema(description = "취약 문장 목록 (평균 totalScore 낮은 순 최대 3개)")
         List<DifficultSentence> difficultSentences
 
 ) {
@@ -32,7 +32,13 @@ public record ReportResponse(
 
     public record DifficultSentence(
             Long sentenceId,
-            String sentence
+            String sentence,
+            double averageScore,
+            String boundaryToneStatus,
+            String dynamicStressStatus,
+            List<WordFeedback> wordFeedback
     ) {
+        public record WordFeedback(String word, String status) {
+        }
     }
 }
