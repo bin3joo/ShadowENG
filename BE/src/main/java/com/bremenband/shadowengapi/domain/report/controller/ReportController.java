@@ -11,16 +11,18 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
+@RequestMapping(produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "리포트 API", description = "리포트와 관련된 기능을 위한 REST API")
 public class ReportController {
 
     private final ReportService reportService;
 
-    @PostMapping("/study-sessions/{sessionId}/reports")
+    @PostMapping(value = "/study-sessions/{sessionId}/reports", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
             summary = "학습 세션 레포트 생성",
             description = "특정 학습 세션의 평가 결과를 종합하여 레포트를 생성합니다. 평균 점수 및 취약 문장(평균 totalScore < 70)을 포함합니다."

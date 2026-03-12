@@ -13,20 +13,21 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping(value = "/auth", produces = MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
 @Tag(name = "소셜 로그인 API", description = "소셜 로그인 & 로그아웃을 위한 REST API")
 public class AuthController {
 
     private final AuthService authService;
 
-    @PostMapping("/login/kakao")
+    @PostMapping(value = "/login/kakao", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
             summary = "카카오 로그인",
             description = "클라이언트에서 카카오 SDK를 통해 발급받은 카카오 인가 코드를 Request Body로 전달받아 " +
@@ -35,7 +36,7 @@ public class AuthController {
         throw new CustomException(ErrorCode.NOT_IMPLEMENTED);
     }
 
-    @PostMapping("/refresh")
+    @PostMapping(value = "/refresh", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
             summary = "토큰 재발급",
             description = "리프레시 토큰을 검증하여 새로운 액세스 토큰과 리프레시 토큰을 발급합니다."

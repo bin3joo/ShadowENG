@@ -42,9 +42,6 @@ public class Evaluation {
     @Column(name = "dynamic_stress_feedback", nullable = false, columnDefinition = "json")
     private String dynamicStressFeedback;
 
-    @Column(name = "pitch_contour_feedback", columnDefinition = "json")
-    private String pitchContourFeedback;
-
     @Column(name = "total_score", nullable = false, precision = 5, scale = 2)
     private BigDecimal totalScore;
 
@@ -76,7 +73,6 @@ public class Evaluation {
     @Builder
     private Evaluation(StudySession studySession, Sentence sentence, String userTranscription,
                        String wordLevelFeedback, String boundaryToneFeedback, String dynamicStressFeedback,
-                       String pitchContourFeedback,
                        BigDecimal totalScore, BigDecimal wordAccuracy, BigDecimal prosodyAndStress,
                        BigDecimal wordRhythmScore, BigDecimal boundaryToneScore, BigDecimal dynamicStressScore,
                        BigDecimal speedSimilarity, BigDecimal pauseSimilarity) {
@@ -86,7 +82,6 @@ public class Evaluation {
         this.wordLevelFeedback = wordLevelFeedback;
         this.boundaryToneFeedback = boundaryToneFeedback;
         this.dynamicStressFeedback = dynamicStressFeedback;
-        this.pitchContourFeedback = pitchContourFeedback;
         this.totalScore = totalScore;
         this.wordAccuracy = wordAccuracy;
         this.prosodyAndStress = prosodyAndStress;
