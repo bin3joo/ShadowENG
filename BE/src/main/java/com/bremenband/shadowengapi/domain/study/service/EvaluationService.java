@@ -104,14 +104,10 @@ public class EvaluationService {
                 .toList();
 
         EvaluationResponse.BoundaryToneFeedback boundaryFeedback =
-                new EvaluationResponse.BoundaryToneFeedback(
-                        d.boundaryToneFeedback().status(),
-                        resolveBoundaryMessage(d.boundaryToneFeedback().status()));
+                new EvaluationResponse.BoundaryToneFeedback(d.boundaryToneFeedback().status());
 
         EvaluationResponse.DynamicStressFeedback dynamicFeedback =
-                new EvaluationResponse.DynamicStressFeedback(
-                        d.dynamicStressFeedback().status(),
-                        resolveDynamicMessage(d.dynamicStressFeedback().status()));
+                new EvaluationResponse.DynamicStressFeedback(d.dynamicStressFeedback().status());
 
         EvaluationResponse.Scores scores = new EvaluationResponse.Scores(
                 s.totalScore(), s.wordAccuracy(), s.prosodyAndStress(),
@@ -126,24 +122,6 @@ public class EvaluationService {
                 python.userTranscription(),
                 new EvaluationResponse.Details(wordFeedback, boundaryFeedback, dynamicFeedback),
                 scores);
-    }
-
-    private String resolveBoundaryMessage(String status) {
-        return switch (status) {
-            case "weak"     -> "더 높게 말해보세요";
-            case "opposite" -> "억양 방향이 반대입니다";
-            case "short"    -> "문장 끝을 더 길게 이어주세요";
-            default         -> null;
-        };
-    }
-
-    private String resolveDynamicMessage(String status) {
-        return switch (status) {
-            case "monotone"    -> "강세 변화를 더 주세요";
-            case "exaggerated" -> "강세를 줄여보세요";
-            case "flat"        -> "더 자연스러운 강세로 말해보세요";
-            default            -> null;
-        };
     }
 
     private String encodeToBase64(MultipartFile file) {

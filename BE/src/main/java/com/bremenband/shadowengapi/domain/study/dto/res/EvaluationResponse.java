@@ -31,39 +31,47 @@ public record EvaluationResponse(
 ) {
 
     public record Details(
+            @Schema(description = "단어별 피드백 목록")
             List<WordLevelFeedback> wordLevelFeedback,
+
+            @Schema(description = "문장 끝 억양 피드백")
             BoundaryToneFeedback boundaryToneFeedback,
+
+            @Schema(description = "강세 변화 피드백")
             DynamicStressFeedback dynamicStressFeedback
     ) {
     }
 
     public record WordLevelFeedback(
+            @Schema(description = "단어", example = "got")
             String word,
+
+            @Schema(description = "단어 상태 (good / rushed / dragged / missed / extra)", example = "good")
             String status
     ) {
     }
 
     public record BoundaryToneFeedback(
-            String status,
-            String message
+            @Schema(description = "억양 상태 (good / weak / opposite / short / no_ref_data)", example = "weak")
+            String status
     ) {
     }
 
     public record DynamicStressFeedback(
-            String status,
-            String message
+            @Schema(description = "강세 상태 (good / monotone / exaggerated / flat / no_ref_data)", example = "monotone")
+            String status
     ) {
     }
 
     public record Scores(
-            double totalScore,
-            double wordAccuracy,
-            double prosodyAndStress,
-            double wordRhythmScore,
-            double boundaryToneScore,
-            double dynamicStressScore,
-            double speedSimilarity,
-            double pauseSimilarity
+            @Schema(description = "종합 점수", example = "73.7") double totalScore,
+            @Schema(description = "단어 정확도", example = "93.8") double wordAccuracy,
+            @Schema(description = "억양/강세 종합", example = "37.6") double prosodyAndStress,
+            @Schema(description = "단어 리듬", example = "73.0") double wordRhythmScore,
+            @Schema(description = "문장 끝 억양", example = "55.8") double boundaryToneScore,
+            @Schema(description = "강세 변화", example = "76.0") double dynamicStressScore,
+            @Schema(description = "속도 유사도", example = "85.2") double speedSimilarity,
+            @Schema(description = "포즈 유사도", example = "100.0") double pauseSimilarity
     ) {
     }
 }
