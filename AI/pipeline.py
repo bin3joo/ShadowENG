@@ -960,14 +960,43 @@ class StyleEchoPipeline:
         """
         유저 오디오와 레퍼런스 JSON 데이터를 비교하여 7대 지표 JSON 을 반환합니다.
         """
+        import tempfile
+        from domain.processing.audio_processing import peak_normalize_audio
+
         ref_script = ref_data["final_script"]
         ref_text = " ".join(_canonicalize_tokens(ref_script))
         ref_word_timestamps = ref_data.get("word_timestamps", [])
         ref_f0 = np.array(ref_data.get("features", {}).get("f0_array", []))
         ref_rms = np.array(ref_data.get("features", {}).get("rms_array", []))
 
-        # 1. 유저 STT
-        user_stats = self.extract_whisper_stats(user_audio_path)
+        # 0. 유저 오디오 로드 및 STT 전용 Peak 정규화
+        target_sr = config.TARGET_SR
+        user_y_raw, _ = librosa.load(user_audio_path, sr=target_sr)
+        user_y_normalized = peak_normalize_audio(user_y_raw)
+
+        # 정규화된 WAV를 임시 파일로 저장하여 STT에 전달
+        norm_tmp = tempfile.NamedTemporaryFile(
+            suffix=".wav", delete=False, prefix="styleecho_norm_",
+        )
+        norm_tmp_path = norm_tmp.name
+        norm_tmp.close()
+        from scipy.io import wavfile
+        wavfile.write(
+            norm_tmp_path,
+            target_sr,
+            np.asarray(user_y_normalized, dtype=np.float32),
+        )
+
+        # 1. 유저 STT (Peak 정규화된 오디오 사용 → 인식률 향상)
+        try:
+            user_stats = self.extract_whisper_stats(norm_tmp_path)
+        finally:
+            import os
+            try:
+                os.remove(norm_tmp_path)
+            except OSError:
+                pass
+
         user_text = " ".join(_canonicalize_tokens(user_stats.get("text", "")))
 
         if not user_text:
@@ -1022,20 +1051,13 @@ class StyleEchoPipeline:
             user_active_time,
         )
 
-        # 7. 유저 오디오 피처 추출
-        target_sr = config.TARGET_SR
-        user_y = user_stats.get("audio_array")
-        if user_y is None or target_sr != 16000:
-            user_y, _ = librosa.load(user_audio_path, sr=target_sr)
-
-        # 적용: 유저 오디오 피처 추출 전 Peak 정규화
-        from domain.processing.audio_processing import peak_normalize_audio
-        user_y = peak_normalize_audio(user_y)
-
+        # 7. 유저 오디오 피처 추출 (원본 오디오 사용, 내부 Z-score가 볼륨 처리)
         start_idx = int(user_stats["start_time"] * target_sr)
         end_idx = int(user_stats["end_time"] * target_sr)
         user_y_cropped = (
-            user_y[start_idx:end_idx] if end_idx > start_idx else user_y
+            user_y_raw[start_idx:end_idx]
+            if end_idx > start_idx
+            else user_y_raw
         )
 
         user_f0, user_rms, user_features = self.extract_prosody_features(

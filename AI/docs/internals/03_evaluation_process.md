@@ -8,11 +8,12 @@
 ### 1단계: 준비 (Initialization)
 1. **유저 오디오 획득**: 사용자가 멀티파트 파일이나 URL 형태로 넘긴 오디오를 디스크에 저장(혹은 캐싱)합니다.
 2. **레퍼런스 복원**: DB 또는 클라이언트로부터 전달받은 `final_script`(원문), `word_timestamps`(단어 좌표셋), `features/f0_array, rms_array`(기준점 피처)를 메모리에 Numpy 배열 등으로 재복원합니다.
+3. **오디오 로드 및 STT용 정규화**: 유저 오디오를 `librosa.load`로 로드한 뒤, `peak_normalize_audio`를 적용한 **정규화 임시 WAV**를 생성합니다. 이 파일은 STT 전용으로 사용됩니다.
 
 ### 2단계: 유저 오디오 분석 (`extract_whisper_stats`)
-유저의 오디오에 대해 레퍼런스 오프라인에서 했던 것과 완벽히 동일한 WhisperX STT 분석을 수행합니다.
-*   이때 유저 오디오도 `peak_normalize_audio`를 통해 볼륨 정규화를 수행하여 억양(RMS) 비교의 기준점을 일치시킵니다.
+**Peak 정규화된 임시 WAV**를 입력으로 WhisperX STT를 수행합니다. 볼륨이 작은 녹음에서도 Whisper의 환각(Hallucination)을 방지하고 인식률을 높입니다.
 *   분석 결과로 유저가 실제로 내뱉은 **발화 내용 스트링(`text`)**, 전체 묵음 횟수(`pause_count`), 실제 유효 발성 시간(`active_speech_sec`), **단어 타임스탬프(`word_timestamps`)**가 도출됩니다.
+*   STT 완료 후 임시 WAV는 즉시 삭제됩니다.
 
 ### 3단계: 논리적 1:1 매핑 (Alignment Sync)
 레퍼런스가 요구하는 단어 개수 및 텍스트 구조와 유저가 말한 단어 구조가 100% 일치하지 않을 수 있습니다. 
@@ -25,7 +26,7 @@
 1.  **단어 정확도 (Word Accuracy)**: `jiwer` 패키지를 사용해 WER(Word Error Rate) 계산
 2.  **속도 유사도 (Speed)**: `user_active_time`과 `ref_active_time`의 비율(Ratio) 파악
 3.  **멈춤 유사도 (Pause)**: 문장 내 휴지기(Gap) 횟수 차이 기반 산출
-4.  **피처 추출 (Extract User Prosody)**: 유저 오디오 역시 F0(기본 옥타브 피치)와 RMS(신호 볼륨) 곡선을 도출하고 화자 편차 제거를 위해 내부 정규화를 거칩니다.
+4.  **피처 추출 (Extract User Prosody)**: **원본(Raw) 오디오** 배열에서 F0(피치)와 RMS(볼륨) 곡선을 도출합니다. 내부 Z-score 및 F0 정규화가 볼륨과 화자 차이를 자동 보정하므로 Peak 정규화는 적용하지 않습니다.
 5.  **단어 리듬 점수 (Rhythm)**: 레퍼런스 발화 전체 길이 내 특정 단어가 점유한 시간 비율과 유저의 비율 차이를 비교 (e.g. `dragged`, `rushed`)
 6.  **억양 유사도 (Prosody)**: 유저와 레퍼런스의 F0/RMS 피처 시계열 배열을 DTW 알고리즘을 사용해 왜곡 오차를 축소해가며 거리(Distance) 채점
 7.  **종결 억양 및 역동성 (Boundary Tone / Dynamic Stress)**: 문장 끝의 높낮이 기울기 방향과 전체 발화의 목소리 톤 볼륨 역동성을 채점합니다.

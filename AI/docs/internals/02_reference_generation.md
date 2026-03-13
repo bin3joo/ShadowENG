@@ -16,12 +16,11 @@
     자막 정렬이 실패하거나(`caption_fallback`), 자막 자체가 아예 없다면 무거운 오디오 STT(Speech-to-Text)를 처음부터 다시 수행합니다.
 
 ### 3단계: 정제 과정 (Processing)
-가져온 원시 데이터들을 교육적 활용을 위해 깨끗하게 가공합니다.
-1.  **볼륨 정규화 (`peak_normalize_audio`)**: 소산/노이즈 왜곡을 방지하기 위해 오디오 볼륨을 디스토션 없이 최댓값 기반(Peak)으로 정규화합니다.
-2.  **경계 정리 (`trim_boundary_fragments`)**: 요청한 시간 구간 앞뒤에 걸쳐있는 "잘려나간 불완전한 단어(Fragment)"들을 신뢰도 점수 기반으로 깎아냅니다.
-3.  **메트릭 분석 (`estimate_reference_audio_metrics`)**: 해당 텍스트의 백그라운드 노이즈 SNR이나 쉼표 등을 미리 분석합니다.
-4.  **억양/음압 분석 (`extract_prosody_features`)**: `librosa`와 `noisereduce`를 활용하여 F0(피치) 및 RMS(볼륨 에너지) 파형 피처를 연속된 배열로 뽑아냅니다.
-5.  **문장 및 턴 분할 (`split_into_sentences_with_timestamps`, `split_into_dialog_turns`)**: 
+가져온 원시 데이터들을 교육적 활용을 위해 깨끗하게 가공합니다. 이 단계의 모든 분석은 **원본(Raw) 오디오 배열**을 기반으로 수행됩니다. (내부 Z-score / F0 정규화가 볼륨 차이를 자동 보정하므로 Peak 정규화는 불필요합니다.)
+1.  **경계 정리 (`trim_boundary_fragments`)**: 요청한 시간 구간 앞뒤에 걸쳐있는 "잘려나간 불완전한 단어(Fragment)"들을 신뢰도 점수 기반으로 깎아냅니다.
+2.  **메트릭 분석 (`estimate_reference_audio_metrics`)**: 해당 텍스트의 백그라운드 노이즈 SNR이나 쉼표 등을 미리 분석합니다.
+3.  **억양/음압 분석 (`extract_prosody_features`)**: `librosa`와 `noisereduce`를 활용하여 F0(피치) 및 RMS(볼륨 에너지) 파형 피처를 연속된 배열로 뽑아냅니다.
+4.  **문장 및 턴 분할 (`split_into_sentences_with_timestamps`, `split_into_dialog_turns`)**: 
     전체 텍스트를 문법적인 기준 단위(Sentence)나, 대화의 휴지기(Pause)/화자 변경점을 기준으로 학습할 수 있는 Chunk(Part)로 분리합니다.
 
 ### 4단계: 품질 평가 및 보완 (Quality & Metadata)
@@ -30,5 +29,5 @@
 *   **번역 (`translate_reference_parts_with_gemini`)**: Gemini 모델을 사용하여 최종 영어 스크립트와 각 분리된 Chunk 들의 자연스러운 한국어 해석 미치 핵심 표현 데이터를 병렬로 추출합니다.
 
 ### 5단계: 결과물 저장
-모든 분석이 끝나면, 오디오 파일을 임시 폴더에서 영구 폴더로 이동복사하고(`persist_reference_audio`, `export_part_audio`), 최종 JSON (`build_reference_response`)을 API 계층으로 반환합니다.
+모든 분석이 끝나면, **저장 직전에 Peak 정규화(`peak_normalize_audio`)**를 적용하여 플레이백 시 일관된 볼륨을 보장합니다. 정규화된 오디오를 영구 폴더에 저장하고(`persist_reference_audio`, `export_part_audio`), 최종 JSON (`build_reference_response`)을 API 계층으로 반환합니다.
 이후 `BackgroundTasks`에 의해 잡다한 찌꺼기 파일들은 별도 스레드에서 안전하게 정리됩니다.

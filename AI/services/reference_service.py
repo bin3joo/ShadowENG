@@ -244,10 +244,6 @@ def generate_reference(
         stt_method = stats.get("stt_method", "whisper_stt")
         target_sr = config.TARGET_SR
         audio_array, _ = librosa.load(actual_audio, sr=target_sr)
-        
-        # 적용: 레퍼런스 오디오 전체 볼륨 정규화 (Peak Normalization)
-        from domain.processing.audio_processing import peak_normalize_audio
-        audio_array = peak_normalize_audio(audio_array)
 
         audio_duration_sec = float(len(audio_array) / target_sr)
         request_offset_sec = min(req.start_sec, audio_padding_sec)
@@ -380,6 +376,10 @@ def generate_reference(
         annotate_reference_part_speakers(sentence_data)
         _apply_speaker_risk_policy(sentence_data, quality_metadata)
 
+        # 저장용 오디오만 Peak 정규화 (플레이백 품질 향상)
+        from domain.processing.audio_processing import peak_normalize_audio
+        save_audio = peak_normalize_audio(request_audio)
+
         save_dir = prepare_reference_audio_dir(
             req.video_id,
             req.start_sec,
@@ -387,12 +387,12 @@ def generate_reference(
             req.save_dir,
         )
         persist_reference_audio(
-            request_audio,
+            save_audio,
             target_sr,
             save_dir,
         )
         _export_part_audio_files(
-            request_audio,
+            save_audio,
             target_sr,
             save_dir,
             sentence_data,
