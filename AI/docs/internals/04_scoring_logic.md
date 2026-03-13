@@ -20,11 +20,25 @@ AI 서버 내 `pipeline.py` 가 산출하는 7대 지표 수식과 채점 알고
 *   **특징**: 기준치 대비 너무 빠르게 랩을 하듯이 말하는 것을 더 가혹하게 감점(`rushing_penalty`)하도록 설계되었습니다.
 
 ## 3. 멈춤 유사도 (Pause)
-*   **지표 설명**: 단어와 단어 사이 공백(Gap) 시간이 일정 밀리초 이상 발생할 때 이를 `pause`로 셉니다. 레퍼런스와 휴지기 횟수 차이를 봅니다.
-*   **수식**: 가우시안 분포 형태 적용 (표준편차 `sigma=2.5`)
+*   **지표 설명**: '몇 번 쉬었는가(횟수)'뿐 아니라, '**어디서 쉬었는가(위치)**'까지 평가합니다. 횟수 기반 점수와 위치 정합(F1) 점수를 블렌딩합니다.
+*   **수식**: 2단계 블렌딩 (`w = config.PAUSE_ALIGN_WEIGHT`, default 0.7)
+
+    **A. 횟수 기반 점수 (Count Score)**: 가우시안 분포 (σ = `config.PAUSE_SIGMA`)
     `diff = abs(user_pause_count - ref_pause_count)`
-    `score = 100.0 * exp(-(diff ** 2) / (2 * sigma ** 2))`
-*   **특징**: 1~2회의 쉼표 차이는 관대하게 넘어가고, 차이가 5회를 넘어가면 급격히 감점하는 부드러운 종 모양의 분포 곡선입니다.
+    `count_score = 100.0 * exp(-(diff²) / (2 * σ²))`
+
+    **B. 위치 정합 점수 (Alignment Score)**: Precision-Recall F1
+    1.  레퍼런스/유저 양쪽의 단어 간 gap > `config.PAUSE_ALIGN_GAP_SEC` 인 **위치(단어 인덱스)**를 집합(Set)으로 추출합니다.
+    2.  `true_hits = |ref ∩ user|`, `false_alarms = |user − ref|`, `misses = |ref − user|`
+    3.  `precision = true_hits / (true_hits + false_alarms)`
+    4.  `recall = true_hits / (true_hits + misses)`
+    5.  `f1 = 2 × precision × recall / (precision + recall)`
+    6.  `align_score = 100.0 * f1`
+
+    **C. 최종 블렌딩**:
+    `pause_score = (1 − w) × count_score + w × align_score`
+
+*   **특징**: 횟수만 동일해도 엉뚱한 위치에서 끊어 읽으면 위치 F1이 낮아져 감점됩니다. 반대로 정확히 의미 단위에서 쉬면 만점에 접근합니다. 위치 비교가 불안정한 경우(단어 대응이 부족할 때) 횟수 기반이 안전망(Fallback) 역할을 합니다.
 
 ## 4. 단어 리듬 점수 (Rhythm)
 *   **지표 설명**: 개별 단어 길이를 초 단위 절대 비교를 하는 게 아니라, 전체 문장에서 해당 단어가 차지하는 **비중(Relative Duration; RD)**을 계산합니다.

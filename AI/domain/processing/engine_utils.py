@@ -82,6 +82,37 @@ def count_pauses_from_words(
     )
 
 
+def extract_pause_positions(
+    words: list[dict],
+    threshold: float = config.PAUSE_ALIGN_GAP_SEC,
+) -> set[int]:
+    """
+    단어 간 gap > threshold 인 위치(단어 인덱스)의 집합을 반환합니다.
+
+    인덱스 i가 결과에 포함되었다는 것은 words[i] 뒤(= words[i+1] 앞)에
+    threshold 초 이상의 휴지기가 존재함을 의미합니다.
+
+    Parameters
+    ----------
+    words     : WhisperX 단어 타임스탬프 리스트
+    threshold : 휴지기로 판정할 최소 gap (초)
+
+    Returns
+    -------
+    set[int] : 휴지기가 발생한 단어 인덱스 집합
+    """
+    if len(words) < 2:
+        return set()
+
+    return {
+        idx
+        for idx in range(len(words) - 1)
+        if words[idx + 1].get("start", 0.0)
+        - words[idx].get("end", 0.0)
+        > threshold
+    }
+
+
 def _count_word_tokens(word: dict) -> int:
     """타임스탬프 항목이 표현하는 단어 수를 계산합니다."""
     return max(1, len(word.get("word", "").split()))

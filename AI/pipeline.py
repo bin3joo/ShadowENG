@@ -35,6 +35,7 @@ try:
         _normalize_word,
         _sum_word_durations,
         count_pauses_from_words,
+        extract_pause_positions,
     )
     from .domain.processing.quality import evaluate_caption_alignment_health
 except ImportError:
@@ -46,6 +47,7 @@ except ImportError:
         _normalize_word,
         _sum_word_durations,
         count_pauses_from_words,
+        extract_pause_positions,
     )
     from domain.processing.quality import evaluate_caption_alignment_health
 
@@ -954,6 +956,72 @@ class StyleEchoPipeline:
         return pitch_feedback
 
     # ------------------------------------------------------------------
+    # 위치 기반 멈춤 정합 분석 (Alignment-Based Pause Scoring)
+    # ------------------------------------------------------------------
+    def analyze_pause_alignment(
+        self,
+        ref_words: list[dict],
+        aligned_user_words: list[dict],
+    ) -> tuple[float, dict]:
+        """
+        레퍼런스와 유저의 휴지기(Pause) 위치를 1:1로 비교합니다.
+
+        Returns
+        -------
+        f1_score : 0.0 ~ 1.0 사이의 F1 점수
+        details  : {true_hits, false_alarms, misses, precision, recall}
+        """
+        ref_pauses = extract_pause_positions(ref_words)
+        user_pauses = extract_pause_positions(aligned_user_words)
+
+        # 레퍼런스에 쉼이 아예 없는 경우
+        if not ref_pauses:
+            # 유저도 안 쉬면 만점, 쉬면 감점
+            if not user_pauses:
+                return 1.0, {
+                    "true_hits": 0,
+                    "false_alarms": 0,
+                    "misses": 0,
+                    "precision": 1.0,
+                    "recall": 1.0,
+                }
+            return 0.0, {
+                "true_hits": 0,
+                "false_alarms": len(user_pauses),
+                "misses": 0,
+                "precision": 0.0,
+                "recall": 1.0,
+            }
+
+        true_hits = len(ref_pauses & user_pauses)
+        false_alarms = len(user_pauses - ref_pauses)
+        misses = len(ref_pauses - user_pauses)
+
+        precision = (
+            true_hits / (true_hits + false_alarms)
+            if (true_hits + false_alarms) > 0
+            else 0.0
+        )
+        recall = (
+            true_hits / (true_hits + misses)
+            if (true_hits + misses) > 0
+            else 0.0
+        )
+        f1 = (
+            2 * precision * recall / (precision + recall)
+            if (precision + recall) > 0
+            else 0.0
+        )
+
+        return f1, {
+            "true_hits": true_hits,
+            "false_alarms": false_alarms,
+            "misses": misses,
+            "precision": round(precision, 3),
+            "recall": round(recall, 3),
+        }
+
+    # ------------------------------------------------------------------
     # 종합 평가 (Evaluate)
     # ------------------------------------------------------------------
     def evaluate(self, user_audio_path: str, ref_data: dict) -> dict:
@@ -1035,13 +1103,22 @@ class StyleEchoPipeline:
             else:
                 speed_score = 100.0 * ((1.0 / speed_ratio) ** k)
 
-        # 5. 멈춤 점수
+        # 5. 멈춤 점수 (횟수 기반 + 위치 정합 F1 블렌딩)
         ref_pause_count = count_pauses_from_words(ref_word_timestamps)
         user_pause_count = user_stats["pause_count"]
         pause_diff = abs(user_pause_count - ref_pause_count)
-        pause_score = 100.0 * np.exp(
+        count_score = 100.0 * np.exp(
             -((pause_diff**2) / (2 * (config.PAUSE_SIGMA**2)))
         )
+
+        # 위치 정합 F1 점수
+        f1, pause_align_details = self.analyze_pause_alignment(
+            ref_word_timestamps, aligned_user_words,
+        )
+        align_score = 100.0 * f1
+
+        w = config.PAUSE_ALIGN_WEIGHT
+        pause_score = (1.0 - w) * count_score + w * align_score
 
         # 6. 단어별 리듬 (통일된 유저 단어 사용)
         rhythm_score, word_feedback = self.analyze_word_rhythm(
