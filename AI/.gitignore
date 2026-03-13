@@ -19,3 +19,4 @@ test/result/*
 *.wav
 config.yaml
 *.iml
+models/

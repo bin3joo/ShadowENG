@@ -6,6 +6,8 @@
 
 - `README.md`
   - 현재 시스템 개요, 실행 방법, 설정, 디렉토리 구조
+- `docs/internals/`
+  - 현재 기준 내부 처리 흐름, 계층 책임, 실행 순서 문서
 - `docs/review/`
   - 현재 기준 코드 리뷰, 남은 개선 과제, 구조 검토 문서
 - `docs/tuning/`
@@ -14,6 +16,8 @@
   - 날짜 기반 변경 이력, 문서 운영 변경 기록
 - `docs/architecture/`
   - 구조 개편 계획, 모듈 분리 기준, 책임 분해 문서
+- `docs/troubleshooting/`
+  - 의존성 충돌 해결, 설치 오류 대응, 환경 수습 가이드
 - `docs/legacy/`
   - 과거 분석, 폐기된 제안, 이전 스펙 문서 보관
 
@@ -21,4 +25,6 @@
 
 - `docs/legacy/`는 archive 전용으로 사용합니다.
 - `README`가 아닌 기록성 문서는 `docs/` 하위에서 관리합니다.
+- reference 생성의 실제 실행 순서, 병렬 처리 구간, VR on/off 동작은
+  `docs/internals/02_reference_generation.md`를 기준 문서로 사용합니다.
 - 폴더 구조가 변경되면 `AI/README.md`를 함께 갱신합니다.

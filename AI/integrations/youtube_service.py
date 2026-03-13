@@ -18,33 +18,6 @@ def build_youtube_url(video_id: str) -> str:
     return f"https://www.youtube.com/watch?v={video_id}"
 
 
-def build_yt_dlp_command(
-    video_id: str,
-    start_sec: float,
-    end_sec: float,
-    audio_path: str,
-    audio_padding_sec: float = 0.0,
-) -> list[str]:
-    """Build the yt-dlp command for reference audio download."""
-    padded_start_sec = max(0.0, start_sec - audio_padding_sec)
-    padded_end_sec = end_sec + audio_padding_sec
-    return [
-        "yt-dlp",
-        "--no-playlist",
-        "-f",
-        "bestaudio/best",
-        "--force-keyframes-at-cuts",
-        "-x",
-        "--audio-format",
-        "wav",
-        "--download-sections",
-        f"*{padded_start_sec}-{padded_end_sec}",
-        "-o",
-        audio_path,
-        build_youtube_url(video_id),
-    ]
-
-
 def download_reference_audio(
     video_id: str,
     start_sec: float,
@@ -54,34 +27,48 @@ def download_reference_audio(
     audio_padding_sec: float = 0.0,
 ) -> tuple[str, str]:
     """Download YouTube reference audio and return canonical URL and file path."""
+    import yt_dlp
+    import yt_dlp.utils
+
     youtube_url = build_youtube_url(video_id)
-    yt_dlp_cmd = build_yt_dlp_command(
-        video_id,
-        start_sec,
-        end_sec,
-        audio_path,
-        audio_padding_sec,
-    )
-    logger.info("Downloading audio for %s: %s", video_id, " ".join(yt_dlp_cmd))
-    proc = subprocess.run(
-        yt_dlp_cmd,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    if proc.returncode != 0:
-        logger.error("yt-dlp stderr for %s: %s", video_id, proc.stderr)
-        raise RuntimeError(f"yt-dlp 다운로드 실패: {proc.stderr[:500]}")
+    padded_start_sec = max(0.0, start_sec - audio_padding_sec)
+    padded_end_sec = end_sec + audio_padding_sec
+
+    # 파일명 추출 (확장자 없이 지정, postprocessor가 알아서 붙임)
+    base_outtmpl = audio_path
+    if base_outtmpl.endswith(".wav"):
+        base_outtmpl = base_outtmpl[:-4]
+
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': base_outtmpl,
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'wav',
+        }],
+        'download_ranges': yt_dlp.utils.download_range_func(None, [(padded_start_sec, int(padded_end_sec+1.0))]),
+        'force_keyframes_at_cuts': True,
+        'noplaylist': True,
+        'quiet': True,
+        'no_warnings': True,
+    }
+
+    logger.info("Downloading audio for %s natively via yt_dlp Python API", video_id)
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([youtube_url])
+    except Exception as exc:
+        logger.error("yt_dlp API 다운로드 실패: %s", exc)
+        raise RuntimeError(f"yt-dlp 다운로드 실패: {exc}")
 
     actual_audio = audio_path
     if not os.path.exists(audio_path):
         for file_name in os.listdir(tmp_dir):
-            actual_audio = os.path.join(tmp_dir, file_name)
-            break
+            if file_name.endswith(".wav"):
+                actual_audio = os.path.join(tmp_dir, file_name)
+                break
         else:
-            raise FileNotFoundError(
-                "다운로드된 오디오 파일을 찾을 수 없습니다."
-            )
+            raise FileNotFoundError("다운로드된 오디오 파일을 찾을 수 없습니다.")
 
     return youtube_url, actual_audio
 

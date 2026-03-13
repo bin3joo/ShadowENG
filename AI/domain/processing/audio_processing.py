@@ -59,6 +59,85 @@ def peak_normalize_audio(y: np.ndarray) -> np.ndarray:
     return y
 
 
+def separate_vocals(
+    audio_path: str,
+    output_dir: str,
+) -> str:
+    """
+    audio-separator를 사용하여 레퍼런스 오디오에서 보컬만 분리합니다.
+
+    Parameters
+    ----------
+    audio_path : 원본 오디오 WAV 경로
+    output_dir : 분리된 보컬 WAV를 저장할 디렉터리
+
+    Returns
+    -------
+    str : 분리된 보컬 WAV 경로. VR 비활성 또는 실패 시 원본 경로 반환.
+    """
+    import logging
+    import os
+
+    logger = logging.getLogger(__name__)
+
+    if not config.VR_ENABLED:
+        logger.info("VR disabled, skipping vocal separation")
+        return audio_path
+
+    try:
+        from audio_separator.separator import Separator
+    except ImportError:
+        logger.warning(
+            "audio-separator 패키지 미설치. "
+            "pip install audio-separator[gpu] 로 설치하세요. "
+            "원본 오디오를 사용합니다."
+        )
+        return audio_path
+
+    # 디바이스 결정
+    device = config.VR_DEVICE
+    if device == "auto":
+        import torch
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    try:
+        separator_kwargs = {
+            "model_file_dir": os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                "models",
+                "vr",
+            ),
+            "output_dir": output_dir,
+        }
+
+        separator = Separator(**separator_kwargs)
+        separator.load_model(model_filename=config.VR_MODEL)
+
+        output_files = separator.separate(audio_path)
+
+        # audio-separator는 [vocals, accompaniment] 순서로 반환
+        if output_files:
+            print(output_files)
+            vocal_path = os.path.join(output_dir, output_files[-1])
+            if os.path.exists(vocal_path):
+                logger.info(
+                    "Vocal separation 완료: %s", vocal_path
+                )
+                return vocal_path
+
+        logger.warning(
+            "VR 출력 파일을 찾을 수 없습니다. 원본 오디오를 사용합니다."
+        )
+        return audio_path
+
+    except Exception as exc:
+        logger.warning(
+            "보컬 분리 실패 (fallback to original): %s", exc
+        )
+        return audio_path
+
+
 def trim_boundary_fragments(
     word_timestamps: list[dict],
     full_text: str,

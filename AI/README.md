@@ -58,6 +58,10 @@
   * 자막 기반 `caption_align` fast path 우선 시도
   * 실패 시 Whisper STT fallback
   * boundary trim 적용
+  * 원본 오디오는 STT / alignment 및 품질 평가 기준으로 사용
+  * 선택적으로 VR(보컬 분리) 오디오를 사용해 prosody 후보를 추가 추출
+  * 원본 / VR prosody를 gating 규칙으로 비교해 `f0`, `rms` 소스를 독립적으로 선택
+  * Gemini 번역 요청을 prosody / quality 처리와 겹치도록 병렬 실행
   * part 단위 prosody feature 추출
   * quality 분석 결과는 공개 API에 필요한 수준만 노출
 
@@ -105,8 +109,8 @@
 ### 4.6. 번역 기능
 
 * **역할:** 영어 스크립트 및 문장 part를 한국어로 번역합니다.
-* **모델:** `Helsinki-NLP/opus-mt-en-ko`
-* **비고:** 번역 모델 로드 실패 시 `None` 을 반환하며, 핵심 파이프라인은 계속 동작합니다.
+* **모델:** Gemini API 기반 번역
+* **비고:** API Key 가 없거나 번역 호출이 실패해도 핵심 레퍼런스 생성 파이프라인은 계속 동작합니다.
 
 ## 5. 데이터 흐름 (Pipeline)
 
@@ -114,13 +118,13 @@
 
 2. **Process:**
 * `[Generate Reference]`
-  * YouTube 자막 조회
-  * 구간 오디오 다운로드
-  * caption align 또는 Whisper STT 수행
+  * YouTube 자막 조회와 구간 오디오 다운로드 병렬 수행
+  * 원본 오디오 기준 caption align 또는 Whisper STT 수행
+  * 선택 시 VR(보컬 분리) 수행
   * boundary trim 및 텍스트 정제
-  * prosody feature 추출
+  * 원본 / VR prosody feature 추출 및 source gating
   * 문장/turn 분할 및 short-part merge
-  * speaker / quality 분석
+  * Gemini 번역과 speaker / quality 관련 후처리 병렬 진행
   * 응답 payload 생성
 * `[Evaluate Audio]`
   * 유저 오디오 로드
@@ -167,8 +171,12 @@ conda activate styleecho
 #    CUDA 11.8 기준 예시 — 본인 CUDA 버전에 맞게 조정
 conda install pytorch==2.0.1 torchaudio==2.0.2 torchvision==0.15.2 pytorch-cuda=11.8 -c pytorch -c nvidia -y
 
-# 3. 나머지 의존성 설치
-pip install -r requirements.txt
+# 3. 기본 의존성 설치 (추가 의존성/회피 패키징까지 원클릭 자동 처리)
+# Windows (일반 CMD/PowerShell)인 경우:
+setup.bat
+
+# Windows (Git Bash) 또는 Mac/Linux인 경우:
+bash setup.sh
 ```
 
 > **CPU 전용 환경**인 경우 2번 단계를 건너뛰면 `requirements.txt`의 PyTorch CPU 빌드가 설치됩니다.
@@ -202,6 +210,9 @@ whisper:
   model: "large-v3"
   device: "cuda"
   compute_type: "float16"
+
+vocal_remover:
+  enabled: true
 ```
 
 ```yaml
@@ -210,7 +221,18 @@ whisper:
   model: "base"
   device: "cpu"
   compute_type: "int8"
+
+vocal_remover:
+  enabled: false
 ```
+
+`vocal_remover.enabled: false` 이면 레퍼런스 생성에서 다음 경로를 모두 스킵합니다.
+
+- 보컬 분리 (`separate_vocals`)
+- VR 오디오 기반 prosody 추출
+- 원본 / VR source gating 비교
+
+이 경우 prosody는 원본 오디오만 사용합니다.
 
 ### 6.6. 서버 실행
 
@@ -293,7 +315,7 @@ python -m test.fix_verify         # 보정 로직 검증
 
 * **`config_default.yaml`**
   * 전체 기본 설정 정의 파일
-  * Whisper, server, audio, denoise, reference, trimming, scoring, alignment 설정 포함
+  * Whisper, server, audio, denoise, reference, trimming, scoring, alignment, vocal_remover 설정 포함
 
 * **`config.yaml`**
   * 사용자 커스텀 설정 파일
@@ -305,6 +327,7 @@ python -m test.fix_verify         # 보정 로직 검증
     * `reference.min_part_duration_sec`
     * `reference.short_part_terminal_protection_enabled`
     * `alignment.caption_fallback_enabled`
+    * `vocal_remover.enabled`
 
 ### 7.3. 외부 서비스 / 토큰
 
@@ -336,6 +359,10 @@ python -m test.fix_verify         # 보정 로직 검증
   * 레퍼런스 생성 시 Gemini를 사용해 전체 번역, 파트 병합, 파트별 번역, 학습 표현 추출을 수행합니다.
   * Gemini 응답 파싱 또는 번역 실패 시 설정된 횟수만큼 재시도합니다.
   * 최종 실패 시에도 레퍼런스 생성은 유지되고, 번역 관련 필드만 비어 있을 수 있습니다.
+
+* **Reference 병렬 처리 및 VR 토글**
+  * 자막 조회 ↔ 오디오 다운로드, VR ↔ STT/alignment, 원본 prosody ↔ VR prosody, Gemini ↔ prosody/quality 구간이 병렬화되어 있습니다.
+  * `vocal_remover.enabled: false` 이면 VR 관련 작업은 전체 스킵되어 더 빠른 경로로 동작합니다.
 
 * **Diarization 정책**
   * 토큰/권한 부족 시 diarization만 비활성화되며 API 전체 실패로 이어지지 않도록 설계되어 있습니다.
