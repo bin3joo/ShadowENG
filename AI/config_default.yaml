@@ -284,3 +284,38 @@ alignment:
   caption_max_leading_gap_sec: 1.2
   # fallback reason 이 이 개수 이상이면 실제 Whisper STT fallback 수행
   caption_fallback_min_reason_count: 2
+
+# ─────────────────────────────────────────────────
+# 보컬 분리 (레퍼런스 전용 Vocal Remover)
+# ─────────────────────────────────────────────────
+vocal_remover:
+  # false이면 레퍼런스 생성에서 vocal separation 및
+  # VR 기반 prosody 추출 경로를 모두 스킵
+  enabled: true
+  # audio-separator에 전달할 모델명
+  # 예시: htdemucs, MDX23C-8KFFT.ckpt, UVR-MDX-NET-Voc_FT.onnx
+  model: "htdemucs_ft.yaml"
+  # VR 실행 디바이스. auto 면 GPU 사용 가능 시 cuda, 아니면 cpu
+  # 문자열 허용값: cuda, cpu, auto
+  device: "auto"
+  # 메모리 제한 시 세그먼트 길이(초). null 이면 모델 기본값 사용
+  # GPU 메모리 부족 시 이 값을 줄이면 VRAM 사용량 감소
+  segment: null
+
+# ─────────────────────────────────────────────────
+# 레퍼런스 feature source gating
+# ─────────────────────────────────────────────────
+reference_feature_gate:
+  # 원본 F0 유효 프레임 비율이 이 값 미만이면 VR 우선 검토
+  f0_min_voiced_ratio: 0.5
+  # pitch jump 비율이 이 값 초과면 해당 F0 소스를 불안정하다고 판단
+  f0_max_jump_ratio: 0.2
+  # pitch jump 판정에 사용할 인접 프레임 semitone 차이 기준
+  f0_max_semitone_jump: 6.0
+  # RMS 발화/비발화 분리도가 이 값 미만이면 VR 우선 검토
+  rms_min_contrast_db: 6.0
+  # RMS dropout 비율이 이 값 초과면 해당 RMS 소스를 불안정하다고 판단
+  rms_max_dropout_ratio: 0.8
+  # dropout 판정에 사용할 상대 에너지 기준 (p90 대비 비율)
+  rms_dropout_fraction: 0.1
+  

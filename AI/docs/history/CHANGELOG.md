@@ -1,5 +1,13 @@
 # Pipe Change Log
  
+## 2026-03-13
+
+- `generate-reference` 내부 처리 순서를 재구성해 자막 조회 ↔ 오디오 다운로드, VR ↔ STT/alignment, 원본 prosody ↔ VR prosody, Gemini 번역 ↔ prosody/quality assessment 구간을 병렬화했습니다.
+- Gemini 번역 요청을 `sentence_data` 생성 직후 시작하도록 조정하고, 병렬 구간에서 경쟁 상태를 피하기 위해 `deepcopy(sentence_data)`를 사용하도록 정리했습니다.
+- reference 생성에서 STT / forced alignment 및 품질 평가는 원본 오디오 기준으로 유지하고, prosody는 원본 / VR 후보를 gating 규칙으로 선택하도록 역할을 분리했습니다.
+- `vocal_remover.enabled` 설정으로 reference 생성에서 VR 경로 전체를 제어할 수 있게 했고, `false`일 때는 vocal separation, VR prosody 추출, source gating 비교를 모두 스킵하도록 반영했습니다.
+- `AI/README.md`, `docs/README.md`, `docs/internals/02_reference_generation.md`를 현재 동작에 맞게 갱신했습니다.
+
 ## 2026-03-12
 
 - `pipeline.py` 내의 중복 F0 정규화 및 빈 결과 dict 생성 로직을 헬퍼 함수로 통합했습니다.

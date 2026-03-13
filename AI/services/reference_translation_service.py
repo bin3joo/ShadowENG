@@ -9,7 +9,7 @@ from typing import Any
 
 from google import genai
 from google.genai import types
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 try:
     from .. import config
@@ -85,6 +85,92 @@ class TranslationMetadata(BaseModel):
 
 class GeminiRetryableError(RuntimeError):
     """Retryable Gemini request error."""
+
+
+def _parse_vocabulary_items(raw_items: Any) -> list[PartVocabulary]:
+    """Parse valid vocabulary items and drop malformed entries."""
+    parsed_items: list[PartVocabulary] = []
+    if not isinstance(raw_items, list):
+        return parsed_items
+
+    for index, item in enumerate(raw_items, start=1):
+        try:
+            parsed_items.append(PartVocabulary.model_validate(item))
+        except ValidationError as exc:
+            logger.warning(
+                "Dropping invalid vocabulary item #%d: %s",
+                index,
+                exc,
+            )
+    return parsed_items
+
+
+def _parse_merged_parts(raw_parts: Any) -> list[GeminiMergedPart]:
+    """Parse merged parts while tolerating malformed vocabulary items."""
+    if not isinstance(raw_parts, list) or not raw_parts:
+        raise ValueError("Gemini merged_parts must be a non-empty list.")
+
+    parsed_parts: list[GeminiMergedPart] = []
+    for index, part in enumerate(raw_parts, start=1):
+        if not isinstance(part, dict):
+            raise ValueError(
+                f"Gemini merged_parts[{index}] must be an object."
+            )
+
+        normalized_part = {
+            "source_part_ids": part.get("source_part_ids", []),
+            "translated_text": part.get("translated_text", ""),
+            "vocabulary": [
+                item.model_dump()
+                for item in _parse_vocabulary_items(part.get("vocabulary", []))
+            ],
+        }
+
+        try:
+            parsed_parts.append(
+                GeminiMergedPart.model_validate(normalized_part)
+            )
+        except ValidationError as exc:
+            raise ValueError(
+                f"Gemini merged_parts[{index}] validation failed: {exc}"
+            ) from exc
+
+    return parsed_parts
+
+
+def _parse_learning_expressions(raw_items: Any) -> list[LearningExpression]:
+    """Parse valid learning expressions and drop malformed entries."""
+    parsed_items: list[LearningExpression] = []
+    if not isinstance(raw_items, list):
+        return parsed_items
+
+    for index, item in enumerate(raw_items, start=1):
+        try:
+            parsed_items.append(LearningExpression.model_validate(item))
+        except ValidationError as exc:
+            logger.warning(
+                "Dropping invalid learning expression #%d: %s",
+                index,
+                exc,
+            )
+    return parsed_items
+
+
+def _parse_translation_response(
+    raw_response: dict[str, Any],
+) -> tuple[str, list[GeminiMergedPart], list[LearningExpression]]:
+    """Parse a Gemini translation response while salvaging valid optional items."""
+    full_text_translation = str(
+        raw_response.get("full_text_translation", "")
+    ).strip()
+    if not full_text_translation:
+        raise ValueError("Gemini full_text_translation must be non-empty.")
+
+    merged_parts = _parse_merged_parts(raw_response.get("merged_parts", []))
+    learning_expressions = _parse_learning_expressions(
+        raw_response.get("learning_expressions", [])
+    )
+    return full_text_translation, merged_parts, learning_expressions
 
 
 def _strip_code_fence(text: str) -> str:
@@ -194,6 +280,7 @@ def _build_prompt(full_text: str, sentence_data: list[dict]) -> str:
         "- Each merged_parts item must contain exactly: source_part_ids, translated_text, vocabulary.\n"
         "- Each vocabulary item must contain exactly: word, meaning_ko, phonetic_en, phonetic_ko, example_en, example_ko.\n"
         "- Each learning_expressions item must contain exactly: expression, meaning, pronunciation_en, pronunciation_ko, nuance_in_sentence, example_en, example_ko.\n"
+        "- Every required field must be present and non-empty. If you cannot fill every required field for a vocabulary or learning_expressions item, omit that item entirely instead of returning a partial object.\n"
         f"Input JSON:\n{json.dumps(payload, ensure_ascii=False)}"
     )
 
@@ -409,23 +496,25 @@ def translate_reference_parts_with_gemini(
         retry_count = attempt
         try:
             raw_response = _request_gemini(prompt)
-            parsed_response = GeminiTranslationResponse.model_validate(
-                raw_response
-            )
+            (
+                full_text_translation,
+                parsed_merged_parts,
+                parsed_learning_expressions,
+            ) = _parse_translation_response(raw_response)
             _validate_merged_part_ids(
                 sentence_data,
-                parsed_response.merged_parts,
+                parsed_merged_parts,
             )
             merged_parts = _merge_source_parts(
                 sentence_data,
-                parsed_response.merged_parts,
+                parsed_merged_parts,
             )
             return TranslationMetadata(
-                final_script_ko=parsed_response.full_text_translation.strip(),
+                final_script_ko=full_text_translation,
                 parts=merged_parts,
                 learning_expressions=[
                     expression.model_dump()
-                    for expression in parsed_response.learning_expressions
+                    for expression in parsed_learning_expressions
                 ],
                 translation_status="success",
                 translation_retry_count=retry_count,

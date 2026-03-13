@@ -298,3 +298,29 @@ CAPTION_MAX_LEADING_GAP_SEC: float = get(
 CAPTION_FALLBACK_MIN_REASON_COUNT: int = get(
     "alignment.caption_fallback_min_reason_count", 2
 )
+
+# ── Vocal Remover (Reference 전용) ──
+# false이면 reference 생성에서 vocal separation 및
+# VR 기반 prosody 추출 경로를 모두 스킵합니다.
+VR_ENABLED: bool = get("vocal_remover.enabled", True)
+VR_MODEL: str = get("vocal_remover.model", "htdemucs")
+VR_DEVICE: str = get("vocal_remover.device", "auto")
+VR_SEGMENT: int | None = get("vocal_remover.segment", None)
+REFERENCE_F0_GATE_MIN_VOICED_RATIO: float = get(
+    "reference_feature_gate.f0_min_voiced_ratio", 0.5
+)
+REFERENCE_F0_GATE_MAX_JUMP_RATIO: float = get(
+    "reference_feature_gate.f0_max_jump_ratio", 0.2
+)
+REFERENCE_F0_GATE_MAX_SEMITONE_JUMP: float = get(
+    "reference_feature_gate.f0_max_semitone_jump", 6.0
+)
+REFERENCE_RMS_GATE_MIN_CONTRAST_DB: float = get(
+    "reference_feature_gate.rms_min_contrast_db", 6.0
+)
+REFERENCE_RMS_GATE_MAX_DROPOUT_RATIO: float = get(
+    "reference_feature_gate.rms_max_dropout_ratio", 0.8
+)
+REFERENCE_RMS_GATE_DROPOUT_FRACTION: float = get(
+    "reference_feature_gate.rms_dropout_fraction", 0.1
+)

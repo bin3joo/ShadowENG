@@ -1,9 +1,12 @@
 """Use-case service for StyleEcho reference generation."""
 
+import importlib
 import logging
 import os
 import tempfile
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 
 import librosa
 import numpy as np
@@ -11,7 +14,7 @@ from fastapi import BackgroundTasks, HTTPException
 
 try:
     from .. import config
-    from ..domain.processing.audio_processing import trim_boundary_fragments
+    from ..domain.processing import audio_processing as audio_processing_module
     from ..domain.processing.quality import (
         assess_reference_quality,
         estimate_reference_audio_metrics,
@@ -34,7 +37,6 @@ try:
         download_reference_audio,
         fetch_youtube_captions,
     )
-    from ..pipeline import get_pipeline
     from ..schemas import GenerateReferenceRequest
     from .reference_payload import (
         attach_part_analysis,
@@ -47,7 +49,7 @@ try:
     )
 except ImportError:
     import config
-    from domain.processing.audio_processing import trim_boundary_fragments
+    from domain.processing import audio_processing as audio_processing_module
     from domain.processing.quality import (
         assess_reference_quality,
         estimate_reference_audio_metrics,
@@ -70,7 +72,6 @@ except ImportError:
         download_reference_audio,
         fetch_youtube_captions,
     )
-    from pipeline import get_pipeline
     from schemas import GenerateReferenceRequest
     from services.reference_payload import (
         attach_part_analysis,
@@ -81,6 +82,13 @@ except ImportError:
     from services.reference_translation_service import (
         translate_reference_parts_with_gemini,
     )
+
+try:
+    pipeline_module = importlib.import_module("..pipeline", __package__)
+except Exception:
+    pipeline_module = importlib.import_module("pipeline")
+
+get_pipeline = pipeline_module.get_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -193,178 +201,267 @@ def generate_reference(
 
     try:
         pipeline = get_pipeline()
-        caption_text, caption_source = fetch_youtube_captions(
-            req.video_id,
-            req.start_sec,
-            req.end_sec,
-            padding_sec=config.AUDIO_PADDING_SEC,
-        )
-        audio_padding_sec = (
-            config.AUDIO_PADDING_SEC if caption_source == "manual" else 0.0
-        )
-
+        use_vr = config.VR_ENABLED
         tmp_dir = tempfile.mkdtemp(prefix="styleecho_")
         audio_filename = f"{uuid.uuid4().hex}.wav"
         audio_path = os.path.join(tmp_dir, audio_filename)
 
-        _, actual_audio = download_reference_audio(
-            req.video_id,
-            req.start_sec,
-            req.end_sec,
-            audio_path,
-            tmp_dir,
-            audio_padding_sec,
-        )
-
-        if caption_text:
-            logger.info(
-                "Fast Path: caption-align (source=%s, 자막 %d자)",
-                caption_source,
-                len(caption_text),
-            )
-            stats = pipeline.align_text_to_audio(actual_audio, caption_text)
-            fallback_reasons = stats.get("caption_fallback_reasons", [])
-            should_fallback = config.CAPTION_FALLBACK_ENABLED and (
-                stats.get("caption_should_fallback", False)
-                or not stats.get("word_timestamps")
-            )
-            if should_fallback:
-                logger.info(
-                    "Caption align fallback to Whisper STT: reasons=%s",
-                    fallback_reasons or ["empty_alignment"],
-                )
-                stats = pipeline.extract_whisper_stats(actual_audio)
-        else:
-            logger.info(
-                "Slow Path: full STT transcribe (caption_source=%s)",
-                caption_source,
-            )
-            stats = pipeline.extract_whisper_stats(actual_audio)
-
-        stt_method = stats.get("stt_method", "whisper_stt")
-        target_sr = config.TARGET_SR
-        audio_array, _ = librosa.load(actual_audio, sr=target_sr)
-
-        audio_duration_sec = float(len(audio_array) / target_sr)
-        request_offset_sec = min(req.start_sec, audio_padding_sec)
+        download_padding_sec = config.AUDIO_PADDING_SEC
+        request_offset_sec = min(req.start_sec, download_padding_sec)
         request_duration_sec = max(0.0, req.end_sec - req.start_sec)
 
-        refined_words, refined_text = trim_boundary_fragments(
-            word_timestamps=stats["word_timestamps"],
-            full_text=stats["text"],
-            audio_duration_sec=audio_duration_sec,
-        )
-        trimmed_count = len(stats["word_timestamps"]) - len(refined_words)
-        final_script = refined_text if refined_text else stats["text"]
-        final_words = (
-            refined_words if refined_words else stats["word_timestamps"]
-        )
-        sanitized_words = sanitize_word_timestamps(final_words)
-        if sanitized_words:
-            final_words = sanitized_words
-            final_script = sanitize_reference_text(
-                " ".join(word["word"] for word in final_words)
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            caption_future = executor.submit(
+                fetch_youtube_captions,
+                req.video_id,
+                req.start_sec,
+                req.end_sec,
+                config.AUDIO_PADDING_SEC,
             )
-        else:
-            final_script = sanitize_reference_text(final_script)
-        request_words = _rebase_reference_words(
-            final_words,
-            request_offset_sec,
-            request_duration_sec,
-        )
-        if request_words:
-            final_words = sanitize_word_timestamps(request_words)
-            final_script = sanitize_reference_text(
-                " ".join(word["word"] for word in final_words)
-            )
-        logger.info(
-            "trim_boundary_fragments: removed %d words (%d remain)",
-            trimmed_count,
-            len(final_words),
-        )
-
-        request_audio = _slice_audio_segment(
-            audio_array,
-            target_sr,
-            request_offset_sec,
-            request_offset_sec + request_duration_sec,
-        )
-
-        audio_metrics = estimate_reference_audio_metrics(
-            request_audio,
-            target_sr,
-            final_words,
-        )
-        denoise_mode = select_reference_denoise_mode_from_metrics(audio_metrics)
-
-        speech_start_sec = (
-            float(final_words[0].get("start", 0.0)) if final_words else 0.0
-        )
-        speech_end_sec = (
-            float(final_words[-1].get("end", request_duration_sec))
-            if final_words
-            else request_duration_sec
-        )
-        start_idx = int(speech_start_sec * target_sr)
-        end_idx = int(speech_end_sec * target_sr)
-        cropped_audio = (
-            request_audio[start_idx:end_idx]
-            if end_idx > start_idx
-            else request_audio
-        )
-
-        f0, rms, _ = pipeline.extract_prosody_features(
-            cropped_audio,
-            target_sr,
-            denoise=denoise_mode != "off",
-            denoise_profile=denoise_mode,
-        )
-
-        sentence_data = split_into_sentences_with_timestamps(
-            final_script,
-            final_words,
-        )
-        sentence_data = attach_part_analysis(
-            sentence_data,
-            f0,
-            rms,
-            speech_start_sec,
-            target_sr,
-            config.HOP_LENGTH,
-        )
-
-        quality_metadata = assess_reference_quality(
-            request_audio,
-            target_sr,
-            final_words,
-            sentence_data,
-            caption_source,
-            stt_method,
-            denoise_mode,
-            precomputed_metrics=audio_metrics,
-        )
-        _apply_speaker_risk_policy(sentence_data, quality_metadata)
-
-        should_reject = quality_metadata.get("reference_quality") == "reject"
-        if (
-            quality_metadata.get("reference_quality") == "risky"
-            and not config.REFERENCE_ALLOW_RISKY
-        ):
-            should_reject = True
-
-        if should_reject:
-            raise HTTPException(
-                status_code=422,
-                detail={
-                    "message": "reference 구간 품질이 낮아 생성이 거부되었습니다.",
-                    **quality_metadata,
-                },
+            download_future = executor.submit(
+                download_reference_audio,
+                req.video_id,
+                req.start_sec,
+                req.end_sec,
+                audio_path,
+                tmp_dir,
+                download_padding_sec,
             )
 
-        translation_result = translate_reference_parts_with_gemini(
-            final_script,
-            sentence_data,
-        )
+            caption_text, caption_source = caption_future.result()
+            _, actual_audio = download_future.result()
+
+            vocal_future = None
+            if use_vr:
+                vocal_future = executor.submit(
+                    audio_processing_module.separate_vocals,
+                    actual_audio,
+                    tmp_dir,
+                )
+
+            if caption_text:
+                logger.info(
+                    "Fast Path: caption-align (source=%s, 자막 %d자)",
+                    caption_source,
+                    len(caption_text),
+                )
+                stats = pipeline.align_text_to_audio(
+                    actual_audio, caption_text
+                )
+                fallback_reasons = stats.get(
+                    "caption_fallback_reasons",
+                    [],
+                )
+                should_fallback = config.CAPTION_FALLBACK_ENABLED and (
+                    stats.get("caption_should_fallback", False)
+                    or not stats.get("word_timestamps")
+                )
+                if should_fallback:
+                    logger.info(
+                        "Caption align fallback to Whisper STT: reasons=%s",
+                        fallback_reasons or ["empty_alignment"],
+                    )
+                    stats = pipeline.extract_whisper_stats(actual_audio)
+            else:
+                logger.info(
+                    "Slow Path: full STT transcribe (caption_source=%s)",
+                    caption_source,
+                )
+                stats = pipeline.extract_whisper_stats(actual_audio)
+
+            vocal_audio = actual_audio
+            if vocal_future is not None:
+                vocal_audio = vocal_future.result()
+
+            stt_method = stats.get("stt_method", "whisper_stt")
+            target_sr = config.TARGET_SR
+            original_audio_array, _ = librosa.load(
+                actual_audio,
+                sr=target_sr,
+            )
+            feature_audio_array, _ = librosa.load(
+                vocal_audio,
+                sr=target_sr,
+            )
+
+            audio_duration_sec = float(len(original_audio_array) / target_sr)
+
+            refined_words, refined_text = (
+                audio_processing_module.trim_boundary_fragments(
+                    word_timestamps=stats["word_timestamps"],
+                    full_text=stats["text"],
+                    audio_duration_sec=audio_duration_sec,
+                )
+            )
+            trimmed_count = len(stats["word_timestamps"]) - len(refined_words)
+            final_script = refined_text if refined_text else stats["text"]
+            final_words = (
+                refined_words if refined_words else stats["word_timestamps"]
+            )
+            sanitized_words = sanitize_word_timestamps(final_words)
+            if sanitized_words:
+                final_words = sanitized_words
+                final_script = sanitize_reference_text(
+                    " ".join(word["word"] for word in final_words)
+                )
+            else:
+                final_script = sanitize_reference_text(final_script)
+            request_words = _rebase_reference_words(
+                final_words,
+                request_offset_sec,
+                request_duration_sec,
+            )
+            if request_words:
+                final_words = sanitize_word_timestamps(request_words)
+                final_script = sanitize_reference_text(
+                    " ".join(word["word"] for word in final_words)
+                )
+            logger.info(
+                "trim_boundary_fragments: removed %d words (%d remain)",
+                trimmed_count,
+                len(final_words),
+            )
+
+            request_audio = _slice_audio_segment(
+                original_audio_array,
+                target_sr,
+                request_offset_sec,
+                request_offset_sec + request_duration_sec,
+            )
+            feature_request_audio = _slice_audio_segment(
+                feature_audio_array,
+                target_sr,
+                request_offset_sec,
+                request_offset_sec + request_duration_sec,
+            )
+
+            audio_metrics = estimate_reference_audio_metrics(
+                request_audio,
+                target_sr,
+                final_words,
+            )
+            denoise_mode = select_reference_denoise_mode_from_metrics(
+                audio_metrics
+            )
+
+            speech_start_sec = (
+                float(final_words[0].get("start", 0.0)) if final_words else 0.0
+            )
+            speech_end_sec = (
+                float(final_words[-1].get("end", request_duration_sec))
+                if final_words
+                else request_duration_sec
+            )
+            start_idx = int(speech_start_sec * target_sr)
+            end_idx = int(speech_end_sec * target_sr)
+            cropped_original_feature_audio = (
+                request_audio[start_idx:end_idx]
+                if end_idx > start_idx
+                else request_audio
+            )
+            cropped_feature_audio = (
+                feature_request_audio[start_idx:end_idx]
+                if end_idx > start_idx
+                else feature_request_audio
+            )
+
+            original_prosody_future = executor.submit(
+                pipeline.extract_prosody_features,
+                cropped_original_feature_audio,
+                target_sr,
+                denoise_mode != "off",
+                denoise_mode,
+            )
+
+            original_f0, original_rms, _ = original_prosody_future.result()
+            if use_vr:
+                vr_prosody_future = executor.submit(
+                    pipeline.extract_prosody_features,
+                    cropped_feature_audio,
+                    target_sr,
+                    denoise_mode != "off",
+                    denoise_mode,
+                )
+                vr_f0, vr_rms, _ = vr_prosody_future.result()
+                selected_prosody = (
+                    pipeline_module.select_reference_prosody_sources(
+                        original_f0,
+                        original_rms,
+                        vr_f0,
+                        vr_rms,
+                    )
+                )
+                f0 = selected_prosody["f0"]
+                rms = selected_prosody["rms"]
+                logger.info(
+                    "Reference prosody source selected: f0=%s rms=%s "
+                    "(orig_f0=%s vr_f0=%s orig_rms=%s vr_rms=%s)",
+                    selected_prosody["f0_source"],
+                    selected_prosody["rms_source"],
+                    selected_prosody["original_f0_metrics"],
+                    selected_prosody["vr_f0_metrics"],
+                    selected_prosody["original_rms_metrics"],
+                    selected_prosody["vr_rms_metrics"],
+                )
+            else:
+                f0 = original_f0
+                rms = original_rms
+                logger.info(
+                    "Reference prosody source selected: f0=original "
+                    "rms=original (VR disabled)"
+                )
+
+            sentence_data = split_into_sentences_with_timestamps(
+                final_script,
+                final_words,
+            )
+            translation_future = executor.submit(
+                translate_reference_parts_with_gemini,
+                final_script,
+                deepcopy(sentence_data),
+            )
+
+            sentence_data = attach_part_analysis(
+                sentence_data,
+                f0,
+                rms,
+                speech_start_sec,
+                target_sr,
+                config.HOP_LENGTH,
+            )
+
+            quality_metadata = assess_reference_quality(
+                request_audio,
+                target_sr,
+                final_words,
+                sentence_data,
+                caption_source,
+                stt_method,
+                denoise_mode,
+                precomputed_metrics=audio_metrics,
+            )
+            _apply_speaker_risk_policy(sentence_data, quality_metadata)
+
+            should_reject = (
+                quality_metadata.get("reference_quality") == "reject"
+            )
+            if (
+                quality_metadata.get("reference_quality") == "risky"
+                and not config.REFERENCE_ALLOW_RISKY
+            ):
+                should_reject = True
+
+            if should_reject:
+                translation_future.cancel()
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "message": "reference 구간 품질이 낮아 생성이 거부되었습니다.",
+                        **quality_metadata,
+                    },
+                )
+
+            translation_result = translation_future.result()
         sentence_data = attach_part_analysis(
             translation_result.parts,
             f0,
@@ -377,8 +474,9 @@ def generate_reference(
         _apply_speaker_risk_policy(sentence_data, quality_metadata)
 
         # 저장용 오디오만 Peak 정규화 (플레이백 품질 향상)
-        from domain.processing.audio_processing import peak_normalize_audio
-        save_audio = peak_normalize_audio(request_audio)
+        save_audio = audio_processing_module.peak_normalize_audio(
+            request_audio
+        )
 
         save_dir = prepare_reference_audio_dir(
             req.video_id,
