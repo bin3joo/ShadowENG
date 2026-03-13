@@ -32,7 +32,7 @@ services:
     ports:
       - '8080:8080'
     volumes:
-    - /home/ubuntu/config/application-secret.yaml:/app/application-secret.yaml
+      - /home/ubuntu/config/application-secret.yaml:/app/application-secret.yaml
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-container:5432/shadoweng
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
