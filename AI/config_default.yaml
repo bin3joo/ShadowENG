@@ -216,8 +216,15 @@ scoring:
   # 멈춤 유사도: pause_score = 100 * exp(-(diff^2) / (2*sigma^2))
   # 값이 클수록 pause 차이에 덜 민감
   pause_sigma: 2.5
-  # pause 로 간주할 최소 무음 길이(초)
+  # pause 로 간주할 최소 무음 길이(초) — 횟수 세기 전용
+  # (레퍼런스 JSON의 pause_count 에 직접 영향)
   pause_gap_sec: 0.3
+  # 위치 정합(Alignment) F1 점수의 가중치 (0.0~1.0)
+  # 횟수 기반 점수의 비중은 1 - pause_align_weight 로 자동 파생
+  pause_align_weight: 0.7
+  # 위치 비교 시 pause 판정 최소 gap(초) — 평가 전용
+  # pause_gap_sec 와 독립적으로 조정 가능
+  pause_align_gap_sec: 0.3
 
   # 억양 DTW: prosody_score = 100 * exp(-beta * normalized_distance)
   # 값이 클수록 prosody distance 증가에 더 민감
