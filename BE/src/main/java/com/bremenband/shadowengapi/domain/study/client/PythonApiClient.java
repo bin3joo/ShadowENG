@@ -17,19 +17,23 @@ import org.springframework.web.client.RestClient;
 public class PythonApiClient {
 
     private final RestClient restClient;
+    private final RestClient transcriptionRestClient;
 
     @Value("${python.api.base-url}")
     private String baseUrl;
 
-    public PythonApiClient(@Qualifier("pythonRestClient") RestClient restClient) {
+    public PythonApiClient(
+            @Qualifier("pythonRestClient") RestClient restClient,
+            @Qualifier("pythonTranscriptionRestClient") RestClient transcriptionRestClient) {
         this.restClient = restClient;
+        this.transcriptionRestClient = transcriptionRestClient;
     }
 
     public PythonGenerateReferenceResponse generateReference(String videoId, double startSec, double endSec) {
         PythonGenerateReferenceRequest request =
                 new PythonGenerateReferenceRequest(videoId, startSec, endSec);
         try {
-            return restClient.post()
+            return transcriptionRestClient.post()
                     .uri(baseUrl + "/api/v1/generate-reference")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(request)

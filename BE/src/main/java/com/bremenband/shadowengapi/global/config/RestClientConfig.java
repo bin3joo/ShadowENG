@@ -41,4 +41,19 @@ public class RestClientConfig {
                 .requestFactory(factory)
                 .build();
     }
+
+    @Bean
+    @Qualifier("pythonTranscriptionRestClient")
+    public RestClient pythonTranscriptionRestClient() {
+        HttpClient httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(5))
+                .build();
+
+        JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
+        factory.setReadTimeout(Duration.ofSeconds(300)); // 전사 처리 최대 3분 + 여유
+
+        return RestClient.builder()
+                .requestFactory(factory)
+                .build();
+    }
 }
