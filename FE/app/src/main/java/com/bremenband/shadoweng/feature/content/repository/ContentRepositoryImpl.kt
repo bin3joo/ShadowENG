@@ -11,6 +11,7 @@ import javax.inject.Inject
 class ContentRepositoryImpl @Inject constructor(
     private val api: ContentApi
 ) : ContentRepository {
+
     override suspend fun getVideo(url: String): Result<VideoResponse> =
         runCatching { api.getVideo(url).data ?: throw DomainException.InvalidResponse }
             .mapDomainException()
