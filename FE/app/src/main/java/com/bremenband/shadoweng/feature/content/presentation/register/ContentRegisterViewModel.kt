@@ -1,10 +1,8 @@
-package com.bremenband.shadoweng.feature.content.viewmodel
+package com.bremenband.shadoweng.feature.content.presentation.register
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bremenband.shadoweng.core.exception.DomainException
-import com.bremenband.shadoweng.feature.content.model.ContentRegisterEvent
-import com.bremenband.shadoweng.feature.content.model.ContentRegisterUiState
 import com.bremenband.shadoweng.feature.content.repository.ContentRepository
 import com.bremenband.shadoweng.feature.content.util.YoutubeUrlParser
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -52,6 +50,7 @@ class ContentRegisterViewModel @Inject constructor(
                         val msg = when (e) {
                             is DomainException.NotFound -> "영상을 찾을 수 없어요"
                             is DomainException.NetworkError  -> "네트워크를 확인해주세요"
+                            is DomainException.InvalidResponse -> "서버 응답이 올바르지 않아요"
                             else -> "알 수 없는 오류가 발생했어요"
                         }
                         _uiState.update { it.copy(error = msg) }

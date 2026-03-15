@@ -1,11 +1,10 @@
-package com.bremenband.shadoweng.feature.content.viewmodel
+package com.bremenband.shadoweng.feature.content.presentation.range
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.bremenband.shadoweng.feature.content.model.ContentRangeEvent
-import com.bremenband.shadoweng.feature.content.model.ContentRangeUiState
 import com.bremenband.shadoweng.feature.content.repository.ContentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -42,19 +41,21 @@ class ContentRangeViewModel @Inject constructor(
     }
 
     private fun submit() {
-        val state = _uiState.value
-        if (!state.isStartValid || !state.isEndValid) return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            repository.createSession(
-                embedUrl = state.embedUrl,
-                startSec = parseTimeToSeconds(state.startTime).toDouble(),
-                endSec = parseTimeToSeconds(state.endTime).toDouble()
-            ).onSuccess { sessionId ->
-                _navigateToStudy.emit(sessionId)
-            }.onFailure { e ->
-                _uiState.update { it.copy(error = e.message ?: "세션 생성 실패") }
-            }
+            // TODO: 백엔드 연동 후 주석 해제
+            // val state = _uiState.value
+            // repository.createSession(
+            //     embedUrl = state.embedUrl,
+            //     startSec = parseTimeToSeconds(state.startTime).toDouble(),
+            //     endSec = parseTimeToSeconds(state.endTime).toDouble()
+            // ).onSuccess { sessionId ->
+            //     _navigateToStudy.emit(sessionId)
+            // }.onFailure { e ->
+            //     _uiState.update { it.copy(error = e.message ?: "세션 생성 실패") }
+            // }
+            delay(300)
+            _navigateToStudy.emit(1L) // TODO: mock - 백엔드 연동 후 실제 sessionId로 교체
             _uiState.update { it.copy(isLoading = false) }
         }
     }
