@@ -12,6 +12,7 @@ import com.bremenband.shadowengapi.domain.study.repository.SentenceRepository;
 import com.bremenband.shadowengapi.domain.study.repository.StudySessionRepository;
 import com.bremenband.shadowengapi.global.exception.CustomException;
 import com.bremenband.shadowengapi.global.exception.ErrorCode;
+import com.bremenband.shadowengapi.global.s3.S3Uploader;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +20,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
-import java.util.Base64;
 import java.util.List;
 
 @Service
@@ -32,6 +32,7 @@ public class EvaluationService {
     private final PythonApiClient pythonApiClient;
     private final ObjectMapper objectMapper;
     private final StudySessionWriter studySessionWriter;
+    private final S3Uploader s3Uploader;
 
     public EvaluationResponse evaluate(Long sessionId, Long sentenceId, int step, MultipartFile audioFile, Long userId) {
         // 1. 세션 조회 및 소유권 검증 (트랜잭션 불필요 — 단순 조회)
@@ -50,8 +51,8 @@ public class EvaluationService {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
 
-        // 3. 음성 파일 base64 인코딩
-        String base64Audio = encodeToBase64(audioFile);
+        // 3. 음성 파일 S3 업로드
+        String s3Key = s3Uploader.upload(audioFile);
         String audioFormat = getFileExtension(audioFile.getOriginalFilename());
 
         // 4. 저장된 레퍼런스 JSON 역직렬화
@@ -60,14 +61,17 @@ public class EvaluationService {
 
         // 5. Python evaluate-audio 호출 (최대 35초 소요 — DB 커넥션 점유 방지를 위해 트랜잭션 밖에서 실행)
         PythonEvaluateAudioRequest request = new PythonEvaluateAudioRequest(
-                base64Audio, audioFormat, sentence.getContent(), features, wordTimestamps);
+                s3Key, audioFormat, sentence.getContent(), features, wordTimestamps);
         PythonEvaluateAudioResponse pythonResponse = pythonApiClient.evaluateAudio(request);
+
+        // 6. 평가 완료 후 S3 파일 삭제
+        s3Uploader.delete(s3Key);
 
         if ("FAIL".equals(pythonResponse.status())) {
             throw new CustomException(ErrorCode.VOICE_RECOGNITION_FAILED);
         }
 
-        // 6. 평가 결과 저장 (SimpleJpaRepository.save()가 자체 @Transactional 보유)
+        // 7. 평가 결과 저장 (SimpleJpaRepository.save()가 자체 @Transactional 보유)
         PythonEvaluateAudioResponse.Details d = pythonResponse.details();
         PythonEvaluateAudioResponse.Scores s = pythonResponse.scores();
 
@@ -88,10 +92,10 @@ public class EvaluationService {
                 .pauseSimilarity(bd(s.pauseSimilarity()))
                 .build());
 
-        // 7. 모든 문장이 평가됐으면 세션 완료 처리
+        // 8. 모든 문장이 평가됐으면 세션 완료 처리
         studySessionWriter.completeSessionIfAllEvaluated(sessionId);
 
-        // 8. 응답 빌드
+        // 9. 응답 빌드
         return buildResponse(sentence, pythonResponse);
     }
 
@@ -124,17 +128,8 @@ public class EvaluationService {
                 scores);
     }
 
-    private String encodeToBase64(MultipartFile file) {
-        try {
-            return Base64.getEncoder().encodeToString(file.getBytes());
-        } catch (Exception e) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-    }
-
-    //추후 파일 크기, 서버사이드 검증, 파일명 우회 가능성 등의 내용 수정 예정
     private String getFileExtension(String filename) {
-        if (filename == null || !filename.contains(".")) return "wav";
+        if (filename == null || !filename.contains(".")) return "webm";
         return filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
     }
 
