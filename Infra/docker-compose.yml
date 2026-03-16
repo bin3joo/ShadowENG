@@ -46,7 +46,7 @@ services:
       - PYTHON_API_BASE_URL=${PYTHON_API_URL}
       - JWT_SECRET=${JWT_SECRET}
 
-      - SPRING_CONFIG_ADDITIONAL_LOCATION=/app/config/
+      - SPRING_CONFIG_IMPORT=file:/app/config/application-secret.yaml
     depends_on:
       - postgres
       - redis
