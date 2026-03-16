@@ -143,6 +143,7 @@ public class StudySessionService {
         return new RecentStudySessionResponse(latestSession);
     }
 
+    @Transactional
     public StudySessionCreateResponse createStudySession(Long userId, StudySessionCreateRequest request) {
         // 1. URL에서 videoId 추출 (watch/youtu.be/embed 형식 모두 지원, DB/API 호출 없음)
         String videoId = youtubeService.extractVideoId(request.embedUrl());

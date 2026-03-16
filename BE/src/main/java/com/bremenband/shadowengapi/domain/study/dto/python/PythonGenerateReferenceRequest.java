@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public record PythonGenerateReferenceRequest(
 
-        @JsonProperty("youtube_id")
+        @JsonProperty("video_id")
         String youtubeId,
 
         @JsonProperty("start_sec")

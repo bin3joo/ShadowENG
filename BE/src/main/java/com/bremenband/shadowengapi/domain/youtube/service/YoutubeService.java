@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 public class YoutubeService {
 
     private static final Pattern VIDEO_ID_PATTERN = Pattern.compile(
-            "(?:youtube\\.com/watch\\?.*v=|youtu\\.be/|youtube\\.com/embed/)([\\w-]{11})"
+            "(?:youtube\\.com/watch\\?.*v=|youtu\\.be/|youtube\\.com/embed/|youtube\\.com/shorts/)([\\w-]{11})"
     );
 
     private final YoutubeApiClient youtubeApiClient;
