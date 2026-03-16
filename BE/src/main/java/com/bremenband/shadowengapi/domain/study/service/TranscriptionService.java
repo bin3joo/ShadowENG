@@ -20,6 +20,7 @@ public class TranscriptionService {
     private final ObjectMapper objectMapper;
 
     public List<TranscribedSentence> transcribe(String videoId, double startSec, double endSec) {
+
         PythonGenerateReferenceResponse response =
                 pythonApiClient.generateReference(videoId, startSec, endSec);
 

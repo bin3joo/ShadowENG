@@ -39,7 +39,8 @@ class YoutubeServiceTest {
             "https://www.youtube.com/watch?v=dQw4w9WgXcQ, dQw4w9WgXcQ",
             "https://youtu.be/dQw4w9WgXcQ,                dQw4w9WgXcQ",
             "https://www.youtube.com/embed/dQw4w9WgXcQ,   dQw4w9WgXcQ",
-            "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10s, dQw4w9WgXcQ"
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10s, dQw4w9WgXcQ",
+            "https://www.youtube.com/shorts/ZgfgOIaoWiA,  ZgfgOIaoWiA"
     })
     void extractVideoId_다양한URL_videoId추출(String url, String expectedVideoId) {
         // given & when
