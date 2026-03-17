@@ -24,36 +24,20 @@ class StudySessionViewModel @Inject constructor(
     fun loadSession(sessionId: Long) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            // TODO: 백엔드 연동 후 주석 해제
-            // repository.getSession(sessionId)
-            //     .onSuccess { session ->
-            //         _uiState.update {
-            //             it.copy(
-            //                 isLoading = false,
-            //                 title = session.title,
-            //                 embedUrl = session.embedUrl,
-            //                 sentences = session.sentences
-            //             )
-            //         }
-            //     }
-            //     .onFailure {
-            //         _uiState.update { it.copy(isLoading = false) }
-            //     }
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    title = "How to Fly with TED",
-                    embedUrl = "",
-                    sentences = listOf(
-                        com.bremenband.shadoweng.feature.study.domain.SentenceItem(id = 1L, content = "I had this meeting with a big studio Hollywood casting director.", timestamp = "0:03", isCompleted = true),
-                        com.bremenband.shadoweng.feature.study.domain.SentenceItem(id = 2L, content = "I had this meeting with a big studio Hollywood casting director.", timestamp = "0:03", isCompleted = true),
-                        com.bremenband.shadoweng.feature.study.domain.SentenceItem(id = 3L, content = "I had this meeting with a big studio Hollywood casting director.", timestamp = "0:03", isCompleted = false),
-                        com.bremenband.shadoweng.feature.study.domain.SentenceItem(id = 4L, content = "I had this meeting with a big studio Hollywood casting director.", timestamp = "0:03", isCompleted = false),
-                        com.bremenband.shadoweng.feature.study.domain.SentenceItem(id = 5L, content = "I had this meeting with a big studio Hollywood casting director.", timestamp = "0:03", isCompleted = false),
-                        com.bremenband.shadoweng.feature.study.domain.SentenceItem(id = 6L, content = "I had this meeting with a big studio Hollywood casting director.", timestamp = "0:03", isCompleted = false),
-                    )
-                )
-            }
+            repository.getSession(sessionId)
+                .onSuccess { session ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            title = session.title,
+                            embedUrl = session.embedUrl,
+                            sentences = session.sentences
+                        )
+                    }
+                }
+                .onFailure {
+                    _uiState.update { it.copy(isLoading = false) }
+                }
         }
     }
 

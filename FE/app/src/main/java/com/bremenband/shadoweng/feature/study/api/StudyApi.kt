@@ -22,6 +22,13 @@ interface StudyApi {
         @Body request: EvaluationRequest
     ): ApiResponse<EvaluationResponse>
 
+    @GET("study-sessions/{sessionId}/sentences/{sentenceId}")
+    suspend fun getSentence(
+        @Path("sessionId") sessionId: Long,
+        @Path("sentenceId") sentenceId: Long,
+        @Query("step") step: Int
+    ): ApiResponse<SentenceDetailResponse>
+
     @POST("study-sessions/{sessionId}/reports")
     suspend fun createReport(
         @Path("sessionId") sessionId: Long,

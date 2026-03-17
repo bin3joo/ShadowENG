@@ -23,26 +23,8 @@ fun NavGraphBuilder.studyNavGraph(navController: NavHostController) {
             val sessionId = backStack.arguments?.getLong("sessionId") ?: return@composable
             StudySessionScreen(
                 sessionId = sessionId,
-                onStartStudy = { sentenceId ->
-                    navController.navigate(NavRoutes.studyLearning(sentenceId))
-                }
-            )
-        }
-
-        composable(
-            route = NavRoutes.STUDY_LEARNING,
-            arguments = listOf(navArgument("sentenceId") { type = NavType.LongType })
-        ) { backStack ->
-            val sentenceId = backStack.arguments?.getLong("sentenceId") ?: return@composable
-            StudyLearningScreen(
-                sessionId = 0L, // TODO: sessionId route에 추가 후 연동
-                sentenceId = sentenceId,
-                onNavigateToHighlight = { }, // TODO: 하이라이팅 구현 후 활성화
-                onSessionEnd = {
-                    // TODO: 실제 sessionId로 교체
-                    navController.navigate(NavRoutes.studyReport(sentenceId)) {
-                        popUpTo(NavRoutes.STUDY_SESSION) { inclusive = false }
-                    }
+                onStartStudy = { sid, sentenceId ->
+                    navController.navigate(NavRoutes.studyLearning(sid, sentenceId))
                 }
             )
         }
@@ -62,24 +44,52 @@ fun NavGraphBuilder.studyNavGraph(navController: NavHostController) {
         }
 
         composable(
-            route = NavRoutes.STUDY_HIGHLIGHT,
-            arguments = listOf(navArgument("sentenceId") { type = NavType.LongType })
+            route = NavRoutes.STUDY_LEARNING,
+            arguments = listOf(
+                navArgument("sessionId") { type = NavType.LongType },
+                navArgument("sentenceId") { type = NavType.LongType }
+            )
         ) { backStack ->
+            val sessionId = backStack.arguments?.getLong("sessionId") ?: return@composable
+            val sentenceId = backStack.arguments?.getLong("sentenceId") ?: return@composable
+            StudyLearningScreen(
+                sessionId = sessionId,
+                sentenceId = sentenceId,
+                onNavigateToHighlight = {
+                    navController.navigate(NavRoutes.studyHighlight(sessionId, sentenceId))
+                },
+                onSessionEnd = {
+                    navController.navigate(NavRoutes.studyReport(sessionId)) {
+                        popUpTo(NavRoutes.STUDY_SESSION) { inclusive = false }
+                    }
+                }
+            )
+        }
+
+        composable(
+            route = NavRoutes.STUDY_HIGHLIGHT,
+            arguments = listOf(
+                navArgument("sessionId") { type = NavType.LongType },
+                navArgument("sentenceId") { type = NavType.LongType }
+            )
+        ) { backStack ->
+            val sessionId = backStack.arguments?.getLong("sessionId") ?: return@composable
             val sentenceId = backStack.arguments?.getLong("sentenceId") ?: return@composable
             StudyHighlightScreen(
+                sessionId = sessionId,
                 sentenceId = sentenceId,
                 onNextMode = {
-                    navController.navigate(NavRoutes.studyLearning(sentenceId)) {
+                    navController.navigate(NavRoutes.studyLearning(sessionId, sentenceId)) {
                         popUpTo(NavRoutes.STUDY_HIGHLIGHT) { inclusive = true }
                     }
                 },
                 onSessionEnd = {
-                    navController.navigate(NavRoutes.studyReport(sentenceId)) {
+                    navController.navigate(NavRoutes.studyReport(sessionId)) {
                         popUpTo(NavRoutes.STUDY_SESSION) { inclusive = false }
                     }
                 },
                 onRetryRecording = {
-                    navController.navigate(NavRoutes.studyLearning(sentenceId)) {
+                    navController.navigate(NavRoutes.studyLearning(sessionId, sentenceId)) {
                         popUpTo(NavRoutes.STUDY_HIGHLIGHT) { inclusive = true }
                     }
                 }

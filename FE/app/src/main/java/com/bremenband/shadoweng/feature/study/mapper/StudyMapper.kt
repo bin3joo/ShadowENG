@@ -4,6 +4,7 @@ import com.bremenband.shadoweng.feature.study.api.dto.EvaluationResponse
 import com.bremenband.shadoweng.feature.study.api.dto.EvaluationScores
 import com.bremenband.shadoweng.feature.study.api.dto.ReportResponse
 import com.bremenband.shadoweng.feature.study.api.dto.SentenceData
+import com.bremenband.shadoweng.feature.study.api.dto.SentenceDetailResponse
 import com.bremenband.shadoweng.feature.study.api.dto.SessionResponse
 import com.bremenband.shadoweng.feature.study.domain.DifficultSentence
 import com.bremenband.shadoweng.feature.study.domain.EvaluationResult
@@ -24,6 +25,12 @@ fun SessionResponse.toDomain() = StudySession(
 )
 
 fun SentenceData.toDomain() = SentenceItem(
+    id = sentenceId,
+    timestamp = "${startSec}s",
+    content = sentence
+)
+
+fun SentenceDetailResponse.toDomain() = SentenceItem(
     id = sentenceId,
     timestamp = "${startSec}s",
     content = sentence
