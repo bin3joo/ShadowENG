@@ -27,13 +27,13 @@ import com.bremenband.shadoweng.feature.study.domain.SentenceItem
 @Composable
 fun StudySessionScreen(
     sessionId: Long,
-    onStartStudy: (sentenceId: Long) -> Unit,
+    onStartStudy: (sessionId: Long, sentenceId: Long) -> Unit,
     viewModel: StudySessionViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.navigateToLearning.collect { onStartStudy(it) }
+        viewModel.navigateToLearning.collect { onStartStudy(sessionId, it) }
     }
     LaunchedEffect(sessionId) { viewModel.loadSession(sessionId) }
 

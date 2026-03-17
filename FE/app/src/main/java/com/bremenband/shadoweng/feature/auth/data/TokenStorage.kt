@@ -12,6 +12,8 @@ class TokenStorage @Inject constructor(
     private val prefs by lazy { context.getSharedPreferences("auth", Context.MODE_PRIVATE) }
 
     fun saveToken(token: String) = prefs.edit().putString("token", token).apply()
+    fun saveRefreshToken(token: String) = prefs.edit().putString("refresh_token", token).apply()
     fun getToken(): String? = prefs.getString("token", null)
+    fun getRefreshToken(): String? = prefs.getString("refresh_token", null)
     fun clear() = prefs.edit().clear().apply()
 }

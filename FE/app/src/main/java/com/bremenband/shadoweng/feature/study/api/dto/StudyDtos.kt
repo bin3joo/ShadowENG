@@ -22,6 +22,18 @@ data class SentenceData(
     val studyCount: Int
 )
 
+data class SentenceDetailResponse(
+    val step: Int,
+    val sessionId: Long,
+    val sentenceId: Long,
+    val sentence: String,
+    val hiddenSentence: String?,
+    val startSec: Double,
+    val endSec: Double,
+    val durationSec: Double,
+    val studyCount: Int
+)
+
 data class LatestActiveSession(val sessionId: Long, val thumbnailUrl: String, val progressRate: Int)
 data class ActiveSessionsResponse(val activeSessions: List<ActiveSession>)
 data class ActiveSession(val sessionId: Long, val thumbnailUrl: String, val progressRate: Int)

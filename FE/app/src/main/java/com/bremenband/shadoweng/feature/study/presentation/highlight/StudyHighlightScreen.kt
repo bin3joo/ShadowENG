@@ -29,6 +29,7 @@ import com.bremenband.shadoweng.feature.study.presentation.component.StepIndicat
 
 @Composable
 fun StudyHighlightScreen(
+    sessionId: Long,
     sentenceId: Long,
     onNextMode: () -> Unit,
     onSessionEnd: () -> Unit,
@@ -38,7 +39,7 @@ fun StudyHighlightScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(sentenceId) { viewModel.init(sentenceId.toString()) }
+    LaunchedEffect(sentenceId) { viewModel.init(sessionId, sentenceId) }
     LaunchedEffect(Unit) {
         viewModel.navigateToNextMode.collect {
             if (isLastMode) onSessionEnd() else onNextMode()
@@ -73,7 +74,11 @@ fun StudyHighlightScreen(
                         ) {
                             Icon(Icons.Default.Repeat, contentDescription = "반복", modifier = Modifier.size(16.dp), tint = Color(0xFF444444))
                         }
-                        ChipButton(text = "한글 자막 켜기", isActive = uiState.showKoreanSubtitle)
+                        ChipButton(
+                            text = "한글 자막 켜기",
+                            isActive = uiState.showKoreanSubtitle,
+                            onClick = { viewModel.onEvent(StudyHighlightEvent.ToggleKoreanSubtitle) }
+                        )
                     }
                     Icon(Icons.Default.BookmarkBorder, contentDescription = "북마크", modifier = Modifier.size(24.dp), tint = Color(0xFF888888))
                 }
@@ -123,12 +128,12 @@ fun StudyHighlightScreen(
 }
 
 @Composable
-private fun ChipButton(text: String, isActive: Boolean = false) {
+private fun ChipButton(text: String, isActive: Boolean = false, onClick: () -> Unit = {}) {
     Box(
         modifier = Modifier.clip(RoundedCornerShape(50))
             .background(if (isActive) Color(0xFFFEE500) else Color.Transparent)
             .border(1.dp, if (isActive) Color(0xFFFEE500) else Color(0xFFDDDDDD), RoundedCornerShape(50))
-            .clickable { }.padding(horizontal = 12.dp, vertical = 6.dp)
+            .clickable { onClick() }.padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Text(text, fontSize = 13.sp, color = Color(0xFF444444))
     }

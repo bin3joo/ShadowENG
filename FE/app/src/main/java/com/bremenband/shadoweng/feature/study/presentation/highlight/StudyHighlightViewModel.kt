@@ -4,31 +4,49 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bremenband.shadoweng.core.ui.component.model.Annotation
 import com.bremenband.shadoweng.core.ui.component.model.AnnotationType
-import com.bremenband.shadoweng.core.ui.component.model.ExpressionInfo
+import com.bremenband.shadoweng.feature.study.domain.SentenceItem
+import com.bremenband.shadoweng.feature.study.repository.StudyRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class StudyHighlightViewModel @Inject constructor() : ViewModel() {
+class StudyHighlightViewModel @Inject constructor(
+    private val studyRepository: StudyRepository
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StudyHighlightUiState())
     val uiState: StateFlow<StudyHighlightUiState> = _uiState.asStateFlow()
-    val navigateToNextMode = MutableSharedFlow<Unit>()
-    val navigateRetry = MutableSharedFlow<Unit>()
 
-    fun init(sentence: String) {
-        _uiState.update {
-            it.copy(
-                sentence = sentence,
-                annotations = getMockAnnotations(sentence)
-            )
+    private val _navigateToNextMode = MutableSharedFlow<Unit>()
+    val navigateToNextMode: SharedFlow<Unit> = _navigateToNextMode.asSharedFlow()
+
+    private val _navigateRetry = MutableSharedFlow<Unit>()
+    val navigateRetry: SharedFlow<Unit> = _navigateRetry.asSharedFlow()
+
+    fun init(sessionId: Long, sentenceId: Long) {
+        // TODO: step 값은 현재 학습 단계에 따라 동적으로 결정 필요 (BE 협의)
+        val step = 2
+        viewModelScope.launch {
+            studyRepository.getSentence(sessionId, sentenceId, step)
+                .onSuccess { sentence: SentenceItem ->
+                    _uiState.update {
+                        it.copy(
+                            sentence = sentence.content,
+                            annotations = getMockAnnotations(sentence.content)
+                        )
+                    }
+                }
+                .onFailure { e: Throwable ->
+                    _uiState.update { it.copy(error = e.message) }
+                }
         }
     }
 
@@ -39,20 +57,10 @@ class StudyHighlightViewModel @Inject constructor() : ViewModel() {
             is StudyHighlightEvent.DismissExpression ->
                 _uiState.update { it.copy(selectedWord = null, expressionInfo = null) }
             is StudyHighlightEvent.RetryRecording ->
-                viewModelScope.launch { navigateRetry.emit(Unit) }
+                viewModelScope.launch { _navigateRetry.emit(Unit) }
             is StudyHighlightEvent.NextMode ->
-                viewModelScope.launch { navigateToNextMode.emit(Unit) }
+                viewModelScope.launch { _navigateToNextMode.emit(Unit) }
             is StudyHighlightEvent.TapWord -> { }
-        }
-    }
-
-    private fun loadExpressionInfo(word: String) {
-        _uiState.update { it.copy(selectedWord = word, isLoadingExpression = true) }
-        viewModelScope.launch {
-            delay(800)
-            _uiState.update {
-                it.copy(isLoadingExpression = false, expressionInfo = getMockExpressionInfo(word))
-            }
         }
     }
 
@@ -65,11 +73,4 @@ class StudyHighlightViewModel @Inject constructor() : ViewModel() {
             Annotation(16, 22, AnnotationType.UNDERLINE),
         )
     }
-
-    private fun getMockExpressionInfo(word: String) = ExpressionInfo(
-        word = word,
-        pronunciation = "[${word.lowercase()}]",
-        description = "LLM 설명이 여기에 표시됩니다.",
-        examples = listOf("Example sentence using $word.")
-    )
 }

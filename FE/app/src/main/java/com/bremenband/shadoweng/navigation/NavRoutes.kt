@@ -4,9 +4,9 @@ import android.net.Uri
 
 object NavRoutes {
     // Study
-    const val STUDY_LEARNING = "study_learning/{sentenceId}" // TODO: sessionId 추가 필요
+    const val STUDY_LEARNING = "study_learning/{sessionId}/{sentenceId}"
     const val STUDY_LOADING = "study_loading/{sessionId}"
-    const val STUDY_HIGHLIGHT = "study_highlight/{sentenceId}"
+    const val STUDY_HIGHLIGHT = "study_highlight/{sessionId}/{sentenceId}"
     const val STUDY_REPORT = "study_report/{sessionId}"
 
     const val STUDY_GRAPH = "study_graph"
@@ -22,8 +22,8 @@ object NavRoutes {
     fun contentRange(embedUrl: String) = "content_range/${Uri.encode(embedUrl)}"
     fun contentLoading(sessionId: Long) = "content_loading/$sessionId"
     // helpers
-    fun studyLearning(sentenceId: Long) = "study_learning/$sentenceId"
-    fun studyHighlight(sentenceId: Long) = "study_highlight/$sentenceId"
+    fun studyLearning(sessionId: Long, sentenceId: Long) = "study_learning/$sessionId/$sentenceId"
+    fun studyHighlight(sessionId: Long, sentenceId: Long) = "study_highlight/$sessionId/$sentenceId"
     fun studyReport(sessionId: Long) = "study_report/$sessionId"
 
     //
