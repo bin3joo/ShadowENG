@@ -4,8 +4,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.navigation
-import com.bremenband.shadoweng.feature.auth.screen.AuthScreen
-
+import com.bremenband.shadoweng.feature.auth.presentation.AuthScreen
 fun NavGraphBuilder.authNavGraph(navController: NavHostController) {
     navigation(
         startDestination = NavRoutes.AUTH,

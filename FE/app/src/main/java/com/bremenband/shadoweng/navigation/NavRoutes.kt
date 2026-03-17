@@ -4,20 +4,25 @@ import android.net.Uri
 
 object NavRoutes {
     // Study
-    const val STUDY_SESSION = "study_session"
-    const val STUDY_LEARNING = "study_learning/{sentenceId}"
-    const val STUDY_LOADING = "study_loading/{sentenceId}"
+    const val STUDY_LEARNING = "study_learning/{sentenceId}" // TODO: sessionId 추가 필요
+    const val STUDY_LOADING = "study_loading/{sessionId}"
     const val STUDY_HIGHLIGHT = "study_highlight/{sentenceId}"
     const val STUDY_REPORT = "study_report/{sessionId}"
+
+    const val STUDY_GRAPH = "study_graph"
+    const val STUDY_SESSION = "study_session/{sessionId}"
+    fun studySession(sessionId: Long) = "study_session/$sessionId"
+    fun studyLoading(sessionId: Long) = "study_loading/$sessionId"
 
     // content
     const val CONTENT_REGISTER = "content_register"
     const val CONTENT_RANGE = "content_range/{embedUrl}"
-    fun contentRange(embedUrl: String) = "content_range/${Uri.encode(embedUrl)}"
+    const val CONTENT_LOADING = "content_loading/{sessionId}"
 
+    fun contentRange(embedUrl: String) = "content_range/${Uri.encode(embedUrl)}"
+    fun contentLoading(sessionId: Long) = "content_loading/$sessionId"
     // helpers
     fun studyLearning(sentenceId: Long) = "study_learning/$sentenceId"
-    fun studyLoading(sentenceId: Long) = "study_loading/$sentenceId"
     fun studyHighlight(sentenceId: Long) = "study_highlight/$sentenceId"
     fun studyReport(sessionId: Long) = "study_report/$sessionId"
 
