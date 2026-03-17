@@ -6,19 +6,18 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navigation
-import com.bremenband.shadoweng.feature.study.screen.StudyHighlightScreen
-import com.bremenband.shadoweng.feature.study.screen.StudyLearningScreen
-import com.bremenband.shadoweng.feature.study.screen.StudyLoadingScreen
-import com.bremenband.shadoweng.feature.study.screen.StudyReportScreen
-import com.bremenband.shadoweng.feature.study.screen.StudySessionScreen
-
+import com.bremenband.shadoweng.feature.study.presentation.highlight.StudyHighlightScreen
+import com.bremenband.shadoweng.feature.study.presentation.learning.StudyLearningScreen
+import com.bremenband.shadoweng.feature.study.presentation.loading.StudyLoadingScreen
+import com.bremenband.shadoweng.feature.study.presentation.report.StudyReportScreen
+import com.bremenband.shadoweng.feature.study.presentation.session.StudySessionScreen
 fun NavGraphBuilder.studyNavGraph(navController: NavHostController) {
     navigation(
-        startDestination = "study_session/{sessionId}",
-        route = "study_graph/{sessionId}"
+        startDestination = NavRoutes.STUDY_SESSION,
+        route = NavRoutes.STUDY_GRAPH
     ) {
         composable(
-            route = "study_session/{sessionId}",
+            route = NavRoutes.STUDY_SESSION,
             arguments = listOf(navArgument("sessionId") { type = NavType.LongType })
         ) { backStack ->
             val sessionId = backStack.arguments?.getLong("sessionId") ?: return@composable
@@ -35,14 +34,14 @@ fun NavGraphBuilder.studyNavGraph(navController: NavHostController) {
             arguments = listOf(navArgument("sentenceId") { type = NavType.LongType })
         ) { backStack ->
             val sentenceId = backStack.arguments?.getLong("sentenceId") ?: return@composable
-            val sessionId = backStack.arguments?.getLong("sessionId") ?: 0L
             StudyLearningScreen(
-                sessionId = sessionId,
+                sessionId = 0L, // TODO: sessionId route에 추가 후 연동
                 sentenceId = sentenceId,
-                onNavigateToHighlight = { navController.navigate(NavRoutes.studyLoading(it)) },
+                onNavigateToHighlight = { }, // TODO: 하이라이팅 구현 후 활성화
                 onSessionEnd = {
-                    navController.navigate("home_graph") {
-                        popUpTo("study_graph/{sessionId}") { inclusive = true }
+                    // TODO: 실제 sessionId로 교체
+                    navController.navigate(NavRoutes.studyReport(sentenceId)) {
+                        popUpTo(NavRoutes.STUDY_SESSION) { inclusive = false }
                     }
                 }
             )
@@ -50,12 +49,12 @@ fun NavGraphBuilder.studyNavGraph(navController: NavHostController) {
 
         composable(
             route = NavRoutes.STUDY_LOADING,
-            arguments = listOf(navArgument("sentenceId") { type = NavType.LongType })
+            arguments = listOf(navArgument("sessionId") { type = NavType.LongType })
         ) { backStack ->
-            val sentenceId = backStack.arguments?.getLong("sentenceId") ?: return@composable
+            val sessionId = backStack.arguments?.getLong("sessionId") ?: return@composable
             StudyLoadingScreen(
-                onNavigateToHighlight = {
-                    navController.navigate(NavRoutes.studyHighlight(sentenceId)) {
+                onNavigateToSession = {
+                    navController.navigate(NavRoutes.studySession(sessionId)) {
                         popUpTo(NavRoutes.STUDY_LOADING) { inclusive = true }
                     }
                 }
@@ -76,7 +75,7 @@ fun NavGraphBuilder.studyNavGraph(navController: NavHostController) {
                 },
                 onSessionEnd = {
                     navController.navigate(NavRoutes.studyReport(sentenceId)) {
-                        popUpTo("study_session/{sessionId}") { inclusive = false }
+                        popUpTo(NavRoutes.STUDY_SESSION) { inclusive = false }
                     }
                 },
                 onRetryRecording = {
@@ -96,7 +95,7 @@ fun NavGraphBuilder.studyNavGraph(navController: NavHostController) {
                 sessionId = sessionId,
                 onBackToSession = {
                     navController.navigate("home_graph") {
-                        popUpTo("study_graph/{sessionId}") { inclusive = true }
+                        popUpTo(NavRoutes.STUDY_GRAPH) { inclusive = true }
                     }
                 }
             )

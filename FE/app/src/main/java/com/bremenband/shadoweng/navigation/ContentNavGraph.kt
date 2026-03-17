@@ -6,8 +6,9 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navigation
-import com.bremenband.shadoweng.feature.content.screen.ContentRangeScreen
-import com.bremenband.shadoweng.feature.content.screen.ContentRegisterScreen
+import com.bremenband.shadoweng.feature.content.presentation.loading.ContentLoadingScreen
+import com.bremenband.shadoweng.feature.content.presentation.range.ContentRangeScreen
+import com.bremenband.shadoweng.feature.content.presentation.register.ContentRegisterScreen
 
 fun NavGraphBuilder.contentNavGraph(navController: NavHostController) {
     navigation(
@@ -29,8 +30,23 @@ fun NavGraphBuilder.contentNavGraph(navController: NavHostController) {
             val embedUrl = backStack.arguments?.getString("embedUrl") ?: return@composable
             ContentRangeScreen(
                 embedUrl = embedUrl,
-                onNavigateToStudy = { sessionId ->
-                    navController.navigate("study_graph/$sessionId") {
+                onNavigateToStudy = { sid ->
+                    navController.navigate(NavRoutes.contentLoading(sid)) {  // studySession → contentLoading
+                        popUpTo(NavRoutes.CONTENT_RANGE) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(
+            route = NavRoutes.CONTENT_LOADING,
+            arguments = listOf(navArgument("sessionId") { type = NavType.LongType })
+        ) { backStack ->
+            val sessionId = backStack.arguments?.getLong("sessionId") ?: return@composable
+            ContentLoadingScreen(
+                sessionId = sessionId,
+                onNavigateToStudy = { sid ->
+                    navController.navigate(NavRoutes.studySession(sid)) {
                         popUpTo("content_graph") { inclusive = true }
                     }
                 }

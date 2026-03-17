@@ -4,7 +4,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.navigation
-import com.bremenband.shadoweng.feature.mypage.screen.MyPageScreen
+import com.bremenband.shadoweng.feature.mypage.presentation.MyPageScreen
 
 fun NavGraphBuilder.myPageNavGraph(navController: NavHostController) {
     navigation(
