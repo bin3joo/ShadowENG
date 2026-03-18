@@ -43,17 +43,22 @@ class ActiveSessionsControllerTest {
             "https://i.ytimg.com/vi/" + VIDEO_ID + "/sddefault.jpg";
 
     @Test
-    @DisplayName("ACTIVE 세션이 있으면 목록과 200을 반환한다")
-    void getStudySessions_세션있음_200() throws Exception {
+    @DisplayName("ACTIVE 세션과 COMPLETED 세션이 있으면 각 목록에 담아 200을 반환한다")
+    void getStudySessions_혼합세션_그룹핑200() throws Exception {
         // given
         Long userId = 1L;
 
-        ActiveSessionsResponse response = new ActiveSessionsResponse(List.of(
-                new ActiveSessionResponse(12345L, new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 8L, 5L),
-                new ActiveSessionResponse(67890L, new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 6L, 2L)
-        ));
+        ActiveSessionsResponse response = new ActiveSessionsResponse(
+                List.of(
+                        new ActiveSessionResponse(12345L, new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 8L, 5L),
+                        new ActiveSessionResponse(67890L, new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 6L, 2L)
+                ),
+                List.of(
+                        new ActiveSessionResponse(11111L, new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 10L, 10L)
+                )
+        );
 
-        given(studySessionService.getActiveSessions(userId)).willReturn(response);
+        given(studySessionService.getAllSessions(userId)).willReturn(response);
 
         // when & then
         mockMvc.perform(get("/study-sessions")
@@ -65,29 +70,34 @@ class ActiveSessionsControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isSuccess").value(true))
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.ActiveSessions").isArray())
-                .andExpect(jsonPath("$.data.ActiveSessions.length()").value(2))
-                .andExpect(jsonPath("$.data.ActiveSessions[0].sessionId").value(12345))
-                .andExpect(jsonPath("$.data.ActiveSessions[0].totalSentences").value(8))
-                .andExpect(jsonPath("$.data.ActiveSessions[0].completedSentences").value(5))
-                .andExpect(jsonPath("$.data.ActiveSessions[0].thumbnails.url").value(THUMBNAIL_URL))
-                .andExpect(jsonPath("$.data.ActiveSessions[0].thumbnails.width").value(640))
-                .andExpect(jsonPath("$.data.ActiveSessions[0].thumbnails.height").value(480))
-                .andExpect(jsonPath("$.data.ActiveSessions[1].sessionId").value(67890))
-                .andExpect(jsonPath("$.data.ActiveSessions[1].totalSentences").value(6))
-                .andExpect(jsonPath("$.data.ActiveSessions[1].completedSentences").value(2));
+                // activeSessions 검증
+                .andExpect(jsonPath("$.data.activeSessions").isArray())
+                .andExpect(jsonPath("$.data.activeSessions.length()").value(2))
+                .andExpect(jsonPath("$.data.activeSessions[0].sessionId").value(12345))
+                .andExpect(jsonPath("$.data.activeSessions[0].totalSentences").value(8))
+                .andExpect(jsonPath("$.data.activeSessions[0].completedSentences").value(5))
+                .andExpect(jsonPath("$.data.activeSessions[0].thumbnails.url").value(THUMBNAIL_URL))
+                .andExpect(jsonPath("$.data.activeSessions[0].thumbnails.width").value(640))
+                .andExpect(jsonPath("$.data.activeSessions[0].thumbnails.height").value(480))
+                .andExpect(jsonPath("$.data.activeSessions[1].sessionId").value(67890))
+                // completedSessions 검증
+                .andExpect(jsonPath("$.data.completedSessions").isArray())
+                .andExpect(jsonPath("$.data.completedSessions.length()").value(1))
+                .andExpect(jsonPath("$.data.completedSessions[0].sessionId").value(11111))
+                .andExpect(jsonPath("$.data.completedSessions[0].totalSentences").value(10))
+                .andExpect(jsonPath("$.data.completedSessions[0].completedSentences").value(10));
 
-        then(studySessionService).should(times(1)).getActiveSessions(userId);
+        then(studySessionService).should(times(1)).getAllSessions(userId);
     }
 
     @Test
-    @DisplayName("ACTIVE 세션이 없으면 빈 배열과 200을 반환한다")
-    void getStudySessions_세션없음_빈배열_200() throws Exception {
+    @DisplayName("세션이 없으면 activeSessions와 completedSessions 모두 빈 배열과 200을 반환한다")
+    void getStudySessions_세션없음_둘다빈배열_200() throws Exception {
         // given
         Long userId = 1L;
 
-        given(studySessionService.getActiveSessions(userId))
-                .willReturn(new ActiveSessionsResponse(List.of()));
+        given(studySessionService.getAllSessions(userId))
+                .willReturn(new ActiveSessionsResponse(List.of(), List.of()));
 
         // when & then
         mockMvc.perform(get("/study-sessions")
@@ -98,9 +108,11 @@ class ActiveSessionsControllerTest {
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isSuccess").value(true))
-                .andExpect(jsonPath("$.data.ActiveSessions").isArray())
-                .andExpect(jsonPath("$.data.ActiveSessions.length()").value(0));
+                .andExpect(jsonPath("$.data.activeSessions").isArray())
+                .andExpect(jsonPath("$.data.activeSessions.length()").value(0))
+                .andExpect(jsonPath("$.data.completedSessions").isArray())
+                .andExpect(jsonPath("$.data.completedSessions.length()").value(0));
 
-        then(studySessionService).should(times(1)).getActiveSessions(userId);
+        then(studySessionService).should(times(1)).getAllSessions(userId);
     }
 }

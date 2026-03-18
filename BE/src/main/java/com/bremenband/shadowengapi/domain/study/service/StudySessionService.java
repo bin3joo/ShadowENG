@@ -48,12 +48,12 @@ public class StudySessionService {
     private final TranscriptionService transcriptionService;
     private final StudySessionWriter studySessionWriter;
 
-    public ActiveSessionsResponse getActiveSessions(Long userId) {
+    public ActiveSessionsResponse getAllSessions(Long userId) {
         List<StudySession> sessions = studySessionRepository
-                .findByUser_IdAndStatusOrderByCreatedAtDesc(userId, SessionStatus.ACTIVE);
+                .findByUser_IdOrderByCreatedAtDesc(userId);
 
         if (sessions.isEmpty()) {
-            return new ActiveSessionsResponse(List.of());
+            return new ActiveSessionsResponse(List.of(), List.of());
         }
 
         List<Long> sessionIds = sessions.stream().map(StudySession::getId).toList();
@@ -62,18 +62,23 @@ public class StudySessionService {
         Map<Long, Long> totalMap     = sentenceRepository.countMapBySessionIds(sessionIds);
         Map<Long, Long> completedMap = evaluationRepository.completedSentencesMapBySessionIds(sessionIds);
 
-        List<ActiveSessionResponse> list = sessions.stream()
-                .map(session -> {
-                    String videoId = session.getVideo().getVideoId();
-                    ThumbnailInfo thumbnail = new ThumbnailInfo(
-                            "https://i.ytimg.com/vi/" + videoId + "/sddefault.jpg", 640, 480);
-                    long total     = totalMap.getOrDefault(session.getId(), 0L);
-                    long completed = completedMap.getOrDefault(session.getId(), 0L);
-                    return new ActiveSessionResponse(session.getId(), thumbnail, total, completed);
-                })
-                .toList();
+        Map<SessionStatus, List<ActiveSessionResponse>> grouped = sessions.stream()
+                .collect(Collectors.groupingBy(
+                        StudySession::getStatus,
+                        Collectors.mapping(session -> {
+                            String videoId = session.getVideo().getVideoId();
+                            ThumbnailInfo thumbnail = new ThumbnailInfo(
+                                    "https://i.ytimg.com/vi/" + videoId + "/sddefault.jpg", 640, 480);
+                            long total     = totalMap.getOrDefault(session.getId(), 0L);
+                            long completed = completedMap.getOrDefault(session.getId(), 0L);
+                            return new ActiveSessionResponse(session.getId(), thumbnail, total, completed);
+                        }, Collectors.toList())
+                ));
 
-        return new ActiveSessionsResponse(list);
+        return new ActiveSessionsResponse(
+                grouped.getOrDefault(SessionStatus.ACTIVE, List.of()),
+                grouped.getOrDefault(SessionStatus.COMPLETED, List.of())
+        );
     }
 
     public StudySessionCreateResponse getStudySession(Long sessionId, Long userId) {

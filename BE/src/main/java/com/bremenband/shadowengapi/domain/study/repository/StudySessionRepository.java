@@ -16,6 +16,10 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
     @EntityGraph(attributePaths = {"video"})
     List<StudySession> findByUser_IdAndStatusOrderByCreatedAtDesc(Long userId, SessionStatus status);
 
+    // 사용자의 전체 세션 조회 (status 무관)
+    @EntityGraph(attributePaths = {"video"})
+    List<StudySession> findByUser_IdOrderByCreatedAtDesc(Long userId);
+
     // video JOIN FETCH: session.getVideo().getVideoId() 별도 쿼리 방지
     @EntityGraph(attributePaths = {"video"})
     Optional<StudySession> findTopByUser_IdAndStatusOrderByCreatedAtDesc(Long userId, SessionStatus status);
