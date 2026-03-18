@@ -24,16 +24,22 @@ import com.bremenband.shadowengapi.domain.youtube.repository.VideoRepository;
 import com.bremenband.shadowengapi.domain.youtube.service.YoutubeService;
 import com.bremenband.shadowengapi.global.exception.CustomException;
 import com.bremenband.shadowengapi.global.exception.ErrorCode;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -47,6 +53,7 @@ public class StudySessionService {
     private final YoutubeService youtubeService;
     private final TranscriptionService transcriptionService;
     private final StudySessionWriter studySessionWriter;
+    private final ObjectMapper objectMapper;
 
     public ActiveSessionsResponse getActiveSessions(Long userId) {
         List<StudySession> sessions = studySessionRepository
@@ -198,10 +205,10 @@ public class StudySessionService {
         // 4. step별 응답 결정
         //    step 1: 청취/쉐도잉 단계      — 텍스트 없음 (sentence=null, hiddenSentence=null)
         //    step 2: 원문 읽기 단계        — 원문만 제공
-        //    step 3: 원문+빈칸 채우기 단계  — 원문과 마스킹 문장 모두 제공
+        //    step 3: 원문+빈칸 채우기 단계  — 원문과 마스킹 문장 모두 제공 (step2 평가 결과 기반)
         //    step 4: 청취/쉐도잉 반복 단계  — step 1과 동일, 텍스트 없음
         String fullSentence   = (step == 2 || step == 3) ? sentence.getContent() : null;
-        String hiddenSentence = step == 3 ? WordMasker.mask(sentence.getContent()) : null;
+        String hiddenSentence = step == 3 ? buildHiddenSentence(sentenceId, sentence.getContent()) : null;
 
         return new SentenceLearningResponse(
                 step,
@@ -214,6 +221,26 @@ public class StudySessionService {
                 sentence.getDurationSec(),
                 studyCount
         );
+    }
+
+    private String buildHiddenSentence(Long sentenceId, String content) {
+        return evaluationRepository.findTopBySentence_IdOrderByCreatedAtDesc(sentenceId)
+                .map(eval -> {
+                    try {
+                        JsonNode feedbackList = objectMapper.readTree(eval.getWordLevelFeedback());
+                        Set<String> wordsToMask = new HashSet<>();
+                        for (JsonNode item : feedbackList) {
+                            if (!"good".equals(item.path("status").asText())) {
+                                wordsToMask.add(item.path("word").asText().toLowerCase());
+                            }
+                        }
+                        return WordMasker.mask(content, wordsToMask);
+                    } catch (Exception e) {
+                        log.warn("word_level_feedback 파싱 실패, 랜덤 마스킹으로 폴백. sentenceId={}", sentenceId, e);
+                        return WordMasker.mask(content);
+                    }
+                })
+                .orElseGet(() -> WordMasker.mask(content));
     }
 
 }
