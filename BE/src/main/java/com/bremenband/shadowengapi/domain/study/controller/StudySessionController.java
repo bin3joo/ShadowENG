@@ -1,6 +1,5 @@
 package com.bremenband.shadowengapi.domain.study.controller;
 
-import com.bremenband.shadowengapi.domain.study.dto.req.EvaluationRequest;
 import com.bremenband.shadowengapi.domain.study.dto.req.StudySessionCreateRequest;
 import com.bremenband.shadowengapi.domain.study.dto.res.ActiveSessionsResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.EvaluationResponse;
@@ -79,11 +78,11 @@ public class StudySessionController {
             @RequestParam Long sentenceId,
             @Parameter(description = "녹음된 음성 파일 (wav, m4a 등)")
             @RequestPart("file") MultipartFile file,
-            @Parameter(description = "학습 단계 정보 (JSON)")
-            @RequestPart("request") @Valid EvaluationRequest request,
+            @Parameter(description = "학습 단계 (1~4)", example = "1")
+            @RequestParam @Min(1) @Max(4) int step,
             @Parameter(hidden = true) @AuthenticationPrincipal Long userId
     ) {
-        return ApiResponse.success(evaluationService.evaluate(sessionId, sentenceId, request.step(), file, userId));
+        return ApiResponse.success(evaluationService.evaluate(sessionId, sentenceId, step, file, userId));
     }
 
     @GetMapping("/{sessionId}")
