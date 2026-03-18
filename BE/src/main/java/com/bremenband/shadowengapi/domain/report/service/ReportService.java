@@ -52,8 +52,8 @@ public class ReportService {
             throw new CustomException(ErrorCode.FORBIDDEN);
         }
 
-        // 2. 세션 평가 결과 조회
-        List<Evaluation> evaluations = evaluationRepository.findByStudySession_Id(sessionId);
+        // 2. 세션 평가 결과 조회 (step 4 = 최종 숙달 확인 단계만 반영)
+        List<Evaluation> evaluations = evaluationRepository.findByStudySession_IdAndStep(sessionId, 4);
         if (evaluations.isEmpty()) {
             throw new CustomException(ErrorCode.NO_EVALUATIONS_FOR_REPORT);
         }
@@ -124,7 +124,7 @@ public class ReportService {
     @Transactional(readOnly = true)
     public DailyReportResponse getDailyReport(Long userId) {
         List<Evaluation> evaluations =
-                evaluationRepository.findByStudySession_User_IdOrderByCreatedAtAsc(userId);
+                evaluationRepository.findByStudySession_User_IdAndStepOrderByCreatedAtAsc(userId, 4);
 
         Map<LocalDate, Long> countByDate = evaluations.stream()
                 .collect(Collectors.groupingBy(
@@ -153,8 +153,8 @@ public class ReportService {
 
         List<WeekSentence> weekSentences = weekSentenceRepository.findByReport_Id(report.getId());
 
-        // 평가 데이터 조회 (avgScore 계산 및 상태값 추출용)
-        List<Evaluation> allEvaluations = evaluationRepository.findByStudySession_Id(sessionId);
+        // 평가 데이터 조회 (step 4만, avgScore 계산 및 상태값 추출용)
+        List<Evaluation> allEvaluations = evaluationRepository.findByStudySession_IdAndStep(sessionId, 4);
         Map<Long, List<Evaluation>> evalsBySentence = allEvaluations.stream()
                 .collect(Collectors.groupingBy(e -> e.getSentence().getId()));
 

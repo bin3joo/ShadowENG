@@ -42,6 +42,9 @@ public class Evaluation {
     @Column(name = "dynamic_stress_feedback", nullable = false, columnDefinition = "json")
     private String dynamicStressFeedback;
 
+    @Column(name = "step", nullable = false, columnDefinition = "tinyint not null default 4")
+    private int step;
+
     @Column(name = "total_score", nullable = false, precision = 5, scale = 2)
     private BigDecimal totalScore;
 
@@ -71,13 +74,14 @@ public class Evaluation {
     private LocalDateTime createdAt;
 
     @Builder
-    private Evaluation(StudySession studySession, Sentence sentence, String userTranscription,
+    private Evaluation(StudySession studySession, Sentence sentence, int step, String userTranscription,
                        String wordLevelFeedback, String boundaryToneFeedback, String dynamicStressFeedback,
                        BigDecimal totalScore, BigDecimal wordAccuracy, BigDecimal prosodyAndStress,
                        BigDecimal wordRhythmScore, BigDecimal boundaryToneScore, BigDecimal dynamicStressScore,
                        BigDecimal speedSimilarity, BigDecimal pauseSimilarity) {
         this.studySession = studySession;
         this.sentence = sentence;
+        this.step = step;
         this.userTranscription = userTranscription;
         this.wordLevelFeedback = wordLevelFeedback;
         this.boundaryToneFeedback = boundaryToneFeedback;

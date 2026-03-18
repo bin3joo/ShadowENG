@@ -18,7 +18,9 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, Long> {
 
     List<Evaluation> findByStudySession_Id(Long sessionId);
 
-    List<Evaluation> findByStudySession_User_IdOrderByCreatedAtAsc(Long userId);
+    List<Evaluation> findByStudySession_IdAndStep(Long sessionId, int step);
+
+    List<Evaluation> findByStudySession_User_IdAndStepOrderByCreatedAtAsc(Long userId, int step);
 
     @Query("SELECT COUNT(DISTINCT e.sentence.id) FROM Evaluation e WHERE e.studySession.id = :sessionId")
     long countDistinctEvaluatedSentencesBySessionId(@Param("sessionId") Long sessionId);
