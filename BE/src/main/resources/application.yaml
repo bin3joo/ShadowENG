@@ -22,10 +22,6 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: update
-    properties:
-      hibernate:
-        format_sql: true
-    show-sql: true
     defer-datasource-initialization: true
 
   sql:
@@ -49,7 +45,3 @@ jwt:
   refresh-token-expiry: 604800000   # 7일 (ms) - sliding window
   max-session-expiry: 2592000000    # 30일 (ms) - absolute max
 
-logging:
-  level:
-    org.hibernate.SQL: debug
-    org.hibernate.type.descriptor.sql: trace
