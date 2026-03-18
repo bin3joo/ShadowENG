@@ -3,6 +3,7 @@ package com.bremenband.shadowengapi.domain.study.service;
 import com.bremenband.shadowengapi.domain.study.client.PythonApiClient;
 import com.bremenband.shadowengapi.domain.study.dto.python.PythonEvaluateAudioRequest;
 import com.bremenband.shadowengapi.domain.study.dto.python.PythonEvaluateAudioResponse;
+import com.bremenband.shadowengapi.domain.study.dto.redis.PendingEvaluation;
 import com.bremenband.shadowengapi.domain.study.dto.res.EvaluationResponse;
 import com.bremenband.shadowengapi.domain.study.entity.Evaluation;
 import com.bremenband.shadowengapi.domain.study.entity.Sentence;
@@ -26,16 +27,17 @@ import java.util.List;
 @RequiredArgsConstructor
 public class EvaluationService {
 
-    private final StudySessionRepository studySessionRepository;
-    private final SentenceRepository sentenceRepository;
-    private final EvaluationRepository evaluationRepository;
-    private final PythonApiClient pythonApiClient;
-    private final ObjectMapper objectMapper;
-    private final StudySessionWriter studySessionWriter;
-    private final S3Uploader s3Uploader;
+    private final StudySessionRepository  studySessionRepository;
+    private final SentenceRepository      sentenceRepository;
+    private final EvaluationRepository    evaluationRepository;
+    private final PythonApiClient         pythonApiClient;
+    private final ObjectMapper            objectMapper;
+    private final StudySessionWriter      studySessionWriter;
+    private final S3Uploader              s3Uploader;
+    private final PendingEvaluationStore  pendingEvaluationStore;
 
     public EvaluationResponse evaluate(Long sessionId, Long sentenceId, int step, MultipartFile audioFile, Long userId) {
-        // 1. 세션 조회 및 소유권 검증 (트랜잭션 불필요 — 단순 조회)
+        // 1. 세션 조회 및 소유권 검증
         StudySession session = studySessionRepository.findById(sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
 
@@ -52,11 +54,11 @@ public class EvaluationService {
         }
 
         // 3. 음성 파일 S3 업로드
-        String s3Key = s3Uploader.upload(audioFile);
+        String s3Key      = s3Uploader.upload(audioFile);
         String audioFormat = getFileExtension(audioFile.getOriginalFilename());
 
         // 4. 저장된 레퍼런스 JSON 역직렬화
-        JsonNode features = parseJson(sentence.getFeatures());
+        JsonNode features       = parseJson(sentence.getFeatures());
         JsonNode wordTimestamps = parseJson(sentence.getWordTimestamps());
 
         // 5. Python evaluate-audio 호출 (최대 35초 소요 — DB 커넥션 점유 방지를 위해 트랜잭션 밖에서 실행)
@@ -71,37 +73,69 @@ public class EvaluationService {
             throw new CustomException(ErrorCode.VOICE_RECOGNITION_FAILED);
         }
 
-        // 7. 평가 결과 저장 (SimpleJpaRepository.save()가 자체 @Transactional 보유)
-        PythonEvaluateAudioResponse.Details d = pythonResponse.details();
-        PythonEvaluateAudioResponse.Scores s = pythonResponse.scores();
+        // 7. 평가 결과를 Redis에 임시 저장 (step 1~4 공통)
+        //    step 1~3: Redis에만 보관, DB 미저장 → 중도 이탈 시 TTL 만료로 자동 폐기
+        //    step 4:   Redis 저장 후 사이클 전체를 DB에 일괄 커밋
+        PendingEvaluation pending = buildPending(step, pythonResponse);
+        pendingEvaluationStore.save(sessionId, sentenceId, pending);
 
-        evaluationRepository.save(Evaluation.builder()
-                .studySession(session)
-                .sentence(sentence)
-                .userTranscription(pythonResponse.userTranscription())
-                .wordLevelFeedback(toJson(d.wordLevelFeedback()))
-                .boundaryToneFeedback(toJson(d.boundaryToneFeedback()))
-                .dynamicStressFeedback(toJson(d.dynamicStressFeedback()))
-                .totalScore(bd(s.totalScore()))
-                .wordAccuracy(bd(s.wordAccuracy()))
-                .prosodyAndStress(bd(s.prosodyAndStress()))
-                .wordRhythmScore(bd(s.wordRhythmScore()))
-                .boundaryToneScore(bd(s.boundaryToneScore()))
-                .dynamicStressScore(bd(s.dynamicStressScore()))
-                .speedSimilarity(bd(s.speedSimilarity()))
-                .pauseSimilarity(bd(s.pauseSimilarity()))
-                .build());
+        if (step == 4) {
+            commitCycle(sessionId, sentenceId, session, sentence);
+        }
 
-        // 8. 모든 문장이 평가됐으면 세션 완료 처리
-        studySessionWriter.completeSessionIfAllEvaluated(sessionId);
-
-        // 9. 응답 빌드
+        // 8. 응답 빌드 (step과 무관하게 Python 응답 그대로 반환)
         return buildResponse(sentence, pythonResponse);
+    }
+
+    /**
+     * step 4 완료 시 Redis에 쌓인 사이클 전체(step 1~4)를 DB에 일괄 저장하고 Redis에서 삭제한다.
+     * Redis에 일부 step이 없으면(TTL 만료 등) 존재하는 것만 저장한다.
+     */
+    private void commitCycle(Long sessionId, Long sentenceId, StudySession session, Sentence sentence) {
+        List<PendingEvaluation> allPending = pendingEvaluationStore.findAll(sessionId, sentenceId);
+
+        List<Evaluation> evaluations = allPending.stream()
+                .map(p -> Evaluation.builder()
+                        .studySession(session)
+                        .sentence(sentence)
+                        .userTranscription(p.getUserTranscription())
+                        .wordLevelFeedback(p.getWordLevelFeedback())
+                        .boundaryToneFeedback(p.getBoundaryToneFeedback())
+                        .dynamicStressFeedback(p.getDynamicStressFeedback())
+                        .totalScore(bd(p.getTotalScore()))
+                        .wordAccuracy(bd(p.getWordAccuracy()))
+                        .prosodyAndStress(bd(p.getProsodyAndStress()))
+                        .wordRhythmScore(bd(p.getWordRhythmScore()))
+                        .boundaryToneScore(bd(p.getBoundaryToneScore()))
+                        .dynamicStressScore(bd(p.getDynamicStressScore()))
+                        .speedSimilarity(bd(p.getSpeedSimilarity()))
+                        .pauseSimilarity(bd(p.getPauseSimilarity()))
+                        .build())
+                .toList();
+
+        evaluationRepository.saveAll(evaluations);
+        pendingEvaluationStore.deleteAll(sessionId, sentenceId);
+        studySessionWriter.completeSessionIfAllEvaluated(sessionId);
+    }
+
+    private PendingEvaluation buildPending(int step, PythonEvaluateAudioResponse python) {
+        PythonEvaluateAudioResponse.Details d = python.details();
+        PythonEvaluateAudioResponse.Scores  s = python.scores();
+        return new PendingEvaluation(
+                step,
+                python.userTranscription(),
+                toJson(d.wordLevelFeedback()),
+                toJson(d.boundaryToneFeedback()),
+                toJson(d.dynamicStressFeedback()),
+                s.totalScore(), s.wordAccuracy(), s.prosodyAndStress(),
+                s.wordRhythmScore(), s.boundaryToneScore(), s.dynamicStressScore(),
+                s.speedSimilarity(), s.pauseSimilarity()
+        );
     }
 
     private EvaluationResponse buildResponse(Sentence sentence, PythonEvaluateAudioResponse python) {
         PythonEvaluateAudioResponse.Details d = python.details();
-        PythonEvaluateAudioResponse.Scores s = python.scores();
+        PythonEvaluateAudioResponse.Scores  s = python.scores();
 
         List<EvaluationResponse.WordLevelFeedback> wordFeedback = d.wordLevelFeedback().stream()
                 .map(w -> new EvaluationResponse.WordLevelFeedback(w.word(), w.status()))

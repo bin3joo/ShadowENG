@@ -1,5 +1,6 @@
 package com.bremenband.shadowengapi.domain.study.service;
 
+import com.bremenband.shadowengapi.domain.study.dto.redis.PendingEvaluation;
 import com.bremenband.shadowengapi.domain.study.dto.res.SentenceLearningResponse;
 import com.bremenband.shadowengapi.domain.study.entity.Evaluation;
 import com.bremenband.shadowengapi.domain.study.entity.Sentence;
@@ -28,7 +29,10 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class SentenceLearningServiceTest {
@@ -38,6 +42,7 @@ class SentenceLearningServiceTest {
     @Mock private StudySessionRepository studySessionRepository;
     @Mock private SentenceRepository     sentenceRepository;
     @Mock private EvaluationRepository   evaluationRepository;
+    @Mock private PendingEvaluationStore pendingEvaluationStore;
     @Spy  private ObjectMapper           objectMapper = new ObjectMapper();
 
     private static final Long   SESSION_ID  = 1L;
@@ -94,6 +99,13 @@ class SentenceLearningServiceTest {
                 .boundaryToneScore(BigDecimal.valueOf(80.0)).dynamicStressScore(BigDecimal.valueOf(80.0))
                 .speedSimilarity(BigDecimal.valueOf(80.0)).pauseSimilarity(BigDecimal.valueOf(80.0))
                 .build();
+    }
+
+    private PendingEvaluation buildPendingStep2(String wordLevelFeedback) {
+        return new PendingEvaluation(
+                2, "transcription", wordLevelFeedback,
+                "{\"status\":\"good\"}", "{\"status\":\"good\"}",
+                80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0);
     }
 
     // ── step별 응답 검증 ──────────────────────────────────────────────────────
@@ -198,10 +210,8 @@ class SentenceLearningServiceTest {
         StudySession session = buildSession();
         given(studySessionRepository.findById(SESSION_ID)).willReturn(Optional.of(session));
 
-        Long otherUserId = 999L;
-
         assertThatThrownBy(() ->
-                studySessionService.getSentenceLearning(SESSION_ID, SENTENCE_ID, 1, otherUserId))
+                studySessionService.getSentenceLearning(SESSION_ID, SENTENCE_ID, 1, 999L))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN);
     }
@@ -224,7 +234,6 @@ class SentenceLearningServiceTest {
     void getSentenceLearning_다른세션문장_예외() {
         StudySession session = buildSession();
 
-        // 다른 세션에 속한 문장 생성
         StudySession otherSession = StudySession.builder()
                 .video(session.getVideo()).user(session.getUser())
                 .startSec(0.0).endSec(30.0).build();
@@ -244,16 +253,16 @@ class SentenceLearningServiceTest {
                 .extracting("errorCode").isEqualTo(ErrorCode.INVALID_REQUEST);
     }
 
-    // ── step 3 평가 기반 마스킹 ───────────────────────────────────────────────
+    // ── step 3 평가 기반 마스킹 (DB 경로) ────────────────────────────────────
 
     @Test
-    @DisplayName("step 3: good이 아닌 단어(rushed)가 있으면 해당 단어만 마스킹된다")
-    void getSentenceLearning_step3_rushed단어_마스킹됨() {
-        // given
+    @DisplayName("step 3: Redis miss 시 DB의 최신 평가에서 good이 아닌 단어(rushed)를 마스킹한다")
+    void getSentenceLearning_step3_DB_rushed단어_마스킹됨() {
+        // given — Redis miss (pendingEvaluationStore.findStep returns Optional.empty() by default)
         StudySession session = buildSession();
         Sentence sentence = buildSentence(session);
         String feedback = "[{\"word\":\"beautiful\",\"status\":\"rushed\"}," +
-                           "{\"word\":\"talented\",\"status\":\"good\"}]";
+                          "{\"word\":\"talented\",\"status\":\"good\"}]";
         Evaluation evaluation = buildEvaluation(session, sentence, feedback);
 
         given(studySessionRepository.findById(SESSION_ID)).willReturn(Optional.of(session));
@@ -273,8 +282,8 @@ class SentenceLearningServiceTest {
     }
 
     @Test
-    @DisplayName("step 3: missed 단어는 마스킹된다")
-    void getSentenceLearning_step3_missed단어_마스킹됨() {
+    @DisplayName("step 3: Redis miss 시 DB의 최신 평가에서 missed 단어를 마스킹한다")
+    void getSentenceLearning_step3_DB_missed단어_마스킹됨() {
         // given
         StudySession session = buildSession();
         Sentence sentence = buildSentence(session);
@@ -297,13 +306,13 @@ class SentenceLearningServiceTest {
     }
 
     @Test
-    @DisplayName("step 3: 모든 단어가 good이면 마스킹 없이 원문을 반환한다")
-    void getSentenceLearning_step3_모두good_마스킹없음() {
+    @DisplayName("step 3: DB 최신 평가에서 모든 단어가 good이면 마스킹 없이 원문을 반환한다")
+    void getSentenceLearning_step3_DB_모두good_마스킹없음() {
         // given
         StudySession session = buildSession();
         Sentence sentence = buildSentence(session);
         String feedback = "[{\"word\":\"beautiful\",\"status\":\"good\"}," +
-                           "{\"word\":\"talented\",\"status\":\"good\"}]";
+                          "{\"word\":\"talented\",\"status\":\"good\"}]";
         Evaluation evaluation = buildEvaluation(session, sentence, feedback);
 
         given(studySessionRepository.findById(SESSION_ID)).willReturn(Optional.of(session));
@@ -322,18 +331,43 @@ class SentenceLearningServiceTest {
     }
 
     @Test
-    @DisplayName("step 3: 평가 이력이 없으면 랜덤 마스킹으로 폴백하여 _____ 를 포함한다")
+    @DisplayName("step 3: Redis도 DB도 없으면 랜덤 마스킹으로 폴백하여 _____ 를 포함한다")
     void getSentenceLearning_step3_평가없음_랜덤마스킹폴백() {
-        // given — findTopBySentence_IdOrderByCreatedAtDesc returns empty (already default in givenValidSessionAndSentence)
         givenValidSessionAndSentence(0);
+
+        SentenceLearningResponse response =
+                studySessionService.getSentenceLearning(SESSION_ID, SENTENCE_ID, 3, USER_ID);
+
+        assertThat(response.hiddenSentence()).isNotNull();
+        assertThat(response.hiddenSentence()).contains("_____");
+    }
+
+    // ── step 3 평가 기반 마스킹 (Redis 경로) ──────────────────────────────────
+
+    @Test
+    @DisplayName("step 3: Redis에 step-2 평가가 있으면 DB 조회 없이 Redis 피드백으로 마스킹한다")
+    void getSentenceLearning_step3_Redis_step2평가_Redis피드백으로마스킹() {
+        // given
+        StudySession session = buildSession();
+        Sentence sentence = buildSentence(session);
+        String feedback = "[{\"word\":\"beautiful\",\"status\":\"rushed\"}," +
+                          "{\"word\":\"talented\",\"status\":\"good\"}]";
+
+        given(studySessionRepository.findById(SESSION_ID)).willReturn(Optional.of(session));
+        given(sentenceRepository.findById(SENTENCE_ID)).willReturn(Optional.of(sentence));
+        given(evaluationRepository.countBySentence_Id(SENTENCE_ID)).willReturn(0L);
+        given(pendingEvaluationStore.findStep(SESSION_ID, SENTENCE_ID, 2))
+                .willReturn(Optional.of(buildPendingStep2(feedback)));
 
         // when
         SentenceLearningResponse response =
                 studySessionService.getSentenceLearning(SESSION_ID, SENTENCE_ID, 3, USER_ID);
 
         // then
-        assertThat(response.hiddenSentence()).isNotNull();
         assertThat(response.hiddenSentence()).contains("_____");
+        assertThat(response.hiddenSentence()).doesNotContain("beautiful");
+        assertThat(response.hiddenSentence()).contains("talented");
+        then(evaluationRepository).should(never()).findTopBySentence_IdOrderByCreatedAtDesc(any());
     }
 
     // ── step 1 / step 4 동등성 검증 ──────────────────────────────────────────
