@@ -18,7 +18,10 @@ public record PythonEvaluateAudioRequest(
         JsonNode features,
 
         @JsonProperty("word_timestamps")
-        JsonNode wordTimestamps
+        JsonNode wordTimestamps,
+
+        @JsonProperty("hop_length")
+        Integer hopLength
 
 ) {
 }
