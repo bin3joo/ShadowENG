@@ -35,13 +35,13 @@ public class StudySessionController {
 
     @GetMapping
     @Operation(
-            summary = "사용자가 학습 중인 세션 목록 조회",
-            description = "요청 헤더의 Access Token을 통해 인증된 사용자의 학습 중 세션 전체 목록을 조회합니다."
+            summary = "사용자 학습 세션 전체 조회",
+            description = "요청 헤더의 Access Token을 통해 인증된 사용자의 전체 학습 세션을 학습중(ACTIVE)과 학습완료(COMPLETED)로 구분하여 반환합니다."
     )
     public ApiResponse<ActiveSessionsResponse> getStudySessions(
             @Parameter(hidden = true) @AuthenticationPrincipal Long userId
     ) {
-        return ApiResponse.success(studySessionService.getActiveSessions(userId));
+        return ApiResponse.success(studySessionService.getAllSessions(userId));
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
