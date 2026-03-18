@@ -87,14 +87,16 @@ public class EvaluationService {
         log.info("[evaluate] python API response: status={}, userTranscription=\"{}\"",
                 pythonResponse.status(), pythonResponse.userTranscription());
 
+        if ("FAIL".equals(pythonResponse.status())) {
+            log.warn("[evaluate] voice recognition failed: sessionId={}, sentenceId={}, step={}, s3Key={}", sessionId, sentenceId, step, s3Key);
+            // TODO: FAIL 원인 파악 후 삭제 로직 복구
+            // s3Uploader.delete(s3Key);
+            throw new CustomException(ErrorCode.VOICE_RECOGNITION_FAILED);
+        }
+
         // 6. 평가 완료 후 S3 파일 삭제
         s3Uploader.delete(s3Key);
         log.info("[evaluate] s3 file deleted: s3Key={}", s3Key);
-
-        if ("FAIL".equals(pythonResponse.status())) {
-            log.warn("[evaluate] voice recognition failed: sessionId={}, sentenceId={}, step={}", sessionId, sentenceId, step);
-            throw new CustomException(ErrorCode.VOICE_RECOGNITION_FAILED);
-        }
 
         // 7. 평가 결과를 Redis에 임시 저장 (step 1~4 공통)
         PendingEvaluation pending = buildPending(step, pythonResponse);
