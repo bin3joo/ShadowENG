@@ -53,6 +53,7 @@ class ReportDailyServiceTest {
         Evaluation evaluation = Evaluation.builder()
                 .studySession(session)
                 .sentence(sentence)
+                .step(4)
                 .userTranscription("test")
                 .wordLevelFeedback("[]")
                 .boundaryToneFeedback("[]")
@@ -101,7 +102,7 @@ class ReportDailyServiceTest {
         Evaluation e2 = buildEvaluation(session, s2, day1);
         Evaluation e3 = buildEvaluation(session, s3, day2);
 
-        given(evaluationRepository.findByStudySession_User_IdOrderByCreatedAtAsc(userId))
+        given(evaluationRepository.findByStudySession_User_IdAndStepOrderByCreatedAtAsc(userId, 4))
                 .willReturn(List.of(e1, e2, e3));
 
         // when
@@ -114,7 +115,7 @@ class ReportDailyServiceTest {
         assertThat(response.studyData().get(1).date()).isEqualTo("2026-03-03");
         assertThat(response.studyData().get(1).studiedSentencesCount()).isEqualTo(1);
 
-        then(evaluationRepository).should(times(1)).findByStudySession_User_IdOrderByCreatedAtAsc(userId);
+        then(evaluationRepository).should(times(1)).findByStudySession_User_IdAndStepOrderByCreatedAtAsc(userId, 4);
     }
 
     @Test
@@ -123,7 +124,7 @@ class ReportDailyServiceTest {
         // given
         Long userId = 1L;
 
-        given(evaluationRepository.findByStudySession_User_IdOrderByCreatedAtAsc(userId))
+        given(evaluationRepository.findByStudySession_User_IdAndStepOrderByCreatedAtAsc(userId, 4))
                 .willReturn(List.of());
 
         // when
@@ -154,7 +155,7 @@ class ReportDailyServiceTest {
         Evaluation e2 = buildEvaluation(session, s2, morning);
         Evaluation e3 = buildEvaluation(session, s3, evening);
 
-        given(evaluationRepository.findByStudySession_User_IdOrderByCreatedAtAsc(userId))
+        given(evaluationRepository.findByStudySession_User_IdAndStepOrderByCreatedAtAsc(userId, 4))
                 .willReturn(List.of(e1, e2, e3));
 
         // when

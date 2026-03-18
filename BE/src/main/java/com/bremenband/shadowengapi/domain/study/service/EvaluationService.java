@@ -98,6 +98,7 @@ public class EvaluationService {
                 .map(p -> Evaluation.builder()
                         .studySession(session)
                         .sentence(sentence)
+                        .step(p.getStep())
                         .userTranscription(p.getUserTranscription())
                         .wordLevelFeedback(p.getWordLevelFeedback())
                         .boundaryToneFeedback(p.getBoundaryToneFeedback())
