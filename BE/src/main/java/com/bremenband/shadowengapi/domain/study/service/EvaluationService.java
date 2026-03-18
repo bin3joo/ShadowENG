@@ -63,7 +63,7 @@ public class EvaluationService {
 
         // 5. Python evaluate-audio 호출 (최대 35초 소요 — DB 커넥션 점유 방지를 위해 트랜잭션 밖에서 실행)
         PythonEvaluateAudioRequest request = new PythonEvaluateAudioRequest(
-                s3Key, audioFormat, sentence.getContent(), features, wordTimestamps);
+                s3Key, audioFormat, sentence.getContent(), features, wordTimestamps, null);
         PythonEvaluateAudioResponse pythonResponse = pythonApiClient.evaluateAudio(request);
 
         // 6. 평가 완료 후 S3 파일 삭제
