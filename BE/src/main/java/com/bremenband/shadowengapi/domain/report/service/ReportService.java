@@ -44,7 +44,7 @@ public class ReportService {
 
     @Transactional
     public ReportResponse createReport(Long sessionId, Long userId) {
-        // 1. 세션 조회
+        // 1. 세션 조회 및 소유권 검증
         StudySession session = studySessionRepository.findById(sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
 
@@ -58,13 +58,7 @@ public class ReportService {
             throw new CustomException(ErrorCode.NO_EVALUATIONS_FOR_REPORT);
         }
 
-        // 3. 기존 레포트 있으면 삭제 후 재생성
-        reportRepository.findByStudySession_Id(sessionId).ifPresent(existing -> {
-            weekSentenceRepository.deleteByReport_Id(existing.getId());
-            reportRepository.delete(existing);
-        });
-
-        // 4. 평균 점수 계산
+        // 3. 평균 점수 계산
         double avgTotal    = avg(evaluations, e -> e.getTotalScore().doubleValue());
         double avgAccuracy = avg(evaluations, e -> e.getWordAccuracy().doubleValue());
         double avgProsody  = avg(evaluations, e -> e.getProsodyAndStress().doubleValue());
@@ -74,7 +68,7 @@ public class ReportService {
         double avgSpeed    = avg(evaluations, e -> e.getSpeedSimilarity().doubleValue());
         double avgPause    = avg(evaluations, e -> e.getPauseSimilarity().doubleValue());
 
-        // 5. 레포트 저장
+        // 4. 레포트 저장
         Report report = reportRepository.save(Report.builder()
                 .studySession(session)
                 .totalScore(bd(avgTotal))
@@ -87,7 +81,7 @@ public class ReportService {
                 .pauseSimilarity(bd(avgPause))
                 .build());
 
-        // 6. 취약 문장 추출 — avgScore 낮은 순 정렬
+        // 5. 취약 문장 추출 — avgScore 낮은 순 정렬
         Map<Long, List<Evaluation>> bySentence = evaluations.stream()
                 .collect(Collectors.groupingBy(e -> e.getSentence().getId()));
 
@@ -103,7 +97,7 @@ public class ReportService {
                     .report(report).sentence(sentence).build());
         });
 
-        // 7. 응답 (상위 3개)
+        // 6. 응답 (상위 3개)
         List<ReportResponse.DifficultSentence> difficultSentences = difficultEntries.stream()
                 .limit(DIFFICULT_SENTENCE_LIMIT)
                 .map(entry -> buildDifficultSentence(
@@ -113,6 +107,7 @@ public class ReportService {
                 .toList();
 
         return new ReportResponse(
+                report.getId(),
                 sessionId,
                 new ReportResponse.Scores(
                         round(avgTotal), round(avgAccuracy), round(avgProsody),
@@ -122,29 +117,27 @@ public class ReportService {
     }
 
     @Transactional(readOnly = true)
-    public DailyReportResponse getDailyReport(Long userId) {
-        List<Evaluation> evaluations =
-                evaluationRepository.findByStudySession_User_IdAndStepOrderByCreatedAtAsc(userId, 4);
+    public List<ReportResponse> getReports(Long sessionId, Long userId) {
+        StudySession session = studySessionRepository.findById(sessionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
 
-        Map<LocalDate, Long> countByDate = evaluations.stream()
-                .collect(Collectors.groupingBy(
-                        e -> e.getCreatedAt().toLocalDate(),
-                        TreeMap::new,
-                        Collectors.counting()
-                ));
+        if (!session.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
 
-        List<DailyReportResponse.StudyDayData> studyData = countByDate.entrySet().stream()
-                .map(entry -> new DailyReportResponse.StudyDayData(
-                        entry.getKey().toString(),
-                        entry.getValue().intValue()))
+        List<Report> reports = reportRepository.findByStudySession_IdOrderByCreatedAtDesc(sessionId);
+        List<Evaluation> allEvaluations = evaluationRepository.findByStudySession_IdAndStep(sessionId, 4);
+        Map<Long, List<Evaluation>> evalsBySentence = allEvaluations.stream()
+                .collect(Collectors.groupingBy(e -> e.getSentence().getId()));
+
+        return reports.stream()
+                .map(report -> buildReportResponse(report, sessionId, evalsBySentence))
                 .toList();
-
-        return new DailyReportResponse(studyData);
     }
 
     @Transactional(readOnly = true)
-    public ReportResponse getReport(Long sessionId, Long userId) {
-        Report report = reportRepository.findByStudySession_Id(sessionId)
+    public ReportResponse getReport(Long sessionId, Long reportId, Long userId) {
+        Report report = reportRepository.findByIdAndStudySession_Id(reportId, sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.REPORT_NOT_FOUND));
 
         if (!report.getStudySession().getUser().getId().equals(userId)) {
@@ -171,6 +164,7 @@ public class ReportService {
                 .toList();
 
         return new ReportResponse(
+                report.getId(),
                 sessionId,
                 new ReportResponse.Scores(
                         report.getTotalScore().doubleValue(),
@@ -184,7 +178,59 @@ public class ReportService {
                 difficultSentences);
     }
 
+    @Transactional(readOnly = true)
+    public DailyReportResponse getDailyReport(Long userId) {
+        List<Evaluation> evaluations =
+                evaluationRepository.findByStudySession_User_IdAndStepOrderByCreatedAtAsc(userId, 4);
+
+        Map<LocalDate, Long> countByDate = evaluations.stream()
+                .collect(Collectors.groupingBy(
+                        e -> e.getCreatedAt().toLocalDate(),
+                        TreeMap::new,
+                        Collectors.counting()
+                ));
+
+        List<DailyReportResponse.StudyDayData> studyData = countByDate.entrySet().stream()
+                .map(entry -> new DailyReportResponse.StudyDayData(
+                        entry.getKey().toString(),
+                        entry.getValue().intValue()))
+                .toList();
+
+        return new DailyReportResponse(studyData);
+    }
+
     // ── 헬퍼 ────────────────────────────────────────────────────────────────────
+
+    private ReportResponse buildReportResponse(Report report, Long sessionId,
+                                               Map<Long, List<Evaluation>> evalsBySentence) {
+        List<WeekSentence> weekSentences = weekSentenceRepository.findByReport_Id(report.getId());
+
+        List<ReportResponse.DifficultSentence> difficultSentences = weekSentences.stream()
+                .map(ws -> {
+                    List<Evaluation> evals = evalsBySentence.getOrDefault(ws.getSentence().getId(), List.of());
+                    return buildDifficultSentence(
+                            ws.getSentence(),
+                            avgScore(evals),
+                            getLatestEvaluation(evals));
+                })
+                .sorted(Comparator.comparingDouble(ReportResponse.DifficultSentence::averageScore))
+                .limit(DIFFICULT_SENTENCE_LIMIT)
+                .toList();
+
+        return new ReportResponse(
+                report.getId(),
+                sessionId,
+                new ReportResponse.Scores(
+                        report.getTotalScore().doubleValue(),
+                        report.getWordAccuracy().doubleValue(),
+                        report.getProsodyAndStress().doubleValue(),
+                        report.getWordRhythmScore().doubleValue(),
+                        report.getBoundaryToneScore().doubleValue(),
+                        report.getDynamicStressScore().doubleValue(),
+                        report.getSpeedSimilarity().doubleValue(),
+                        report.getPauseSimilarity().doubleValue()),
+                difficultSentences);
+    }
 
     private ReportResponse.DifficultSentence buildDifficultSentence(
             Sentence sentence, double avgScore, Evaluation latest) {

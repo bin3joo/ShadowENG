@@ -14,6 +14,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping(produces = MediaType.APPLICATION_JSON_VALUE)
@@ -25,7 +27,7 @@ public class ReportController {
     @PostMapping(value = "/study-sessions/{sessionId}/reports", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
             summary = "학습 세션 레포트 생성",
-            description = "특정 학습 세션의 평가 결과를 종합하여 레포트를 생성합니다. 평균 점수 및 취약 문장(평균 totalScore < 70)을 포함합니다."
+            description = "특정 학습 세션의 평가 결과를 종합하여 레포트를 생성합니다. 평균 점수 및 취약 문장(평균 totalScore < 90)을 포함합니다."
     )
     public ApiResponse<ReportResponse> createSessionReport(
             @Parameter(description = "레포트를 생성할 학습 세션 ID", example = "12345")
@@ -38,15 +40,30 @@ public class ReportController {
 
     @GetMapping("/study-sessions/{sessionId}/reports")
     @Operation(
-            summary = "학습 세션 레포트 조회",
-            description = "특정 학습 세션의 레포트를 조회합니다."
+            summary = "학습 세션 레포트 목록 조회",
+            description = "특정 학습 세션의 레포트 목록을 최신순으로 조회합니다."
     )
-    public ApiResponse<ReportResponse> getSessionReport(
+    public ApiResponse<List<ReportResponse>> getSessionReports(
             @Parameter(description = "조회할 학습 세션 ID", example = "12345")
             @PathVariable Long sessionId,
             @Parameter(hidden = true) @AuthenticationPrincipal Long userId
     ) {
-        return ApiResponse.success(reportService.getReport(sessionId, userId));
+        return ApiResponse.success(reportService.getReports(sessionId, userId));
+    }
+
+    @GetMapping("/study-sessions/{sessionId}/reports/{reportId}")
+    @Operation(
+            summary = "학습 세션 레포트 단건 조회",
+            description = "특정 학습 세션의 특정 레포트를 조회합니다."
+    )
+    public ApiResponse<ReportResponse> getSessionReport(
+            @Parameter(description = "조회할 학습 세션 ID", example = "12345")
+            @PathVariable Long sessionId,
+            @Parameter(description = "조회할 레포트 ID", example = "1")
+            @PathVariable Long reportId,
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId
+    ) {
+        return ApiResponse.success(reportService.getReport(sessionId, reportId, userId));
     }
 
     @GetMapping("/reports/daily")

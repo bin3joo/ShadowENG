@@ -7,6 +7,9 @@ import java.util.List;
 @Schema(description = "학습 세션 레포트 응답 DTO")
 public record ReportResponse(
 
+        @Schema(description = "리포트 ID", example = "1")
+        Long reportId,
+
         @Schema(description = "학습 세션 ID", example = "1234")
         Long sessionId,
 
