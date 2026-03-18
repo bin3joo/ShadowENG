@@ -7,6 +7,7 @@ import com.bremenband.shadowengapi.domain.study.dto.res.LatestActiveSessionRespo
 import com.bremenband.shadowengapi.domain.study.dto.res.RecentStudySessionResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.SentenceLearningResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.StudySessionCreateResponse;
+import com.bremenband.shadowengapi.domain.study.dto.redis.PendingEvaluation;
 import com.bremenband.shadowengapi.domain.study.util.WordMasker;
 import com.bremenband.shadowengapi.domain.study.dto.transcription.TranscribedSentence;
 import com.bremenband.shadowengapi.domain.study.entity.SessionStatus;
@@ -52,8 +53,9 @@ public class StudySessionService {
     private final UserRepository userRepository;
     private final YoutubeService youtubeService;
     private final TranscriptionService transcriptionService;
-    private final StudySessionWriter studySessionWriter;
-    private final ObjectMapper objectMapper;
+    private final StudySessionWriter     studySessionWriter;
+    private final ObjectMapper           objectMapper;
+    private final PendingEvaluationStore pendingEvaluationStore;
 
     public ActiveSessionsResponse getAllSessions(Long userId) {
         List<StudySession> sessions = studySessionRepository
@@ -213,7 +215,7 @@ public class StudySessionService {
         //    step 3: 원문+빈칸 채우기 단계  — 원문과 마스킹 문장 모두 제공 (step2 평가 결과 기반)
         //    step 4: 청취/쉐도잉 반복 단계  — step 1과 동일, 텍스트 없음
         String fullSentence   = (step == 2 || step == 3) ? sentence.getContent() : null;
-        String hiddenSentence = step == 3 ? buildHiddenSentence(sentenceId, sentence.getContent()) : null;
+        String hiddenSentence = step == 3 ? buildHiddenSentence(sessionId, sentenceId, sentence.getContent()) : null;
 
         return new SentenceLearningResponse(
                 step,
@@ -228,24 +230,34 @@ public class StudySessionService {
         );
     }
 
-    private String buildHiddenSentence(Long sentenceId, String content) {
+    private String buildHiddenSentence(Long sessionId, Long sentenceId, String content) {
+        // 1. 진행 중인 사이클의 step-2 평가를 Redis에서 먼저 조회
+        //    (step-2 평가가 아직 DB에 커밋되기 전이므로 Redis 우선 확인)
+        Optional<PendingEvaluation> step2 = pendingEvaluationStore.findStep(sessionId, sentenceId, 2);
+        if (step2.isPresent()) {
+            return maskFromWordLevelFeedback(sentenceId, step2.get().getWordLevelFeedback(), content);
+        }
+
+        // 2. Redis에 없으면 DB의 최신 평가 사용 (이전 사이클)
         return evaluationRepository.findTopBySentence_IdOrderByCreatedAtDesc(sentenceId)
-                .map(eval -> {
-                    try {
-                        JsonNode feedbackList = objectMapper.readTree(eval.getWordLevelFeedback());
-                        Set<String> wordsToMask = new HashSet<>();
-                        for (JsonNode item : feedbackList) {
-                            if (!"good".equals(item.path("status").asText())) {
-                                wordsToMask.add(item.path("word").asText().toLowerCase());
-                            }
-                        }
-                        return WordMasker.mask(content, wordsToMask);
-                    } catch (Exception e) {
-                        log.warn("word_level_feedback 파싱 실패, 랜덤 마스킹으로 폴백. sentenceId={}", sentenceId, e);
-                        return WordMasker.mask(content);
-                    }
-                })
+                .map(eval -> maskFromWordLevelFeedback(sentenceId, eval.getWordLevelFeedback(), content))
                 .orElseGet(() -> WordMasker.mask(content));
+    }
+
+    private String maskFromWordLevelFeedback(Long sentenceId, String json, String content) {
+        try {
+            JsonNode feedbackList = objectMapper.readTree(json);
+            Set<String> wordsToMask = new HashSet<>();
+            for (JsonNode item : feedbackList) {
+                if (!"good".equals(item.path("status").asText())) {
+                    wordsToMask.add(item.path("word").asText().toLowerCase());
+                }
+            }
+            return WordMasker.mask(content, wordsToMask);
+        } catch (Exception e) {
+            log.warn("word_level_feedback 파싱 실패, 랜덤 마스킹으로 폴백. sentenceId={}", sentenceId, e);
+            return WordMasker.mask(content);
+        }
     }
 
 }
