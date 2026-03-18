@@ -42,7 +42,7 @@ public class Evaluation {
     @Column(name = "dynamic_stress_feedback", nullable = false, columnDefinition = "json")
     private String dynamicStressFeedback;
 
-    @Column(name = "step", nullable = false, columnDefinition = "smallint not null default 4")
+    @Column(name = "step", nullable = false)
     private int step;
 
     @Column(name = "total_score", nullable = false, precision = 5, scale = 2)
