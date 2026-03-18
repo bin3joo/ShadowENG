@@ -7,11 +7,14 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public interface EvaluationRepository extends JpaRepository<Evaluation, Long> {
 
     long countBySentence_Id(Long sentenceId);
+
+    Optional<Evaluation> findTopBySentence_IdOrderByCreatedAtDesc(Long sentenceId);
 
     List<Evaluation> findByStudySession_Id(Long sessionId);
 

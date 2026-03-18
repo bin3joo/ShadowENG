@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 /**
  * 영어 문장에서 학습에 의미 있는 단어를 선택하여 마스킹하는 유틸리티.
@@ -76,6 +78,29 @@ public class WordMasker {
         result[selectedIndex] = MASK + trailing;
 
         return String.join(" ", result);
+    }
+
+    /**
+     * word_level_feedback에서 good이 아닌 단어 목록을 받아 해당 단어를 _____ 로 치환한다.
+     * 대소문자 및 구두점을 무시하고 매칭한다.
+     * 마스킹 대상이 없으면 원문을 그대로 반환한다.
+     */
+    public static String mask(String sentence, Set<String> wordsToMask) {
+        if (wordsToMask.isEmpty()) return sentence;
+
+        String[] words = sentence.split(" ");
+        boolean anyMasked = false;
+
+        for (int i = 0; i < words.length; i++) {
+            String clean = words[i].replaceAll("[^a-zA-Z']", "").toLowerCase();
+            if (wordsToMask.contains(clean)) {
+                String trailing = words[i].replaceAll("^[a-zA-Z']+", "");
+                words[i] = MASK + trailing;
+                anyMasked = true;
+            }
+        }
+
+        return anyMasked ? String.join(" ", words) : sentence;
     }
 
     private static int weightedRandom(List<int[]> candidates) {
