@@ -48,10 +48,10 @@ class ReportControllerTest {
         Long userId    = 1L;
 
         ReportResponse response = new ReportResponse(
+                100L,
                 sessionId,
                 new ReportResponse.Scores(72.5, 90.0, 80.0, 75.0, 85.0, 70.0, 88.0, 95.0),
                 List.of(new ReportResponse.DifficultSentence(10L, "I got it bad.", 55.0, "weak", "monotone", List.of()))
-
         );
 
         given(reportService.createReport(eq(sessionId), any())).willReturn(response);

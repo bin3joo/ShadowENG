@@ -92,6 +92,7 @@ class ReportGetServiceTest {
     private Evaluation buildEvaluation(Sentence sentence, StudySession session, double totalScore) {
         Evaluation eval = Evaluation.builder()
                 .studySession(session).sentence(sentence)
+                .step(4)
                 .userTranscription("test")
                 .wordLevelFeedback("[{\"word\":\"I\",\"status\":\"good\"}]")
                 .boundaryToneFeedback("{\"status\":\"weak\"}")
@@ -126,14 +127,15 @@ class ReportGetServiceTest {
 
         Evaluation e1 = buildEvaluation(s1, session, 55.0);
 
-        given(reportRepository.findByStudySession_Id(sessionId)).willReturn(Optional.of(report));
+        given(reportRepository.findByIdAndStudySession_Id(reportId, sessionId)).willReturn(Optional.of(report));
         given(weekSentenceRepository.findByReport_Id(reportId)).willReturn(List.of(ws));
-        given(evaluationRepository.findByStudySession_Id(sessionId)).willReturn(List.of(e1));
+        given(evaluationRepository.findByStudySession_IdAndStep(sessionId, 4)).willReturn(List.of(e1));
 
         // when
-        ReportResponse response = reportService.getReport(sessionId, USER_ID);
+        ReportResponse response = reportService.getReport(sessionId, reportId, USER_ID);
 
         // then
+        assertThat(response.reportId()).isEqualTo(reportId);
         assertThat(response.sessionId()).isEqualTo(sessionId);
         assertThat(response.scores().totalScore()).isEqualTo(73.70);
         assertThat(response.scores().wordAccuracy()).isEqualTo(93.80);
@@ -149,7 +151,7 @@ class ReportGetServiceTest {
         assertThat(ds.wordFeedback().get(0).word()).isEqualTo("I");
         assertThat(ds.wordFeedback().get(0).status()).isEqualTo("good");
 
-        then(reportRepository).should(times(1)).findByStudySession_Id(sessionId);
+        then(reportRepository).should(times(1)).findByIdAndStudySession_Id(reportId, sessionId);
         then(weekSentenceRepository).should(times(1)).findByReport_Id(reportId);
     }
 
@@ -162,12 +164,12 @@ class ReportGetServiceTest {
         StudySession session = buildSession(sessionId);
         Report report        = buildReport(reportId, session);
 
-        given(reportRepository.findByStudySession_Id(sessionId)).willReturn(Optional.of(report));
+        given(reportRepository.findByIdAndStudySession_Id(reportId, sessionId)).willReturn(Optional.of(report));
         given(weekSentenceRepository.findByReport_Id(reportId)).willReturn(List.of());
-        given(evaluationRepository.findByStudySession_Id(sessionId)).willReturn(List.of());
+        given(evaluationRepository.findByStudySession_IdAndStep(sessionId, 4)).willReturn(List.of());
 
         // when
-        ReportResponse response = reportService.getReport(sessionId, USER_ID);
+        ReportResponse response = reportService.getReport(sessionId, reportId, USER_ID);
 
         // then
         assertThat(response.difficultSentences()).isEmpty();
@@ -177,9 +179,10 @@ class ReportGetServiceTest {
     @DisplayName("레포트가 없으면 REPORT_NOT_FOUND 예외를 던진다")
     void getReport_레포트없음_예외() {
         Long sessionId = 999L;
-        given(reportRepository.findByStudySession_Id(sessionId)).willReturn(Optional.empty());
+        Long reportId  = 1L;
+        given(reportRepository.findByIdAndStudySession_Id(reportId, sessionId)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> reportService.getReport(sessionId, USER_ID))
+        assertThatThrownBy(() -> reportService.getReport(sessionId, reportId, USER_ID))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.REPORT_NOT_FOUND);

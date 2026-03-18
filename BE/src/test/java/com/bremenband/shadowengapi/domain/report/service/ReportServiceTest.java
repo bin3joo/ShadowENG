@@ -32,6 +32,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
@@ -77,6 +78,7 @@ class ReportServiceTest {
                                        double totalScore, LocalDateTime createdAt) {
         Evaluation eval = Evaluation.builder()
                 .studySession(session).sentence(sentence)
+                .step(4)
                 .userTranscription("test")
                 .wordLevelFeedback("[{\"word\":\"I\",\"status\":\"good\"}]")
                 .boundaryToneFeedback("{\"status\":\"weak\"}")
@@ -128,8 +130,7 @@ class ReportServiceTest {
         Report savedReport = buildReport(100L, session);
 
         given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(session));
-        given(evaluationRepository.findByStudySession_Id(sessionId)).willReturn(List.of(e1, e2));
-        given(reportRepository.findByStudySession_Id(sessionId)).willReturn(Optional.empty());
+        given(evaluationRepository.findByStudySession_IdAndStep(sessionId, 4)).willReturn(List.of(e1, e2));
         given(reportRepository.save(any(Report.class))).willReturn(savedReport);
 
         WeekSentence ws = WeekSentence.builder().report(savedReport).sentence(s1).build();
@@ -140,6 +141,7 @@ class ReportServiceTest {
         ReportResponse response = reportService.createReport(sessionId, USER_ID);
 
         // then
+        assertThat(response.reportId()).isEqualTo(100L);
         assertThat(response.sessionId()).isEqualTo(sessionId);
         assertThat(response.scores().totalScore()).isEqualTo(72.5);
         assertThat(response.scores().wordAccuracy()).isEqualTo(90.0);
@@ -180,8 +182,7 @@ class ReportServiceTest {
         Report savedReport = buildReport(100L, session);
 
         given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(session));
-        given(evaluationRepository.findByStudySession_Id(sessionId)).willReturn(List.of(e1, e2, e3, e4));
-        given(reportRepository.findByStudySession_Id(sessionId)).willReturn(Optional.empty());
+        given(evaluationRepository.findByStudySession_IdAndStep(sessionId, 4)).willReturn(List.of(e1, e2, e3, e4));
         given(reportRepository.save(any(Report.class))).willReturn(savedReport);
         given(weekSentenceRepository.save(any(WeekSentence.class))).willAnswer(inv -> inv.getArgument(0));
 
@@ -207,8 +208,7 @@ class ReportServiceTest {
         Report savedReport = buildReport(100L, session);
 
         given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(session));
-        given(evaluationRepository.findByStudySession_Id(sessionId)).willReturn(List.of(e1));
-        given(reportRepository.findByStudySession_Id(sessionId)).willReturn(Optional.empty());
+        given(evaluationRepository.findByStudySession_IdAndStep(sessionId, 4)).willReturn(List.of(e1));
         given(reportRepository.save(any(Report.class))).willReturn(savedReport);
 
         // when
@@ -220,32 +220,6 @@ class ReportServiceTest {
     }
 
     @Test
-    @DisplayName("기존 레포트가 있으면 삭제 후 재생성한다")
-    void createReport_기존레포트존재_재생성() {
-        // given
-        Long sessionId = 1L;
-        StudySession session = buildSession(sessionId);
-        Sentence s1 = buildSentence(10L, session, "sentence");
-        Evaluation e1 = buildEvaluation(s1, session, 80.0, LocalDateTime.now());
-        Report existingReport = buildReport(99L, session);
-        Report savedReport    = buildReport(100L, session);
-
-        given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(session));
-        given(evaluationRepository.findByStudySession_Id(sessionId)).willReturn(List.of(e1));
-        given(reportRepository.findByStudySession_Id(sessionId)).willReturn(Optional.of(existingReport));
-        given(reportRepository.save(any(Report.class))).willReturn(savedReport);
-        given(weekSentenceRepository.save(any(WeekSentence.class))).willAnswer(inv -> inv.getArgument(0));
-
-        // when
-        reportService.createReport(sessionId, USER_ID);
-
-        // then
-        then(weekSentenceRepository).should(times(1)).deleteByReport_Id(99L);
-        then(reportRepository).should(times(1)).delete(existingReport);
-        then(reportRepository).should(times(1)).save(any(Report.class));
-    }
-
-    @Test
     @DisplayName("세션이 없으면 SESSION_NOT_FOUND 예외를 던진다")
     void createReport_세션없음_예외() {
         given(studySessionRepository.findById(999L)).willReturn(Optional.empty());
@@ -254,7 +228,7 @@ class ReportServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.SESSION_NOT_FOUND);
 
-        then(evaluationRepository).should(never()).findByStudySession_Id(any());
+        then(evaluationRepository).should(never()).findByStudySession_IdAndStep(any(), anyInt());
     }
 
     @Test
@@ -262,7 +236,7 @@ class ReportServiceTest {
     void createReport_평가없음_예외() {
         Long sessionId = 1L;
         given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(buildSession(sessionId)));
-        given(evaluationRepository.findByStudySession_Id(sessionId)).willReturn(List.of());
+        given(evaluationRepository.findByStudySession_IdAndStep(sessionId, 4)).willReturn(List.of());
 
         assertThatThrownBy(() -> reportService.createReport(sessionId, USER_ID))
                 .isInstanceOf(CustomException.class)
