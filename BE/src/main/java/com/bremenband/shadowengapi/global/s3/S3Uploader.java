@@ -23,7 +23,8 @@ public class S3Uploader {
     private String bucket;
 
     public String upload(MultipartFile file) {
-        String key = "audio/" + UUID.randomUUID() + ".webm";
+        String ext = getExtension(file.getOriginalFilename());
+        String key = "audio/" + UUID.randomUUID() + "." + ext;
         try {
             PutObjectRequest request = PutObjectRequest.builder()
                     .bucket(bucket)
@@ -35,6 +36,11 @@ public class S3Uploader {
         } catch (Exception e) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
+    }
+
+    private String getExtension(String filename) {
+        if (filename == null || !filename.contains(".")) return "webm";
+        return filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
     }
 
     public void delete(String key) {
