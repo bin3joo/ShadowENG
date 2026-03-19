@@ -73,8 +73,8 @@ public class EvaluationService {
         String audioFormat = getFileExtension(audioFile.getOriginalFilename());
         log.info("[evaluate] audio uploaded: s3Key={}, format={}", s3Key, audioFormat);
 
-        // 4. 저장된 레퍼런스 JSON 역직렬화
-        JsonNode features       = parseJson(sentence.getFeatures());
+        // 4. S3에서 features fetch 후 역직렬화
+        JsonNode features       = parseJson(s3Uploader.fetchJson(sentence.getFeaturesUrl()));
         JsonNode wordTimestamps = parseJson(sentence.getWordTimestamps());
         log.info("[evaluate] reference data parsed: sentenceId={}", sentenceId);
 

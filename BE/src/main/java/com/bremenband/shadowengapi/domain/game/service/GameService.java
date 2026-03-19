@@ -128,8 +128,8 @@ public class GameService {
         String audioFormat = getExtension(audioFile.getOriginalFilename());
         log.info("[Game.evaluate] uploaded: s3Key={}, format={}", s3Key, audioFormat);
 
-        // 5. Python API 평가 호출
-        JsonNode features = parseJson(gs.getFeatures());
+        // 5. S3에서 features fetch 후 Python API 평가 호출
+        JsonNode features = parseJson(s3Uploader.fetchJson(gs.getFeaturesUrl()));
         JsonNode wordTimestamps = parseJson(gs.getWordTimestamps());
         PythonEvaluateAudioRequest request =
                 new PythonEvaluateAudioRequest(s3Key, audioFormat, gs.getContent(), features, wordTimestamps, null);
