@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -31,6 +32,7 @@ import java.util.Map;
  * difficulty → level: easy=1, normal=2, hard=3
  */
 @Slf4j
+@Order(1)
 @Component
 @RequiredArgsConstructor
 public class GameSentenceSeeder implements ApplicationRunner {
