@@ -101,11 +101,6 @@ public class StudySessionService {
         Video video = session.getVideo();
         List<Sentence> sentences = sentenceRepository.findByStudySession_Id(sessionId);
 
-        // 문장별 평가 횟수를 한 번의 쿼리로 집계
-        Map<Long, Long> evalCountMap = evaluationRepository.findByStudySession_Id(sessionId)
-                .stream()
-                .collect(Collectors.groupingBy(e -> e.getSentence().getId(), Collectors.counting()));
-
         List<StudySessionCreateResponse.SentenceData> sentencesData = sentences.stream()
                 .map(s -> new StudySessionCreateResponse.SentenceData(
                         s.getId(),
@@ -113,7 +108,7 @@ public class StudySessionService {
                         s.getStartSec(),
                         s.getEndSec(),
                         s.getDurationSec(),
-                        evalCountMap.getOrDefault(s.getId(), 0L).intValue()
+                        s.getStudyCount()
                 ))
                 .toList();
 

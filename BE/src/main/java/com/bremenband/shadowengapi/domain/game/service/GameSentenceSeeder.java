@@ -43,7 +43,7 @@ public class GameSentenceSeeder implements ApplicationRunner {
 
     private static final Map<String, Integer> DIFFICULTY_LEVEL = Map.of(
             "easy",   1,
-            "normal", 2,
+            "medium", 2,
             "hard",   3
     );
 
