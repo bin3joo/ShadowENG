@@ -90,7 +90,9 @@ public class GameService {
             default -> throw new CustomException(ErrorCode.GAME_ROUND_INVALID);
         };
 
-        return new GameRoundResponse(level, round, sentence, gs.getMaskedContent(), gs.getReferenceAudioUrl());
+        String maskedSentence = (round == 2) ? gs.getMaskedContent() : null;
+
+        return new GameRoundResponse(level, round, sentence, maskedSentence, gs.getReferenceAudioUrl());
     }
 
     // ────────────────────────────────────────────────────────────────
