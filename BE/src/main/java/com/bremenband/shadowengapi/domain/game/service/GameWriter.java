@@ -8,6 +8,7 @@ import com.bremenband.shadowengapi.global.exception.CustomException;
 import com.bremenband.shadowengapi.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -30,7 +31,7 @@ public class GameWriter {
     /**
      * 게임 종료 시 GameRecord, DailyBestRecord, UserGameProfile 를 한 트랜잭션에서 저장.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public GameRecord saveGameResult(Long userId, int level, LocalDate today,
                                      int hearts, double avgTotal, double avgSpeed,
                                      double avgDynamic, double avgBoundary,
