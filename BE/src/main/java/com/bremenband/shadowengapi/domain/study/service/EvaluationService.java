@@ -146,7 +146,7 @@ public class EvaluationService {
         pendingEvaluationStore.deleteAll(sessionId, sentenceId);
         log.info("[commitCycle] redis keys deleted: sessionId={}, sentenceId={}", sessionId, sentenceId);
 
-        studySessionWriter.completeSessionIfAllEvaluated(sessionId);
+        studySessionWriter.completeSessionIfAllEvaluated(sessionId, sentenceId);
         log.info("[commitCycle] session completion checked: sessionId={}", sessionId);
     }
 

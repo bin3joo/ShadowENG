@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 세션 + 문장 저장의 원자성을 보장하기 위한 별도 빈.
@@ -30,14 +31,25 @@ public class StudySessionWriter {
     private final EvaluationRepository evaluationRepository;
 
     @Transactional
-    public void completeSessionIfAllEvaluated(Long sessionId) {
-        long total     = sentenceRepository.countByStudySession_Id(sessionId);
-        long completed = evaluationRepository.countDistinctEvaluatedSentencesBySessionId(sessionId);
+    public void completeSessionIfAllEvaluated(Long sessionId, Long sentenceId) {
+        // 1. step 4 완료된 문장의 studyCount 증가
+        Sentence sentence = sentenceRepository.findById(sentenceId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SENTENCE_NOT_FOUND));
+        sentence.incrementStudyCount();
 
-        if (total > 0 && completed >= total) {
-            StudySession session = studySessionRepository.findById(sessionId)
-                    .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
-            session.complete();
+        // 2. 세션 및 전체 문장 조회
+        StudySession session = studySessionRepository.findById(sessionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
+        List<Sentence> allSentences = sentenceRepository.findByStudySession_Id(sessionId);
+
+        if (allSentences.isEmpty()) return;
+
+        // 3. 모든 문장의 studyCount > cycleCount 이면 사이클 완료
+        boolean allAhead = allSentences.stream()
+                .allMatch(s -> s.getStudyCount() > session.getCycleCount());
+        if (allAhead) {
+            session.completeCycle();  // cycleCount++, isReviewing=false
+            session.complete();       // status=COMPLETED (최초 1회 이후 멱등)
         }
     }
 

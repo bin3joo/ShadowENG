@@ -29,8 +29,14 @@ public record SentenceLearningResponse(
         @Schema(description = "문장 지속 시간 (초)", example = "5.17")
         double durationSec,
 
-        @Schema(description = "문장 학습 횟수 (평가 횟수)", example = "0")
-        int studyCount
+        @Schema(description = "문장 학습 횟수 (step 4 완료 기준)", example = "0")
+        int studyCount,
+
+        @Schema(description = "세션 복습 모드 여부 (사용자가 '복습하기' 클릭 시 true)", example = "false")
+        boolean isReviewing,
+
+        @Schema(description = "이 문장의 복습 필요 여부 (studyCount <= cycleCount)", example = "false")
+        boolean needsReview
 
 ) {
 }

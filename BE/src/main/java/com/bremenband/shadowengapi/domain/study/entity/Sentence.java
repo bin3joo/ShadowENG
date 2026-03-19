@@ -52,9 +52,16 @@ public class Sentence {
     @Column(name = "metadata_url")
     private String metadataUrl;
 
+    @Column(name = "study_count", nullable = false)
+    private int studyCount = 0;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    public void incrementStudyCount() {
+        this.studyCount++;
+    }
 
     @Builder
     private Sentence(StudySession studySession, String content,
@@ -68,5 +75,6 @@ public class Sentence {
         this.wordTimestamps = wordTimestamps;
         this.featuresUrl = featuresUrl;
         this.metadataUrl = metadataUrl;
+        this.studyCount = 0;
     }
 }
