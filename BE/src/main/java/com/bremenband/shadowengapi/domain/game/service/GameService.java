@@ -147,19 +147,30 @@ public class GameService {
         // 6. S3 삭제
         s3Uploader.delete(s3Key);
 
-        // 7. 결과 계산
-        double totalScore = python.scores().totalScore();
+        // 7. 점수 보정 (+15, 최대 100)
+        double adjTotal      = adjust(python.scores().totalScore());
+        double adjWordAcc    = adjust(python.scores().wordAccuracy());
+        double adjProsody    = adjust(python.scores().prosodyAndStress());
+        double adjWordRhythm = adjust(python.scores().wordRhythmScore());
+        double adjBoundary   = adjust(python.scores().boundaryToneScore());
+        double adjDynamic    = adjust(python.scores().dynamicStressScore());
+        double adjSpeed      = adjust(python.scores().speedSimilarity());
+        double adjPause      = adjust(python.scores().pauseSimilarity());
+        log.info("[Game.evaluate] adjustedTotal={}", adjTotal);
+
+        // 8. 결과 계산
+        double totalScore = adjTotal;
         boolean passed = totalScore >= HEART_THRESHOLD;
         boolean gameOver = !passed || round == MAX_LEVEL;
 
-        // 8. 세션 업데이트 (Redis)
-        GameSessionData.RoundResult roundResult = buildRoundResult(round, python);
+        // 9. 세션 업데이트 (Redis)
+        GameSessionData.RoundResult roundResult = buildRoundResult(round, python, adjTotal, adjSpeed, adjDynamic, adjBoundary);
         session.addRound(roundResult);
         if (passed) session.setHearts(session.getHearts() + 1);
         session.setGameOver(gameOver);
         gameSessionStore.save(userId, level, today, session);
 
-        // 9. 게임 종료 시 DB 저장
+        // 10. 게임 종료 시 DB 저장
         GameEvaluationResponse.GameResult gameResult = null;
         if (gameOver) {
             gameResult = saveAndBuildResult(userId, level, today, session);
@@ -169,7 +180,9 @@ public class GameService {
         log.info("[Game.evaluate] done: userId={}, level={}, round={}, hearts={}, gameOver={}",
                 userId, level, round, session.getHearts(), gameOver);
 
-        return buildResponse(python, round, session.getHearts(), gameOver, gameResult);
+        return buildResponse(python, adjTotal, adjWordAcc, adjProsody, adjWordRhythm,
+                adjBoundary, adjDynamic, adjSpeed, adjPause,
+                round, session.getHearts(), gameOver, gameResult);
     }
 
     // ────────────────────────────────────────────────────────────────
@@ -255,7 +268,9 @@ public class GameService {
                 .orElseThrow(() -> new CustomException(ErrorCode.GAME_DAILY_SENTENCE_NOT_ASSIGNED));
     }
 
-    private GameSessionData.RoundResult buildRoundResult(int round, PythonEvaluateAudioResponse python) {
+    private GameSessionData.RoundResult buildRoundResult(int round, PythonEvaluateAudioResponse python,
+                                                          double totalScore, double speedSimilarity,
+                                                          double dynamicStressScore, double boundaryToneScore) {
         String wlf;
         try {
             wlf = objectMapper.writeValueAsString(python.details().wordLevelFeedback());
@@ -265,10 +280,7 @@ public class GameService {
         }
         return new GameSessionData.RoundResult(
                 round, wlf,
-                python.scores().totalScore(),
-                python.scores().speedSimilarity(),
-                python.scores().dynamicStressScore(),
-                python.scores().boundaryToneScore());
+                totalScore, speedSimilarity, dynamicStressScore, boundaryToneScore);
     }
 
     private GameEvaluationResponse.GameResult saveAndBuildResult(
@@ -291,11 +303,14 @@ public class GameService {
                 round(finalScore), round(cumulative), hearts);
     }
 
-    private GameEvaluationResponse buildResponse(PythonEvaluateAudioResponse python, int round,
-                                                  int hearts, boolean gameOver,
+    private GameEvaluationResponse buildResponse(PythonEvaluateAudioResponse python,
+                                                  double totalScore, double wordAccuracy,
+                                                  double prosodyAndStress, double wordRhythmScore,
+                                                  double boundaryToneScore, double dynamicStressScore,
+                                                  double speedSimilarity, double pauseSimilarity,
+                                                  int round, int hearts, boolean gameOver,
                                                   GameEvaluationResponse.GameResult result) {
         PythonEvaluateAudioResponse.Details d = python.details();
-        PythonEvaluateAudioResponse.Scores s = python.scores();
 
         List<GameEvaluationResponse.Details.WordLevelFeedback> wlf = d.wordLevelFeedback().stream()
                 .map(w -> new GameEvaluationResponse.Details.WordLevelFeedback(w.word(), w.status()))
@@ -307,9 +322,9 @@ public class GameService {
                 new GameEvaluationResponse.Details.DynamicStressFeedback(d.dynamicStressFeedback().status()));
 
         GameEvaluationResponse.Scores scores = new GameEvaluationResponse.Scores(
-                s.totalScore(), s.wordAccuracy(), s.prosodyAndStress(),
-                s.wordRhythmScore(), s.boundaryToneScore(), s.dynamicStressScore(),
-                s.speedSimilarity(), s.pauseSimilarity());
+                totalScore, wordAccuracy, prosodyAndStress,
+                wordRhythmScore, boundaryToneScore, dynamicStressScore,
+                speedSimilarity, pauseSimilarity);
 
         return new GameEvaluationResponse(python.userTranscription(), details, scores,
                 round, hearts, gameOver, result);
@@ -342,5 +357,9 @@ public class GameService {
 
     private double round(double value) {
         return Math.round(value * 10.0) / 10.0;
+    }
+
+    private double adjust(double score) {
+        return Math.min(score + 15.0, 100.0);
     }
 }
