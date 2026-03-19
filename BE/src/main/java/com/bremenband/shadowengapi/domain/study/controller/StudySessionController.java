@@ -98,6 +98,20 @@ public class StudySessionController {
         return ApiResponse.success(studySessionService.getStudySession(sessionId, userId));
     }
 
+    @PatchMapping("/{sessionId}/review")
+    @Operation(
+            summary = "복습 모드 시작",
+            description = "학습 세션의 isReviewing을 true로 설정합니다. 사용자가 '복습하기'를 클릭할 때 호출됩니다."
+    )
+    public ApiResponse<Void> startReview(
+            @Parameter(description = "학습 세션 ID", example = "12345")
+            @PathVariable Long sessionId,
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId
+    ) {
+        studySessionService.startReview(sessionId, userId);
+        return ApiResponse.success(null);
+    }
+
     @GetMapping("/{sessionId}/sentences/{sentenceId}")
     @Operation(
             summary = "특정 문장 학습 데이터 조회",
