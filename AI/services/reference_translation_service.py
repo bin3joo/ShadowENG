@@ -7,24 +7,15 @@ import threading
 import time
 from typing import Any
 
+import config
+from domain.processing.speaker_analysis import (
+    _dominant_speaker_label,
+    _get_word_speaker_label,
+)
+from domain.processing.text_processing import _build_reference_part
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field, ValidationError
-
-try:
-    from .. import config
-    from ..domain.processing.speaker_analysis import (
-        _dominant_speaker_label,
-        _get_word_speaker_label,
-    )
-    from ..domain.processing.text_processing import _build_reference_part
-except ImportError:
-    import config
-    from domain.processing.speaker_analysis import (
-        _dominant_speaker_label,
-        _get_word_speaker_label,
-    )
-    from domain.processing.text_processing import _build_reference_part
 
 logger = logging.getLogger(__name__)
 _gemini_client: Any | None = None
@@ -76,8 +67,8 @@ class TranslationMetadata(BaseModel):
     """Translation metadata attached to the response payload."""
 
     final_script_ko: str | None
-    parts: list[dict]
-    learning_expressions: list[dict]
+    parts: list[dict[str, Any]]
+    learning_expressions: list[dict[str, Any]]
     translation_status: str
     translation_retry_count: int
     translation_provider: str
@@ -212,14 +203,30 @@ def _get_gemini_client() -> Any:
     return _gemini_client
 
 
-def _get_part_speaker_hint(part: dict) -> str | None:
-    """Return the dominant speaker label for a part if available."""
+def _get_part_speaker_hint(part: dict[str, Any]) -> str | None:
+    """Return the dominant speaker label for a part if available.
+
+    Args:
+        part: Reference part payload.
+
+    Returns:
+        Dominant speaker label if available, otherwise ``None``.
+    """
     return _dominant_speaker_label(part.get("word_timestamps", []))
 
 
-def _build_llm_input_parts(sentence_data: list[dict]) -> list[dict]:
-    """Build a compact preprocessed part list for Gemini."""
-    payload_parts: list[dict] = []
+def _build_llm_input_parts(
+    sentence_data: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Build a compact preprocessed part list for Gemini.
+
+    Args:
+        sentence_data: Reference part payload list.
+
+    Returns:
+        Preprocessed part list used to build the Gemini prompt.
+    """
+    payload_parts: list[dict[str, Any]] = []
     for index, part in enumerate(sentence_data, start=1):
         payload_parts.append(
             {
@@ -241,8 +248,19 @@ def _build_llm_input_parts(sentence_data: list[dict]) -> list[dict]:
     return payload_parts
 
 
-def _build_prompt(full_text: str, sentence_data: list[dict]) -> str:
-    """Build the Gemini prompt for translation and contextual merging."""
+def _build_prompt(
+    full_text: str,
+    sentence_data: list[dict[str, Any]],
+) -> str:
+    """Build the Gemini prompt for translation and contextual merging.
+
+    Args:
+        full_text: Full reference transcript.
+        sentence_data: Reference part payload list.
+
+    Returns:
+        Prompt string for Gemini.
+    """
     preprocessed_parts = _build_llm_input_parts(sentence_data)
     payload = {
         "full_text": full_text,
@@ -253,10 +271,8 @@ def _build_prompt(full_text: str, sentence_data: list[dict]) -> str:
         "Return JSON only. Do not wrap the response in markdown.\n"
         "Tasks:\n"
         "1. [CRITICAL] Translate the full English text into extremely natural, fluent Korean (구어체). Act as a professional movie subtitle translator. Actively omit unnatural pronouns (e.g., 나는, 당신은, 그것은) and completely avoid word-for-word literal translation.\n"
-        "2. Merge adjacent preprocessed parts ONLY IF they form a logically and grammatically continuous thought. "
-        "Ignore external speaker_hints if they conflict with logical continuity.\n"
-        "3. Keep questions or speaker changes separate unless there is very "
-        "strong evidence to merge.\n"
+        "2. Merge adjacent preprocessed parts ONLY IF they form a logically and grammatically continuous thought AND the resulting combined duration does not exceed 15 seconds. Ignore external speaker_hints if they conflict with logical continuity.\n"
+        "3. Keep questions or speaker changes separate unless there is very strong evidence to merge.\n"
         "4. For each final merged part, provide source_part_ids, translated_text, and vocabulary. Ensure 'translated_text' matches the movie-subtitle quality.\n"
         "5. Extract 3 to 5 highly reusable English learning expressions based on the rules below.\n"
         "6. For each merged part, extract 3 to 5 highly useful expressions, idioms, slang items, collocations, or key vocabulary.\n"
@@ -264,6 +280,7 @@ def _build_prompt(full_text: str, sentence_data: list[dict]) -> str:
         "8. For each learning_expressions item, provide expression, meaning, pronunciation_en, pronunciation_ko, nuance_in_sentence, example_en, and example_ko.\n"
         "Rules:\n"
         "- [CRITICAL TRANSLATION RULE] Prioritize natural Korean phrasing and localization over literal translation. The output MUST sound like a natural Korean conversation. Maintain a consistent and context-appropriate politeness level (존댓말 or 반말) throughout the dialogue.\n"
+        "- [CRITICAL MERGE RULE] The total combined duration of a merged part (calculated as the final 'end_sec' minus the initial 'start_sec', or the sum of 'duration_sec') MUST NOT exceed 15 seconds. If adding the next adjacent part would exceed 15 seconds, you MUST stop merging and start a new merged part.\n"
         "- source_part_ids must cover every part exactly once and keep the original order.\n"
         "- Merge only adjacent parts. Do not omit any source part.\n"
         "- Preserve part metadata from the input when deciding merges, especially part_index, start_sec, end_sec, part_id, and sentence.\n"
@@ -286,7 +303,11 @@ def _build_prompt(full_text: str, sentence_data: list[dict]) -> str:
 
 
 def _build_generate_config() -> types.GenerateContentConfig:
-    """Build Gemini generation config for strict JSON output."""
+    """Build Gemini generation config for strict JSON output.
+
+    Returns:
+        Gemini SDK generation config.
+    """
     return types.GenerateContentConfig(
         system_instruction=config.LLM_GEMINI_SYSTEM_INSTRUCTION,
         temperature=config.LLM_GEMINI_TEMPERATURE,
@@ -321,7 +342,19 @@ def _get_response_finish_reason(response: Any) -> str | None:
 
 
 def _request_gemini(prompt: str) -> dict[str, Any]:
-    """Send a single prompt to Gemini and return the parsed JSON."""
+    """Send a single prompt to Gemini and return the parsed JSON.
+
+    Args:
+        prompt: Prompt string for Gemini.
+
+    Returns:
+        Parsed JSON response payload.
+
+    Raises:
+        RuntimeError: If Gemini returns an empty text response.
+        GeminiRetryableError: If the response is truncated due to token limits.
+        json.JSONDecodeError: If the response is not valid JSON.
+    """
     client = _get_gemini_client()
     response = client.models.generate_content(
         model=config.LLM_GEMINI_MODEL,
@@ -375,10 +408,19 @@ def _is_retryable_exception(exc: Exception) -> bool:
 
 
 def _validate_merged_part_ids(
-    sentence_data: list[dict],
+    sentence_data: list[dict[str, Any]],
     merged_parts: list[GeminiMergedPart],
 ) -> None:
-    """Validate that Gemini merged parts cover all source parts in order."""
+    """Validate that Gemini merged parts cover all source parts in order.
+
+    Args:
+        sentence_data: Original reference part payload list.
+        merged_parts: Gemini merged-part response.
+
+    Raises:
+        ValueError: If merged parts do not cover the source parts exactly once
+            in order.
+    """
     expected_ids = [
         f"part{index}" for index in range(1, len(sentence_data) + 1)
     ]
@@ -393,11 +435,22 @@ def _validate_merged_part_ids(
 
 
 def _merge_source_parts(
-    sentence_data: list[dict],
+    sentence_data: list[dict[str, Any]],
     merged_parts: list[GeminiMergedPart],
-) -> list[dict]:
-    """Merge source parts according to the Gemini result."""
-    merged_payload_parts: list[dict] = []
+) -> list[dict[str, Any]]:
+    """Merge source parts according to the Gemini result.
+
+    Args:
+        sentence_data: Original reference part payload list.
+        merged_parts: Gemini merged-part response.
+
+    Returns:
+        Rebuilt merged reference parts.
+
+    Raises:
+        ValueError: If a merged part cannot be rebuilt.
+    """
+    merged_payload_parts: list[dict[str, Any]] = []
     for merged_part in merged_parts:
         source_indexes = [
             int(part_id.replace("part", "")) - 1
@@ -458,9 +511,18 @@ def _merge_source_parts(
 
 def translate_reference_parts_with_gemini(
     final_script: str,
-    sentence_data: list[dict],
+    sentence_data: list[dict[str, Any]],
 ) -> TranslationMetadata:
-    """Translate and merge reference parts with Gemini and retry on failure."""
+    """Translate and merge reference parts with Gemini.
+
+    Args:
+        final_script: Full reference transcript.
+        sentence_data: Reference part payload list.
+
+    Returns:
+        Translation metadata containing translated text, merged parts, and
+        retry information.
+    """
     provider = f"gemini:{config.LLM_GEMINI_MODEL}"
     base_parts = [dict(part) for part in sentence_data]
     for part in base_parts:

@@ -3,18 +3,14 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 
-try:
-    from .. import config
-    from ..pipeline import get_pipeline
-    from .evaluation import router as evaluation_router
-    from .reference import router as reference_router
-except ImportError:
-    import config
-    from api.evaluation import router as evaluation_router
-    from api.reference import router as reference_router
-    from pipeline import get_pipeline
+import config
+from api.evaluation import router as evaluation_router
+from api.reference import router as reference_router
+from api.system import router as system_router
+from pipeline import get_pipeline
+router = APIRouter()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -52,7 +48,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(reference_router)
     app.include_router(evaluation_router)
+    app.include_router(system_router)
     return app
-
 
 app = create_app()

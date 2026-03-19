@@ -1,27 +1,21 @@
 """
-StyleEcho 설정 로더
+StyleEcho 설정 로더 (OmegaConf 적용 버전)
 ====================
 config_default.yaml 을 기본으로 로드하고,
 config.yaml 이 존재하면 해당 값으로 덮어씁니다.
-
-사용법 (다른 모듈에서):
-    import config
-    print(config.cfg["whisper"]["model"])
-    print(config.get("scoring.speed_k"))
 """
 
-import copy
 import logging
 from pathlib import Path
 from typing import Any
 
-import yaml
 from dotenv import load_dotenv  # type: ignore[import-not-found]
+from omegaconf import DictConfig, ListConfig, OmegaConf
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# 경로 결정
+# 경로 결정 및 환경변수 로드
 # ---------------------------------------------------------------------------
 _PIPE_DIR = Path(__file__).resolve().parent
 _DEFAULT_PATH = _PIPE_DIR / "config_default.yaml"
@@ -31,74 +25,50 @@ load_dotenv(_PIPE_DIR / ".env")
 
 
 # ---------------------------------------------------------------------------
-# 딥 머지 유틸
+# 로드 및 자동 딥 머지 (Deep Merge)
 # ---------------------------------------------------------------------------
-def _deep_merge(
-    base: dict[str, Any], override: dict[str, Any]
-) -> dict[str, Any]:
-    """base 딕셔너리에 override 를 재귀적으로 병합합니다 (override 우선)."""
-    merged = copy.deepcopy(base)
-    for key, value in override.items():
-        if (
-            key in merged
-            and isinstance(merged[key], dict)
-            and isinstance(value, dict)
-        ):
-            merged[key] = _deep_merge(merged[key], value)
-        else:
-            merged[key] = value
-    return merged
+def _ensure_dict_config(config_obj: DictConfig | ListConfig) -> DictConfig:
+    """루트 설정 객체가 매핑 형태인지 검증합니다."""
+    if isinstance(config_obj, DictConfig):
+        return config_obj
+
+    raise TypeError("루트 설정은 mapping 형태여야 합니다.")
 
 
-# ---------------------------------------------------------------------------
-# 로드
-# ---------------------------------------------------------------------------
-def _load_config() -> dict[str, Any]:
-    """config_default.yaml + config.yaml 을 로드하여 병합된 dict 반환."""
+def _load_config() -> DictConfig:
+    """config_default.yaml 과 config.yaml 을 로드하여 병합합니다."""
     if not _DEFAULT_PATH.exists():
         raise FileNotFoundError(f"기본 설정 파일이 없습니다: {_DEFAULT_PATH}")
 
-    with open(_DEFAULT_PATH, "r", encoding="utf-8") as f:
-        base_raw = yaml.safe_load(f) or {}
-    base: dict[str, Any] = base_raw if isinstance(base_raw, dict) else {}
+    base = _ensure_dict_config(OmegaConf.load(_DEFAULT_PATH))
 
     if _USER_PATH.exists():
         logger.info("사용자 설정 로드: %s", _USER_PATH)
-        with open(_USER_PATH, "r", encoding="utf-8") as f:
-            user_raw = yaml.safe_load(f) or {}
-        user: dict[str, Any] = user_raw if isinstance(user_raw, dict) else {}
-        base = _deep_merge(base, user)
-    else:
-        logger.info("사용자 설정 없음 → 기본값 사용: %s", _DEFAULT_PATH)
+        user = _ensure_dict_config(OmegaConf.load(_USER_PATH))
+        return _ensure_dict_config(OmegaConf.merge(base, user))
 
+    logger.info("사용자 설정 없음 → 기본값 사용: %s", _DEFAULT_PATH)
     return base
 
 
 # ---------------------------------------------------------------------------
-# 전역 설정 객체
+# 전역 설정 객체 및 유틸 함수
 # ---------------------------------------------------------------------------
-cfg: dict[str, Any] = _load_config()
+cfg: DictConfig = _load_config()
 
 
 def get(dotted_key: str, default: Any = None) -> Any:
     """
-    점(.)으로 구분된 키로 설정값을 꺼냅니다.
-    예: get("whisper.model") → cfg["whisper"]["model"]
+    기존 코드와의 하위 호환성을 위한 get 래퍼 함수.
+
+    예:
+        get("whisper.model") -> cfg.whisper.model
     """
-    keys = dotted_key.split(".")
-    val: Any = cfg
-    for k in keys:
-        if isinstance(val, dict):
-            val = val.get(k)
-        else:
-            return default
-        if val is None:
-            return default
-    return val
+    return OmegaConf.select(cfg, dotted_key, default=default)
 
 
 # ---------------------------------------------------------------------------
-# 하위 호환 상수 (기존 코드에서 config.WHISPER_MODEL 등으로 접근하던 부분)
+# 하위 호환 상수
 # ---------------------------------------------------------------------------
 WHISPER_MODEL: str = get("whisper.model", "large-v3")
 DEVICE: str = get("whisper.device", "auto")
@@ -324,3 +294,11 @@ REFERENCE_RMS_GATE_MAX_DROPOUT_RATIO: float = get(
 REFERENCE_RMS_GATE_DROPOUT_FRACTION: float = get(
     "reference_feature_gate.rms_dropout_fraction", 0.1
 )
+
+S3_BUCKET: str = get("aws.s3.bucket", "test-bucket")
+
+S3_REGION: str = get("aws.s3.region", "test")
+
+S3_ACCESS_KEY: str = get("aws.s3.access-key", "test")
+
+S3_SECRET_KEY: str = get("aws.s3.secret-key", "test")

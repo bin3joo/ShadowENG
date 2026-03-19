@@ -3,12 +3,8 @@
 from fastapi import APIRouter, BackgroundTasks
 from fastapi.concurrency import run_in_threadpool
 
-try:
-    from ..schemas import GenerateReferenceRequest, GenerateReferenceResponse
-    from ..services.reference_service import generate_reference
-except ImportError:
-    from schemas import GenerateReferenceRequest, GenerateReferenceResponse
-    from services.reference_service import generate_reference
+from schemas import GenerateReferenceRequest, GenerateReferenceResponse
+from services.reference_service import generate_reference
 
 router = APIRouter()
 

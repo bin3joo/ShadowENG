@@ -319,3 +319,18 @@ reference_feature_gate:
   # dropout 판정에 사용할 상대 에너지 기준 (p90 대비 비율)
   rms_dropout_fraction: 0.1
   
+
+# ─────────────────────────────────────────────────
+# s3 링크
+# ─────────────────────────────────────────────────
+aws:
+  # s3 링크
+  s3:
+    # bucket 이름
+    bucket: test-bucket
+    # region 이름
+    region: test
+    # access-key
+    access-key: <access-key>
+    # secret-key
+    secret-key: <secret-key>

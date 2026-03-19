@@ -1,27 +1,29 @@
 """Reference payload helper functions."""
 
 import re
+from typing import Any
 
 import numpy as np
-
-try:
-    from ..domain.processing.engine_utils import (
-        _sum_word_durations,
-        count_pauses_from_words,
-    )
-except ImportError:
-    from domain.processing.engine_utils import (
-        _sum_word_durations,
-        count_pauses_from_words,
-    )
+from domain.processing.engine_utils import (
+    _sum_word_durations,
+    count_pauses_from_words,
+)
 
 _DISALLOWED_SCRIPT_CHAR_RE = re.compile(r"[^A-Za-z0-9\s'.,!?]")
 _MULTI_SPACE_RE = re.compile(r"\s+")
 _SPACE_BEFORE_PUNCT_RE = re.compile(r"\s+([.,!?])")
 
 
-def _numpy_to_python(obj):
-    """Convert NumPy values into JSON-serializable Python values."""
+def _numpy_to_python(obj: Any) -> Any:
+    """Convert NumPy values into JSON-serializable Python values.
+
+    Args:
+        obj: Arbitrary object that may contain NumPy scalar or array values.
+
+    Returns:
+        Native Python value if conversion is needed, otherwise the original
+        object.
+    """
     if isinstance(obj, np.integer):
         return int(obj)
     if isinstance(obj, np.floating):
@@ -32,7 +34,14 @@ def _numpy_to_python(obj):
 
 
 def sanitize_reference_text(text: str) -> str:
-    """Sanitize transcript text while keeping basic sentence punctuation."""
+    """Sanitize transcript text while keeping basic sentence punctuation.
+
+    Args:
+        text: Raw transcript text.
+
+    Returns:
+        Sanitized transcript text.
+    """
     normalized = text.replace("\r", " ").replace("\n", " ")
     normalized = _DISALLOWED_SCRIPT_CHAR_RE.sub(" ", normalized)
     normalized = _MULTI_SPACE_RE.sub(" ", normalized).strip()
@@ -40,9 +49,18 @@ def sanitize_reference_text(text: str) -> str:
     return normalized
 
 
-def _build_public_word_timestamps(words: list[dict]) -> list[dict]:
-    """외부 응답용 word timestamp 목록을 정리합니다."""
-    public_words: list[dict] = []
+def _build_public_word_timestamps(
+    words: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Build sanitized word timestamps for the public response.
+
+    Args:
+        words: Internal word timestamp payload list.
+
+    Returns:
+        Public-safe word timestamp list.
+    """
+    public_words: list[dict[str, Any]] = []
     for word in words:
         clean_word = sanitize_reference_text(word.get("word", ""))
         if not clean_word:
@@ -57,9 +75,18 @@ def _build_public_word_timestamps(words: list[dict]) -> list[dict]:
     return public_words
 
 
-def _build_public_parts(sentence_data: list[dict]) -> list[dict]:
-    """외부 공개용 part payload 만 추려서 구성합니다."""
-    public_parts: list[dict] = []
+def _build_public_parts(
+    sentence_data: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Build public-facing part payloads.
+
+    Args:
+        sentence_data: Internal reference part payload list.
+
+    Returns:
+        Public response part list.
+    """
+    public_parts: list[dict[str, Any]] = []
     for part in sentence_data:
         public_parts.append(
             {
@@ -83,9 +110,18 @@ def _build_public_parts(sentence_data: list[dict]) -> list[dict]:
     return public_parts
 
 
-def sanitize_word_timestamps(words: list[dict]) -> list[dict]:
-    """Sanitize word timestamp text and drop punctuation-only entries."""
-    sanitized_words: list[dict] = []
+def sanitize_word_timestamps(
+    words: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Sanitize word timestamp text and drop punctuation-only entries.
+
+    Args:
+        words: Internal word timestamp payload list.
+
+    Returns:
+        Sanitized word timestamp list.
+    """
+    sanitized_words: list[dict[str, Any]] = []
     for word in words:
         clean_word = sanitize_reference_text(word.get("word", ""))
         if not clean_word:
@@ -99,14 +135,26 @@ def sanitize_word_timestamps(words: list[dict]) -> list[dict]:
 
 
 def attach_part_analysis(
-    sentence_data: list[dict],
+    sentence_data: list[dict[str, Any]],
     f0: np.ndarray,
     rms: np.ndarray,
     speech_start_sec: float,
     target_sr: int,
     hop_length: int,
-) -> list[dict]:
-    """Attach prosody features and pause counts to sentence parts."""
+) -> list[dict[str, Any]]:
+    """Attach prosody features and pause counts to sentence parts.
+
+    Args:
+        sentence_data: Reference part payload list.
+        f0: F0 feature array.
+        rms: RMS feature array.
+        speech_start_sec: Speech start time in seconds within the request clip.
+        target_sr: Feature extraction sample rate.
+        hop_length: Feature hop length.
+
+    Returns:
+        Updated reference part payload list.
+    """
     for part in sentence_data:
         part_words = part.get("word_timestamps", [])
         word_starts = [
@@ -137,13 +185,30 @@ def build_reference_response(
     start_sec: float,
     end_sec: float,
     final_script: str,
-    sentence_data: list[dict],
+    sentence_data: list[dict[str, Any]],
     trimmed_word_count: int,
-    final_words: list[dict],
-    quality_metadata: dict | None = None,
-    translation_metadata: dict | None = None,
-) -> dict:
-    """Build generate-reference response payload."""
+    final_words: list[dict[str, Any]],
+    quality_metadata: dict[str, Any] | None = None,
+    translation_metadata: dict[str, Any] | None = None,
+    hop_length: int | None = None,
+) -> dict[str, Any]:
+    """Build the ``generate-reference`` response payload.
+
+    Args:
+        video_id: YouTube video identifier.
+        start_sec: Request start time in seconds.
+        end_sec: Request end time in seconds.
+        final_script: Final sanitized transcript.
+        sentence_data: Reference part payload list.
+        trimmed_word_count: Number of boundary-trimmed words.
+        final_words: Final word timestamp list.
+        quality_metadata: Optional reference quality metadata.
+        translation_metadata: Optional translation metadata.
+        hop_length: Optional feature hop length used by the reference.
+
+    Returns:
+        Serialized API response payload.
+    """
     translation_metadata = translation_metadata or {}
     payload = {
         "status": "SUCCESS",
@@ -164,6 +229,7 @@ def build_reference_response(
         "translation_success": False,
         "translation_retry_count": 0,
         "translation_provider": None,
+        "hop_length": hop_length,
     }
     if quality_metadata:
         payload.update(

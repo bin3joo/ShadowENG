@@ -6,7 +6,7 @@
 ## 시스템 흐름도 (Execution Flow)
 
 ### 1단계: 준비 (Initialization)
-1. **유저 오디오 획득**: 사용자가 멀티파트 파일이나 URL 형태로 넘긴 오디오를 디스크에 저장(혹은 캐싱)합니다.
+1. **유저 오디오 획득**: 사용자가 멀티파트 파일, 일반 HTTP/HTTPS URL, 또는 **S3 URL (`s3://bucket/key`)** 형태로 넘긴 오디오를 디스크에 저장(혹은 캐싱)합니다. AWS S3 연동을 위해 `boto3`를 사용하며 관련 자격 증명은 환경 변수 또는 `config.yaml`을 통해 관리됩니다.
 2. **레퍼런스 복원**: DB 또는 클라이언트로부터 전달받은 `final_script`(원문), `word_timestamps`(단어 좌표셋), `features/f0_array, rms_array`(기준점 피처)를 메모리에 Numpy 배열 등으로 재복원합니다.
 3. **오디오 로드 및 STT용 정규화**: 유저 오디오를 `librosa.load`로 로드한 뒤, `peak_normalize_audio`를 적용한 **정규화 임시 WAV**를 생성합니다. 이 파일은 STT 전용으로 사용됩니다.
 

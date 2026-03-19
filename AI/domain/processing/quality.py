@@ -9,20 +9,14 @@ import logging
 
 import numpy as np
 
-try:
-    from ... import config
-    from .engine_utils import _sum_word_durations
-    from .speaker_analysis import annotate_reference_part_speakers
-    from .text_processing import _first_sentence_has_terminal_punctuation
-except ImportError:
-    import config
-    from domain.processing.engine_utils import _sum_word_durations
-    from domain.processing.speaker_analysis import (
-        annotate_reference_part_speakers,
-    )
-    from domain.processing.text_processing import (
-        _first_sentence_has_terminal_punctuation,
-    )
+import config
+from domain.processing.engine_utils import _sum_word_durations
+from domain.processing.speaker_analysis import (
+    annotate_reference_part_speakers,
+)
+from domain.processing.text_processing import (
+    _first_sentence_has_terminal_punctuation,
+)
 
 logger = logging.getLogger(__name__)
 

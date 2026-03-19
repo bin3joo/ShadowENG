@@ -1,5 +1,18 @@
 # Pipe Change Log
  
+## 2026-03-16
+
+- 전역 설정 로더를 `OmegaConf` 기반의 딥 머지(Deep Merge) 방식으로 전환하여 `config.yaml` 의 부분 오버라이드가 완벽히 동작하도록 개선했습니다.
+- `boto3` 등 필수 의존성 import 를 모듈 최상단으로 올리고, 무거운 선택적 의존성(`audio_separator`, `torch` 등)만 함수 내 지연 로딩을 유지하도록 import 정책을 일관되게 정리했습니다.
+- `services/` 및 `integrations/` 전반의 핵심 함수들에 대해 Google Style Docstring 을 엄격하게 적용하여 문서화 일관성을 높였습니다.
+- 불필요한 `importlib` 및 어색한 모듈 alias 참조 패턴을 제거하고 정적 분석을 돕기 위해 반환 타입 힌트를 `dict[str, Any]` 와 같이 구체화했습니다.
+- **AWS S3 연동:** `evaluate-audio` 요청 시 `user_audio`로 S3 객체 URL(`s3://...` 또는 HTTPS S3 URL)을 지원하도록 개선했습니다.
+  - `boto3` 라이브러리를 의존성에 추가했습니다.
+  - S3 버킷, 지역, 액세스 키 등의 설정을 `config.py` 및 `config_default.yaml`에 추가하고 `.env`를 통한 주입이 가능하도록 구현했습니다.
+- **Import 시스템 리팩토링:** 프로젝트 전반의 `try...except ImportError` 블록을 제거하고, `AI/` 루트를 기준으로 한 **절대 경로(Absolute Import)** 방식으로 참조 체계를 통일했습니다. 
+  - 이로 인해 실행 환경에 따른 import 오류 가능성을 줄이고 코드 가독성을 향상시켰습니다.
+- `AI/README.md` 및 `docs/internals/03_evaluation_process.md` 문서를 최신 변경 사항에 맞게 갱신했습니다.
+
 ## 2026-03-13
 
 - `generate-reference` 내부 처리 순서를 재구성해 자막 조회 ↔ 오디오 다운로드, VR ↔ STT/alignment, 원본 prosody ↔ VR prosody, Gemini 번역 ↔ prosody/quality assessment 구간을 병렬화했습니다.

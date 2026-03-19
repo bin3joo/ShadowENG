@@ -8,12 +8,8 @@ speaker label smoothing 등 화자 관련 로직을 담당합니다.
 import logging
 from collections import Counter
 
-try:
-    from ... import config
-    from .engine_utils import _count_word_tokens
-except ImportError:
-    import config
-    from domain.processing.engine_utils import _count_word_tokens
+import config
+from domain.processing.engine_utils import _count_word_tokens
 
 logger = logging.getLogger(__name__)
 

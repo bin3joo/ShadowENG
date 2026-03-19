@@ -150,6 +150,7 @@ class GenerateReferenceResponse(BaseModel):
     translation_success: bool = False
     translation_retry_count: int = 0
     translation_provider: str | None = None
+    hop_length: int | None = None
 
 
 class EvaluateAudioRequest(BaseModel):
@@ -160,6 +161,7 @@ class EvaluateAudioRequest(BaseModel):
     final_script: str
     features: ProsodyFeatures | None = None
     word_timestamps: list[WordTimestamp] = Field(default_factory=list)
+    hop_length: int | None = None
 
     @field_validator("user_audio_format")
     @classmethod

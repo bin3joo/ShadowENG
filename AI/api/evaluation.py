@@ -3,12 +3,8 @@
 from fastapi import APIRouter, BackgroundTasks
 from fastapi.concurrency import run_in_threadpool
 
-try:
-    from ..schemas import EvaluateAudioRequest, EvaluateAudioResponse
-    from ..services.evaluation_service import evaluate_audio_request
-except ImportError:
-    from schemas import EvaluateAudioRequest, EvaluateAudioResponse
-    from services.evaluation_service import evaluate_audio_request
+from schemas import EvaluateAudioRequest, EvaluateAudioResponse
+from services.evaluation_service import evaluate_audio_request
 
 router = APIRouter()
 

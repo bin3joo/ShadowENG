@@ -9,10 +9,7 @@ StyleEcho API 테스트 스크립트
   * python -m test.test_api evaluate "./my_recording.wav"
 """
 
-try:
-    from .test.test_api import main
-except ImportError:
-    from test.test_api import main
+from test.test_api import main
 
 if __name__ == "__main__":
     main()
