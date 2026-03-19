@@ -23,40 +23,33 @@ import torchaudio
 if not hasattr(torchaudio, "AudioMetaData"):
     torchaudio.AudioMetaData = type("AudioMetaData", (), {})
 
+import config
 import whisperx
+from domain.processing.audio_processing import denoise_for_analysis
+from domain.processing.engine_utils import (
+    _REMOVE_PUNCT,
+    _canonicalize_tokens,
+    _normalize_word,
+    _sum_word_durations,
+    count_pauses_from_words,
+    extract_pause_positions,
+)
+from domain.processing.quality import evaluate_caption_alignment_health
 from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
-
-try:
-    from . import config
-    from .domain.processing.audio_processing import denoise_for_analysis
-    from .domain.processing.engine_utils import (
-        _REMOVE_PUNCT,
-        _canonicalize_tokens,
-        _normalize_word,
-        _sum_word_durations,
-        count_pauses_from_words,
-        extract_pause_positions,
-    )
-    from .domain.processing.quality import evaluate_caption_alignment_health
-except ImportError:
-    import config
-    from domain.processing.audio_processing import denoise_for_analysis
-    from domain.processing.engine_utils import (
-        _REMOVE_PUNCT,
-        _canonicalize_tokens,
-        _normalize_word,
-        _sum_word_durations,
-        count_pauses_from_words,
-        extract_pause_positions,
-    )
-    from domain.processing.quality import evaluate_caption_alignment_health
 
 logger = logging.getLogger(__name__)
 
 
 def _normalize_f0(f0: np.ndarray) -> np.ndarray:
-    """유성음 구간 기준 F0 화자 정규화 (공통 헬퍼)."""
+    """Normalize F0 values based on voiced regions only.
+
+    Args:
+        f0: Raw F0 feature array.
+
+    Returns:
+        Speaker-normalized F0 array.
+    """
     valid_f0 = f0[f0 > 0]
     if len(valid_f0) > 0:
         return np.where(
@@ -68,7 +61,14 @@ def _normalize_f0(f0: np.ndarray) -> np.ndarray:
 
 
 def _build_f0_gate_metrics(f0: np.ndarray) -> dict[str, float]:
-    """Build simple F0 quality metrics for rule-based source gating."""
+    """Build simple F0 quality metrics for rule-based source gating.
+
+    Args:
+        f0: F0 feature array.
+
+    Returns:
+        Dictionary containing voiced-ratio and jump-ratio metrics.
+    """
     if len(f0) == 0:
         return {
             "voiced_ratio": 0.0,
@@ -98,7 +98,14 @@ def _build_f0_gate_metrics(f0: np.ndarray) -> dict[str, float]:
 
 
 def _build_rms_gate_metrics(rms: np.ndarray) -> dict[str, float]:
-    """Build simple RMS quality metrics for rule-based source gating."""
+    """Build simple RMS quality metrics for rule-based source gating.
+
+    Args:
+        rms: RMS feature array.
+
+    Returns:
+        Dictionary containing contrast and dropout metrics.
+    """
     if len(rms) == 0:
         return {
             "contrast_db": 0.0,
@@ -126,7 +133,17 @@ def select_reference_prosody_sources(
     vr_f0: np.ndarray,
     vr_rms: np.ndarray,
 ) -> dict[str, Any]:
-    """Select reference F0 and RMS tracks with simple gating rules."""
+    """Select reference F0 and RMS tracks with simple gating rules.
+
+    Args:
+        original_f0: F0 extracted from the original audio.
+        original_rms: RMS extracted from the original audio.
+        vr_f0: F0 extracted from the VR audio.
+        vr_rms: RMS extracted from the VR audio.
+
+    Returns:
+        Selected prosody arrays, chosen source labels, and per-source metrics.
+    """
     original_f0_metrics = _build_f0_gate_metrics(original_f0)
     vr_f0_metrics = _build_f0_gate_metrics(vr_f0)
     original_rms_metrics = _build_rms_gate_metrics(original_rms)
@@ -187,9 +204,18 @@ def _empty_stats(
     *,
     stt_method: str | None = None,
     diarization_used: bool = False,
-) -> dict:
-    """비어 있는 STT 결과 dict 팩토리."""
-    result: dict = {
+) -> dict[str, Any]:
+    """Build an empty STT result payload.
+
+    Args:
+        audio: Optional audio array associated with the result.
+        stt_method: Optional STT method label.
+        diarization_used: Whether diarization was applied.
+
+    Returns:
+        Empty STT statistics payload.
+    """
+    result: dict[str, Any] = {
         "text": "",
         "active_speech_sec": 0.0,
         "pause_count": 0,
@@ -216,7 +242,16 @@ def get_pipeline(
     device: str | None = None,
     compute_type: str = "float16",
 ) -> "StyleEchoPipeline":
-    """StyleEchoPipeline 싱글턴 인스턴스를 반환합니다."""
+    """Return the singleton ``StyleEchoPipeline`` instance.
+
+    Args:
+        whisper_model_size: Whisper model size to load on first initialization.
+        device: Explicit device override. If ``None``, the device is inferred.
+        compute_type: Whisper compute type.
+
+    Returns:
+        Shared ``StyleEchoPipeline`` instance.
+    """
     global _pipeline_instance
     if _pipeline_instance is None:
         with _pipeline_lock:
@@ -583,6 +618,7 @@ class StyleEchoPipeline:
         sr: int,
         denoise: bool = False,
         denoise_profile: str | None = None,
+        hop_length: int | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         물리적 억양(F0) 및 에너지(RMS) 특징을 추출하고 정규화합니다.
@@ -604,7 +640,8 @@ class StyleEchoPipeline:
             if denoise
             else y
         )
-        hop_length = config.HOP_LENGTH
+        if hop_length is None:
+            hop_length = config.HOP_LENGTH
         # 1. Energy (RMS)
         rms = librosa.feature.rms(
             y=y_analysis,
@@ -1154,6 +1191,9 @@ class StyleEchoPipeline:
         ref_word_timestamps = ref_data.get("word_timestamps", [])
         ref_f0 = np.array(ref_data.get("features", {}).get("f0_array", []))
         ref_rms = np.array(ref_data.get("features", {}).get("rms_array", []))
+        hop_length = ref_data.get("hop_length")
+        if hop_length is None or hop_length <= 0:
+            hop_length = len(ref_f0) if len(ref_f0) > 0 else config.HOP_LENGTH
 
         # 0. 유저 오디오 로드 및 STT 전용 Peak 정규화
         target_sr = config.TARGET_SR
@@ -1261,7 +1301,7 @@ class StyleEchoPipeline:
         )
 
         user_f0, user_rms, user_features = self.extract_prosody_features(
-            user_y_cropped, target_sr, denoise=True
+            user_y_cropped, target_sr, denoise=True, hop_length=hop_length
         )
 
         # 8. 억양 DTW + 세부 분석 (레퍼런스 피처 복원)

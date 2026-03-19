@@ -306,7 +306,9 @@ def test_evaluate_audio(
         sys.exit(1)
 
     with open(reference_path, "r", encoding="utf-8") as file_obj:
-        ref_data = json.load(file_obj)
+        src_ref_data = json.load(file_obj)
+
+    hop_length = src_ref_data.get("hop_length")
 
     if reference_path.name == "script.json":
         print("❌ eval 입력으로 script.json은 사용할 수 없습니다.")
@@ -315,13 +317,13 @@ def test_evaluate_audio(
         )
         sys.exit(1)
 
-    if not ref_data.get("parts"):
+    if not src_ref_data.get("parts"):
         print("❌ 평가용 reference 데이터에 parts가 없습니다.")
         print(f"   reference.json 경로를 확인하세요: {reference_path}")
         sys.exit(1)
 
     if part_index is not None:
-        parts = ref_data.get("parts", [])
+        parts = src_ref_data.get("parts", [])
         if part_index < 1 or part_index > len(parts):
             print(
                 f"❌ Part {part_index} 없음. "
@@ -333,11 +335,12 @@ def test_evaluate_audio(
             "final_script": part["sentence"],
             "features": part.get("features", {}),
             "word_timestamps": part.get("word_timestamps", []),
+            "hop_length": hop_length,
         }
         print(f"🎯 Part {part_index} 선택: {part['sentence'][:60]}...")
         print(f"   구간: {part['start_sec']:.1f}s ~ {part['end_sec']:.1f}s")
     else:
-        parts = ref_data.get("parts", [])
+        parts = src_ref_data.get("parts", [])
         all_words: list[dict] = []
         all_f0: list[float] = []
         all_rms: list[float] = []
@@ -346,9 +349,10 @@ def test_evaluate_audio(
             all_f0.extend(part.get("features", {}).get("f0_array", []))
             all_rms.extend(part.get("features", {}).get("rms_array", []))
         ref_data = {
-            "final_script": ref_data.get("final_script", ""),
+            "final_script": src_ref_data.get("final_script", ""),
             "features": {"f0_array": all_f0, "rms_array": all_rms},
             "word_timestamps": all_words,
+            "hop_length": hop_length,
         }
 
     print("=" * 60)

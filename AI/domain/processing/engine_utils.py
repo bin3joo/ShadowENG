@@ -10,12 +10,8 @@ import re
 
 import jiwer
 
-try:
-    from ... import config
-    from .constants import REDUCTION_PATTERNS
-except ImportError:
-    import config
-    from domain.processing.constants import REDUCTION_PATTERNS
+import config
+from domain.processing.constants import REDUCTION_PATTERNS
 
 _REMOVE_PUNCT = jiwer.RemovePunctuation()
 _CLEAN_WORD_RE = re.compile(r"[^a-zA-Z']")

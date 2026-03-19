@@ -7,29 +7,18 @@ StyleEcho 텍스트 처리
 
 import re
 
-try:
-    from ... import config
-    from .constants import A1_WORDS, REDUCTION_PATTERNS
-    from .engine_utils import _CLEAN_WORD_RE, _count_word_tokens
-    from .speaker_analysis import (
-        _get_word_speaker_label,
-        _parts_have_compatible_speakers,
-        _speaker_run_words,
-        smooth_word_speaker_labels,
-    )
-except ImportError:
-    import config
-    from domain.processing.constants import A1_WORDS, REDUCTION_PATTERNS
-    from domain.processing.engine_utils import (
-        _CLEAN_WORD_RE,
-        _count_word_tokens,
-    )
-    from domain.processing.speaker_analysis import (
-        _get_word_speaker_label,
-        _parts_have_compatible_speakers,
-        _speaker_run_words,
-        smooth_word_speaker_labels,
-    )
+import config
+from domain.processing.constants import A1_WORDS, REDUCTION_PATTERNS
+from domain.processing.engine_utils import (
+    _CLEAN_WORD_RE,
+    _count_word_tokens,
+)
+from domain.processing.speaker_analysis import (
+    _get_word_speaker_label,
+    _parts_have_compatible_speakers,
+    _speaker_run_words,
+    smooth_word_speaker_labels,
+)
 
 
 def _first_sentence_has_terminal_punctuation(

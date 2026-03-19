@@ -4,15 +4,16 @@ StyleEcho 오디오 처리
 분석용 디노이징(Track B)과 구간 경계 정제(trim) 로직을 담당합니다.
 """
 
+import logging
+import os
 import re
+from typing import Any
 
+import config
 import noisereduce as nr
 import numpy as np
 
-try:
-    from ... import config
-except ImportError:
-    import config
+logger = logging.getLogger(__name__)
 
 
 def denoise_for_analysis(
@@ -20,14 +21,15 @@ def denoise_for_analysis(
     sr: int,
     profile: str | None = None,
 ) -> np.ndarray:
-    """
-    librosa 억양/강세 분석 전용 노이즈 제거 (Track B).
-    WhisperX STT 에는 절대 사용하지 않습니다.
+    """Apply denoising for prosody analysis only.
 
-    noisereduce Spectral Gating:
-    - stationary=True  : 백색소음/에어콘/팬 소음 등 정상(stationary) 노이즈에 최적
-    - prop_decrease=0.8: 노이즈 80% 제거 (과제거 시 음성 왜곡 방지)
-    - 처리 시간 ~0.05초 (CPU 기준)
+    Args:
+        y: Input audio array.
+        sr: Sample rate of ``y``.
+        profile: Optional denoise intensity profile.
+
+    Returns:
+        Denoised audio array.
     """
     if not config.DENOISE_ENABLED or profile == "off":
         return y
@@ -49,9 +51,13 @@ def denoise_for_analysis(
 
 
 def peak_normalize_audio(y: np.ndarray) -> np.ndarray:
-    """
-    오디오 볼륨을 디스토션 없이 최대치(Peak)로 일정하게 맞춥니다.
-    입력이 비어있거나 무음(0)이면 그대로 반환합니다.
+    """Peak-normalize an audio array without clipping.
+
+    Args:
+        y: Input audio array.
+
+    Returns:
+        Peak-normalized audio array. Returns the original array for silent input.
     """
     max_amp = np.max(np.abs(y))
     if max_amp > 0:
@@ -63,22 +69,16 @@ def separate_vocals(
     audio_path: str,
     output_dir: str,
 ) -> str:
+    """Separate vocals from a reference audio file when VR is enabled.
+
+    Args:
+        audio_path: Source WAV path.
+        output_dir: Directory for separated vocal output.
+
+    Returns:
+        Separated vocal WAV path. Returns the original path when VR is disabled
+        or separation fails.
     """
-    audio-separator를 사용하여 레퍼런스 오디오에서 보컬만 분리합니다.
-
-    Parameters
-    ----------
-    audio_path : 원본 오디오 WAV 경로
-    output_dir : 분리된 보컬 WAV를 저장할 디렉터리
-
-    Returns
-    -------
-    str : 분리된 보컬 WAV 경로. VR 비활성 또는 실패 시 원본 경로 반환.
-    """
-    import logging
-    import os
-
-    logger = logging.getLogger(__name__)
 
     if not config.VR_ENABLED:
         logger.info("VR disabled, skipping vocal separation")
@@ -121,9 +121,7 @@ def separate_vocals(
             print(output_files)
             vocal_path = os.path.join(output_dir, output_files[-1])
             if os.path.exists(vocal_path):
-                logger.info(
-                    "Vocal separation 완료: %s", vocal_path
-                )
+                logger.info("Vocal separation 완료: %s", vocal_path)
                 return vocal_path
 
         logger.warning(
@@ -132,37 +130,32 @@ def separate_vocals(
         return audio_path
 
     except Exception as exc:
-        logger.warning(
-            "보컬 분리 실패 (fallback to original): %s", exc
-        )
+        logger.warning("보컬 분리 실패 (fallback to original): %s", exc)
         return audio_path
 
 
 def trim_boundary_fragments(
-    word_timestamps: list[dict],
+    word_timestamps: list[dict[str, Any]],
     full_text: str,
     audio_duration_sec: float,
     front_score_threshold: float = config.TRIM_FRONT_SCORE,
     back_score_threshold: float = config.TRIM_BACK_SCORE,
     boundary_gap_sec: float = config.TRIM_BOUNDARY_GAP,
     min_words: int = config.TRIM_MIN_WORDS,
-) -> tuple[list[dict], str]:
-    """
-    YouTube 레퍼런스 선택 구간 앞뒤의 불완전 발화를 제거합니다.
+) -> tuple[list[dict[str, Any]], str]:
+    """Trim incomplete utterances near the request boundaries.
 
-    Parameters
-    ----------
-    word_timestamps    : WhisperX Forced Alignment 단어 목록
-    full_text          : WhisperX 전사 텍스트
-    audio_duration_sec : librosa.get_duration() 등으로 구한 파일 실제 길이(초)
-    front_score_threshold : 앞부분 alignment score 임계치 (< 이면 저신뢰)
-    back_score_threshold  : 뒤부분 alignment score 임계치
-    boundary_gap_sec      : 마지막 단어 end vs 오디오 끝의 거리 임계치 (초)
-    min_words             : 정제 후 최소 단어 수 (미달이면 빈 반환)
+    Args:
+        word_timestamps: WhisperX aligned word list.
+        full_text: Full aligned transcript text.
+        audio_duration_sec: Actual audio duration in seconds.
+        front_score_threshold: Low-confidence threshold for the front boundary.
+        back_score_threshold: Low-confidence threshold for the back boundary.
+        boundary_gap_sec: Boundary gap threshold in seconds.
+        min_words: Minimum word count required after trimming.
 
-    Returns
-    -------
-    (refined_word_timestamps, refined_text)
+    Returns:
+        Tuple of trimmed word timestamps and refined text.
     """
     if not word_timestamps:
         return [], ""

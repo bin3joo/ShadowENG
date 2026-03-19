@@ -27,7 +27,7 @@
 * **Audio / Signal:** `librosa`, `numpy`, `scipy`, `noisereduce`
 * **Scoring / Text Eval:** `fastdtw`, `jiwer`
 * **Translation:** `transformers`
-* **YouTube / Config:** `yt-dlp`, `youtube-transcript-api`, `PyYAML`
+* **YouTube / Config / Cloud:** `yt-dlp`, `youtube-transcript-api`, `omegaconf`, `boto3`, `PyYAML`
 
 ## 4. 기능 상세 명세
 
@@ -35,7 +35,6 @@
 
 * **프로토콜:** HTTP POST
 * **요청 포맷 (Request):** JSON
-* **응답 포맷 (Response):** JSON
 * **Base Path:** `/api/v1`
 * **Endpoints:**
   * `POST /api/v1/generate-reference`
@@ -50,10 +49,12 @@
   * `final_script`
   * `final_script_ko`
   * `parts[]`
+  * `final_words[]`
   * `pause_count`, `active_speech_sec`, `word_count`
   * `reference_quality`, `quality_reasons`, `warnings`
   * `learning_expressions`
   * `translation_success`, `translation_retry_count`, `translation_provider`
+  * `hop_length` (프레임 분석 간격, evaluation 시 필요)
 * **특징:**
   * 자막 기반 `caption_align` fast path 우선 시도
   * 실패 시 Whisper STT fallback
@@ -69,11 +70,12 @@
 
 * **역할:** 유저 오디오를 레퍼런스와 비교하여 발음, 억양, 리듬, 속도, pause 유사도를 평가합니다.
 * **입력:**
-  * `user_audio` (HTTP URL 또는 Base64)
+  * `user_audio` (HTTP/HTTPS URL, S3 URL (`s3://...`), 설정된 버킷 기준 S3 object key, 또는 Base64)
   * `user_audio_format`
   * `final_script`
   * `features`
   * `word_timestamps`
+  * `hop_length` (선택 사항; 생략 시 레퍼런스 데이터에서 추론)
 * **출력:**
   * 단어 정확도 관련 지표
   * prosody / rhythm / boundary tone / dynamic stress 점수
@@ -123,7 +125,7 @@
   * 선택 시 VR(보컬 분리) 수행
   * boundary trim 및 텍스트 정제
   * 원본 / VR prosody feature 추출 및 source gating
-  * 문장/turn 분할 및 short-part merge
+  * 문장/턴 분할 및 short-part merge
   * Gemini 번역과 speaker / quality 관련 후처리 병렬 진행
   * 응답 payload 생성
 * `[Evaluate Audio]`
@@ -190,19 +192,26 @@ bash setup.sh
 # AI/.env
 GMS_API_KEY=<Gemini API Key>
 HF_TOKEN=<Hugging Face Token>
+
+# AWS S3 (유저 오디오 다운로드용)
+S3_BUCKET=<S3 Bucket Name>
+S3_REGION=<S3 Region>
+S3_ACCESS_KEY=<AWS Access Key>
+S3_SECRET_KEY=<AWS Secret Key>
 ```
 
 | 변수 | 용도 | 필수 여부 |
 |---|---|---|
 | `GMS_API_KEY` | Gemini 번역/병합/학습 표현 추출 | 선택 (없으면 번역 비활성) |
 | `HF_TOKEN` | pyannote speaker-diarization 모델 접근 | 선택 (없으면 diarization 비활성) |
+| `S3_*` | S3에 저장된 유저 오디오 다운로드 | 선택 (S3 URL 사용 시 필요) |
 
 > 두 키가 모두 없어도 레퍼런스 생성과 평가의 핵심 기능은 정상 동작합니다.
+> `evaluate-audio` 에서 `user_audio` 를 `audio/{uuid}.m4a` 같은 S3 object key 로 보내면, 서버는 `config` 에 저장된 S3 bucket / region / access key / secret key 로 해당 객체를 직접 다운로드합니다.
 
 ### 6.5. 설정 커스터마이징
 
-`config.yaml` 을 수정하여 기본 설정을 override 할 수 있습니다.
-변경이 필요한 항목만 넣으면 나머지는 `config_default.yaml` 기본값이 적용됩니다.
+yaml` 을 수정하여 기본 설정을 override 할 수 있습니다. `OmegaConf`를 통한 **Deep Merge** 방식을 사용하므로, 변경이 필요한 항목만 계층형 구조로 넣으면 나머지는 `config_default.yaml`의 기본값이 유지됩니다.
 
 ```yaml
 # config.yaml 예시 (GPU 환경)
@@ -315,7 +324,7 @@ python -m test.fix_verify         # 보정 로직 검증
 
 * **`config_default.yaml`**
   * 전체 기본 설정 정의 파일
-  * Whisper, server, audio, denoise, reference, trimming, scoring, alignment, vocal_remover 설정 포함
+  * Whisper, server, audio, denoise, reference, trimming, scoring, alignment, vocal_remover, S3 설정 포함
 
 * **`config.yaml`**
   * 사용자 커스텀 설정 파일
@@ -403,6 +412,18 @@ python -m test.fix_verify         # 보정 로직 검증
   * 튜닝 문서는 `docs/tuning/`으로 이동되었습니다.
   * 루트 `main.py`는 최소 FastAPI 진입점으로 유지합니다.
   * 앱 구성은 `api/`, `services/`, `integrations/`로 분리하고, 핵심 처리 로직은 `domain/processing`으로 이동했습니다.
+
+---
+
+## 8. 개발 가이드 (Coding Standard)
+
+본 프로젝트는 일관성 있는 코드 품질 유지를 위해 다음 규칙을 준수합니다.
+
+1.  **절대 경로 Import (Absolute Imports):** 모든 모듈은 `AI/` 디렉터리를 루트로 하는 절대 경로로 참조합니다. (예: `from api.reference import ...`)
+2.  **Google Style Docstring:** 모든 모듈, 클래스, 함수에 대해 Google Style Docstring을 적용하여 인자(Args), 반환값(Returns), 예외(Raises)를 명시합니다.
+3.  **Type Hinting:** 정적 분석 성능 향상을 위해 상세한 타입 힌팅을 사용합니다. (예: `dict[str, Any]`, `list[BaseModel]`)
+4.  **설정 로딩 (OmegaConf):** 전역 설정은 `config.py`를 통해 로드하며, `config_default.yaml`과 `config.yaml`의 딥 머지를 지원합니다.
+5.  **예외 처리:** 도메인 로직 내 예외는 명확한 에러 메시지와 함께 `HTTPException` 또는 커스텀 에러로 변환하여 처리합니다.
 
 ---
 

@@ -1,103 +1,63 @@
 """Use-case service for StyleEcho reference generation."""
 
-import importlib
 import logging
 import os
 import tempfile
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
+from typing import Any
 
+import config
 import librosa
 import numpy as np
+from domain.processing import audio_processing as audio_processing_module
+from domain.processing.quality import (
+    assess_reference_quality,
+    estimate_reference_audio_metrics,
+    select_reference_denoise_mode_from_metrics,
+)
+from domain.processing.speaker_analysis import annotate_reference_part_speakers
+from domain.processing.text_processing import (
+    split_into_sentences_with_timestamps,
+)
 from fastapi import BackgroundTasks, HTTPException
-
-try:
-    from .. import config
-    from ..domain.processing import audio_processing as audio_processing_module
-    from ..domain.processing.quality import (
-        assess_reference_quality,
-        estimate_reference_audio_metrics,
-        select_reference_denoise_mode_from_metrics,
-    )
-    from ..domain.processing.speaker_analysis import (
-        annotate_reference_part_speakers,
-    )
-    from ..domain.processing.text_processing import (
-        split_into_sentences_with_timestamps,
-    )
-    from ..integrations.io_utils import (
-        export_part_audio,
-        persist_reference_audio,
-        prepare_reference_audio_dir,
-        remove_dir,
-        remove_file,
-    )
-    from ..integrations.youtube_service import (
-        download_reference_audio,
-        fetch_youtube_captions,
-    )
-    from ..schemas import GenerateReferenceRequest
-    from .reference_payload import (
-        attach_part_analysis,
-        build_reference_response,
-        sanitize_reference_text,
-        sanitize_word_timestamps,
-    )
-    from .reference_translation_service import (
-        translate_reference_parts_with_gemini,
-    )
-except ImportError:
-    import config
-    from domain.processing import audio_processing as audio_processing_module
-    from domain.processing.quality import (
-        assess_reference_quality,
-        estimate_reference_audio_metrics,
-        select_reference_denoise_mode_from_metrics,
-    )
-    from domain.processing.speaker_analysis import (
-        annotate_reference_part_speakers,
-    )
-    from domain.processing.text_processing import (
-        split_into_sentences_with_timestamps,
-    )
-    from integrations.io_utils import (
-        export_part_audio,
-        persist_reference_audio,
-        prepare_reference_audio_dir,
-        remove_dir,
-        remove_file,
-    )
-    from integrations.youtube_service import (
-        download_reference_audio,
-        fetch_youtube_captions,
-    )
-    from schemas import GenerateReferenceRequest
-    from services.reference_payload import (
-        attach_part_analysis,
-        build_reference_response,
-        sanitize_reference_text,
-        sanitize_word_timestamps,
-    )
-    from services.reference_translation_service import (
-        translate_reference_parts_with_gemini,
-    )
-
-try:
-    pipeline_module = importlib.import_module("..pipeline", __package__)
-except Exception:
-    pipeline_module = importlib.import_module("pipeline")
-
-get_pipeline = pipeline_module.get_pipeline
+from integrations.io_utils import (
+    export_part_audio,
+    persist_reference_audio,
+    prepare_reference_audio_dir,
+    remove_dir,
+    remove_file,
+)
+from integrations.youtube_service import (
+    download_reference_audio,
+    fetch_youtube_captions,
+)
+from pipeline import get_pipeline
+from schemas import GenerateReferenceRequest
+from services.reference_payload import (
+    attach_part_analysis,
+    build_reference_response,
+    sanitize_reference_text,
+    sanitize_word_timestamps,
+)
+from services.reference_translation_service import (
+    translate_reference_parts_with_gemini,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def _apply_speaker_risk_policy(
-    sentence_data: list[dict],
-    quality_metadata: dict,
+    sentence_data: list[dict[str, Any]],
+    quality_metadata: dict[str, Any],
 ) -> None:
-    """Adjust per-part speaker risk according to global speaker mode."""
+    """Adjust per-part speaker risk according to global speaker mode.
+
+    Args:
+        sentence_data: Reference part payload list to update in place.
+        quality_metadata: Reference-level quality metadata.
+    """
     if quality_metadata.get("speaker_mode") == "multi_speaker_suspected":
         for part in sentence_data:
             if part.get("speaker_risk") != "high":
@@ -114,19 +74,38 @@ def _slice_audio_segment(
     start_sec: float,
     end_sec: float,
 ) -> np.ndarray:
-    """주어진 시간 구간의 오디오 배열을 잘라 반환합니다."""
+    """Slice an audio array for the requested time window.
+
+    Args:
+        audio_array: Source audio array.
+        sample_rate: Sample rate of ``audio_array``.
+        start_sec: Segment start time in seconds.
+        end_sec: Segment end time in seconds.
+
+    Returns:
+        Sliced audio array as ``np.float32``.
+    """
     start_idx = max(0, int(start_sec * sample_rate))
     end_idx = max(start_idx, int(end_sec * sample_rate))
     return np.asarray(audio_array[start_idx:end_idx], dtype=np.float32)
 
 
 def _rebase_reference_words(
-    words: list[dict],
+    words: list[dict[str, Any]],
     offset_sec: float,
     clip_duration_sec: float,
-) -> list[dict]:
-    """패딩 기준 단어 타임스탬프를 요청 구간 기준으로 재매핑합니다."""
-    rebased_words: list[dict] = []
+) -> list[dict[str, Any]]:
+    """Rebase padded word timestamps into the request-local timebase.
+
+    Args:
+        words: Word timestamp payload based on the padded clip.
+        offset_sec: Request start offset inside the padded clip.
+        clip_duration_sec: Requested clip duration in seconds.
+
+    Returns:
+        Rebased word timestamp list clipped to the requested window.
+    """
+    rebased_words: list[dict[str, Any]] = []
     for word in words:
         start = float(word.get("start", 0.0) or 0.0)
         end = float(word.get("end", 0.0) or 0.0)
@@ -157,9 +136,16 @@ def _export_part_audio_files(
     audio_array: np.ndarray,
     sample_rate: int,
     save_dir: str,
-    sentence_data: list[dict],
+    sentence_data: list[dict[str, Any]],
 ) -> None:
-    """Export per-part WAV files for the generated reference."""
+    """Export per-part WAV files for the generated reference.
+
+    Args:
+        audio_array: Request-local reference audio array.
+        sample_rate: Sample rate of ``audio_array``.
+        save_dir: Output directory for reference artifacts.
+        sentence_data: Reference part payload list updated with audio paths.
+    """
     parts_dir = os.path.join(save_dir, "parts")
     for idx, part in enumerate(sentence_data, start=1):
         part_words = part.get("word_timestamps", [])
@@ -191,14 +177,24 @@ def _export_part_audio_files(
 def generate_reference(
     req: GenerateReferenceRequest,
     background_tasks: BackgroundTasks,
-) -> dict:
-    """Generate a reference payload from YouTube captions and audio."""
+) -> dict[str, Any]:
+    """Generate a reference payload from YouTube captions and audio.
+
+    Args:
+        req: Reference generation request.
+        background_tasks: FastAPI background task registry.
+
+    Returns:
+        Serialized reference response payload.
+
+    Raises:
+        HTTPException: If reference generation fails or quality gates reject it.
+    """
     tmp_dir: str | None = None
     actual_audio: str | None = None
-    quality_metadata: dict | None = None
+    quality_metadata: dict[str, Any] | None = None
     save_dir: str | None = None
     _succeeded = False
-
     try:
         pipeline = get_pipeline()
         use_vr = config.VR_ENABLED
@@ -383,13 +379,11 @@ def generate_reference(
                     denoise_mode,
                 )
                 vr_f0, vr_rms, _ = vr_prosody_future.result()
-                selected_prosody = (
-                    pipeline_module.select_reference_prosody_sources(
-                        original_f0,
-                        original_rms,
-                        vr_f0,
-                        vr_rms,
-                    )
+                selected_prosody = pipeline.select_reference_prosody_sources(
+                    original_f0,
+                    original_rms,
+                    vr_f0,
+                    vr_rms,
                 )
                 f0 = selected_prosody["f0"]
                 rms = selected_prosody["rms"]
@@ -478,21 +472,22 @@ def generate_reference(
             request_audio
         )
 
-        save_dir = prepare_reference_audio_dir(
+        prepared_save_dir: str = prepare_reference_audio_dir(
             req.video_id,
             req.start_sec,
             req.end_sec,
             req.save_dir,
         )
+        save_dir = prepared_save_dir
         persist_reference_audio(
             save_audio,
             target_sr,
-            save_dir,
+            prepared_save_dir,
         )
         _export_part_audio_files(
             save_audio,
             target_sr,
-            save_dir,
+            prepared_save_dir,
             sentence_data,
         )
 
@@ -501,15 +496,15 @@ def generate_reference(
 
         _succeeded = True
         return build_reference_response(
-            req.video_id,
-            req.start_sec,
-            req.end_sec,
-            final_script,
-            sentence_data,
-            trimmed_count,
-            final_words,
-            quality_metadata,
-            translation_result.model_dump(
+            video_id=req.video_id,
+            start_sec=req.start_sec,
+            end_sec=req.end_sec,
+            final_script=final_script,
+            sentence_data=sentence_data,
+            trimmed_word_count=trimmed_count,
+            final_words=final_words,
+            quality_metadata=quality_metadata,
+            translation_metadata=translation_result.model_dump(
                 include={
                     "final_script_ko",
                     "learning_expressions",
@@ -518,6 +513,7 @@ def generate_reference(
                     "translation_provider",
                 }
             ),
+            hop_length=config.HOP_LENGTH,
         )
 
     except HTTPException:

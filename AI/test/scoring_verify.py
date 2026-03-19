@@ -2,13 +2,9 @@
 
 import numpy as np
 
-try:
-    from pipe import config
-    from pipe.test.test_utils import run_and_save_output
-except ImportError:
-    from test.test_utils import run_and_save_output
+from test.test_utils import run_and_save_output
 
-    import config
+import config
 
 
 def _run() -> None:

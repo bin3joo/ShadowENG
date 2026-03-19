@@ -5,10 +5,7 @@ import os
 import subprocess
 from typing import Literal
 
-try:
-    from .. import config
-except ImportError:
-    import config
+import config
 
 logger = logging.getLogger(__name__)
 

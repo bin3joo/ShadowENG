@@ -110,9 +110,18 @@
 - 필요 시 `api/`, `services/`, `integrations/` 폴더 구조로 실제 이동
 - README 구조도 동기화
 
-## 선행 주의사항
+## 리팩토링 현황 (Status)
 
+*   **Step 1~3 완료 (2026-03-16)**: API, Service, Integration, Domain 레이어 분리가 완료되었습니다.
+*   **Import 체계 및 코드 표준 통일**: 
+    - 프로젝트 전반에서 `try...except ImportError`를 제거하고 **절대 경로(Absolute Import)** 방식으로 통일했습니다.
+    - 모든 핵심 함수에 **Google Style Docstring**을 적용하고 반환 타입을 구체화하여 코드 일관성과 가독성을 높였습니다.
+    - `OmegaConf`를 도입하여 유연한 설정 관리 체계를 구축했습니다.
+
+## 선행 주의사항 (Precautions)
+
+- **절대 경로 사용**: 모든 내부 모듈 참조 시 `from api import ...`, `import config` 등 최상위 루트를 기준으로 작성해야 합니다.
+- **실행 환경**: 서버 또는 테스트 스크립트 실행 시 반드시 `AI/` 디렉터리 내에서 실행(`python main.py` 또는 `python -m test.test_api`)해야 import 오류가 발생하지 않습니다.
 - 하위 호환 import 경로를 고려해야 합니다.
 - 폴더 이동 시 `README.md`와 관련 문서를 함께 갱신해야 합니다.
-- 테스트 없이 대규모 이동을 한 번에 수행하지 않는 것이 좋습니다.
 - LLM 호출 시점과 payload는 별도 설계 문서로 분리하는 것이 좋습니다.
