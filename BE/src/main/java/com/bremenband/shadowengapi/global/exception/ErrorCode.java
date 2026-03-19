@@ -23,6 +23,8 @@ public enum ErrorCode {
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, 2004, "학습 세션을 찾을 수 없습니다."),
     SENTENCE_NOT_FOUND(HttpStatus.NOT_FOUND, 2005, "문장을 찾을 수 없습니다."),
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, 2006, "리포트를 찾을 수 없습니다."),
+    GAME_PROFILE_NOT_FOUND(HttpStatus.NOT_FOUND, 2007, "게임 프로필이 없습니다. 먼저 게임을 플레이해주세요."),
+    GAME_DAILY_SENTENCE_NOT_ASSIGNED(HttpStatus.SERVICE_UNAVAILABLE, 2008, "오늘의 게임 문장이 아직 배정되지 않았습니다."),
 
 
     // [3000 ~] : 인증/토큰 에러
@@ -31,6 +33,9 @@ public enum ErrorCode {
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, 3002, "리프레시 토큰이 올바르지 않습니다."),
 
     FORBIDDEN(HttpStatus.FORBIDDEN, 4001, "접근 권한이 없습니다."),
+    USER_IS_FROZEN(HttpStatus.FORBIDDEN, 4002, "동결(freeze) 상태에서는 리더보드에 접근할 수 없습니다."),
+    GAME_LEVEL_LOCKED(HttpStatus.FORBIDDEN, 4003, "잠긴 레벨입니다. 이전 레벨을 먼저 클리어해주세요."),
+    GAME_ROUND_INVALID(HttpStatus.BAD_REQUEST, 1005, "유효하지 않은 게임 라운드 요청입니다. 이전 라운드를 먼저 완료해주세요."),
 
     // [5000 ~] : 미구현 기능
     NOT_IMPLEMENTED(HttpStatus.NOT_IMPLEMENTED, 5000, "아직 구현되지 않은 기능입니다."),

@@ -1,0 +1,44 @@
+package com.bremenband.shadowengapi.domain.game.dto.res;
+
+import java.util.List;
+
+public record GameEvaluationResponse(
+        String userTranscription,
+        Details details,
+        Scores scores,
+        int round,
+        int hearts,
+        boolean gameOver,
+        GameResult result  // null if !gameOver
+) {
+    public record Details(
+            List<WordLevelFeedback> wordFeedback,
+            BoundaryToneFeedback boundaryToneFeedback,
+            DynamicStressFeedback dynamicStressFeedback
+    ) {
+        public record WordLevelFeedback(String word, String status) {}
+        public record BoundaryToneFeedback(String status) {}
+        public record DynamicStressFeedback(String status) {}
+    }
+
+    public record Scores(
+            double totalScore,
+            double wordAccuracy,
+            double prosodyAndStress,
+            double wordRhythmScore,
+            double boundaryToneScore,
+            double dynamicStressScore,
+            double speedSimilarity,
+            double pauseSimilarity
+    ) {}
+
+    public record GameResult(
+            double avgTotalScore,
+            double avgSpeedSimilarity,
+            double avgDynamicStressScore,
+            double avgBoundaryToneScore,
+            double finalScore,
+            double cumulativeScore,
+            int hearts
+    ) {}
+}
