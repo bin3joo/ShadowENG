@@ -44,10 +44,13 @@ public class Sentence {
     @Column(name = "word_timestamps", columnDefinition = "json")
     private String wordTimestamps;
 
-    // evaluate-audio 호출 시 레퍼런스로 사용
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "features", columnDefinition = "json")
-    private String features;
+    // S3에 저장된 features JSON의 키 (f0_array, rms_array) — evaluate-audio 호출 시 fetch
+    @Column(name = "features_url")
+    private String featuresUrl;
+
+    // S3에 저장된 메타데이터 JSON의 키 (vocabulary, sentenceKo 등) — 향후 사용 예정
+    @Column(name = "metadata_url")
+    private String metadataUrl;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)
@@ -56,13 +59,14 @@ public class Sentence {
     @Builder
     private Sentence(StudySession studySession, String content,
                      double startSec, double endSec, double durationSec,
-                     String wordTimestamps, String features) {
+                     String wordTimestamps, String featuresUrl, String metadataUrl) {
         this.studySession = studySession;
         this.content = content;
         this.startSec = startSec;
         this.endSec = endSec;
         this.durationSec = durationSec;
         this.wordTimestamps = wordTimestamps;
-        this.features = features;
+        this.featuresUrl = featuresUrl;
+        this.metadataUrl = metadataUrl;
     }
 }

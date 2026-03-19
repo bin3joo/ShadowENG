@@ -61,7 +61,8 @@ public class StudySessionWriter {
                         .endSec(t.endSec())
                         .durationSec(t.durationSec())
                         .wordTimestamps(t.wordTimestamps())
-                        .features(t.features())
+                        .featuresUrl(t.featuresUrl())
+                        .metadataUrl(t.metadataUrl())
                         .build())
                 .toList();
         List<Sentence> sentences = sentenceRepository.saveAll(sentencesToSave);

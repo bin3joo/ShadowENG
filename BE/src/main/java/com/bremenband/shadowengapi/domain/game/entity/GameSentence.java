@@ -22,8 +22,11 @@ public class GameSentence extends BaseTimeEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column(columnDefinition = "TEXT")
-    private String features; // JSON, Python API용
+    @Column(name = "features_url")
+    private String featuresUrl; // S3 key — evaluate-audio 호출 시 fetch
+
+    @Column(name = "metadata_url")
+    private String metadataUrl; // S3 key — 향후 사용 예정 (vocabulary, sentenceKo 등)
 
     @Column(columnDefinition = "TEXT")
     private String wordTimestamps; // JSON, Python API용

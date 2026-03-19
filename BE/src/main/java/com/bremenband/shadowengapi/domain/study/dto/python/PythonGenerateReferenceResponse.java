@@ -34,7 +34,17 @@ public record PythonGenerateReferenceResponse(
             PythonFeatures features,
 
             @JsonProperty("sentence_ko")
-            String sentenceKo
+            String sentenceKo,
+
+            @JsonProperty("key_expressions")
+            List<String> keyExpressions,
+
+            String difficulty,
+
+            @JsonProperty("difficulty_score")
+            Double difficultyScore,
+
+            List<Vocabulary> vocabulary
 
     ) {
     }
@@ -58,6 +68,29 @@ public record PythonGenerateReferenceResponse(
 
             @JsonProperty("rms_array")
             List<Double> rmsArray
+
+    ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Vocabulary(
+
+            String word,
+
+            @JsonProperty("meaning_ko")
+            String meaningKo,
+
+            @JsonProperty("phonetic_en")
+            String phoneticEn,
+
+            @JsonProperty("phonetic_ko")
+            String phoneticKo,
+
+            @JsonProperty("example_en")
+            String exampleEn,
+
+            @JsonProperty("example_ko")
+            String exampleKo
 
     ) {
     }
