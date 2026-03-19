@@ -54,6 +54,13 @@ public class GameWriter {
                 .build());
 
         // 2. DailyBestRecord 갱신 (최고 finalScore만 저장)
+        LocalDate weekStart = today.with(DayOfWeek.MONDAY);
+
+        // 이번 주 해당 레벨의 기존 최고 점수 (오늘 기록 갱신 전에 조회)
+        BigDecimal weeklyBest = dailyBestRecordRepository
+                .findWeeklyBestScore(userId, level, weekStart, today)
+                .orElse(BigDecimal.ZERO);
+
         DailyBestRecord best = dailyBestRecordRepository
                 .findByUserIdAndLevelAndRecordDate(userId, level, today)
                 .orElse(null);
@@ -71,7 +78,7 @@ public class GameWriter {
         }
 
         // 3. UserGameProfile 주간 점수 누적 + 플레이 주 갱신
-        LocalDate weekStart = today.with(DayOfWeek.MONDAY);
+        // 이번 주 해당 레벨의 최고 점수 대비 향상분만 weeklyScore에 반영
         UserGameProfile profile = userGameProfileRepository.findByUser_Id(userId)
                 .orElseGet(() -> UserGameProfile.builder()
                         .user(user)
@@ -81,7 +88,8 @@ public class GameWriter {
                         .frozen(false)
                         .build());
 
-        profile.addWeeklyScore(bd(finalScore));
+        BigDecimal delta = bd(finalScore).subtract(weeklyBest).max(BigDecimal.ZERO);
+        profile.addWeeklyScore(delta);
         profile.markPlayedThisWeek(weekStart);
         userGameProfileRepository.save(profile);
 
