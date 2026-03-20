@@ -13,8 +13,11 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,9 +26,13 @@ import java.util.UUID;
 public class S3Uploader {
 
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
 
     @Value("${aws.s3.bucket}")
     private String bucket;
+
+    @Value("${aws.s3.region}")
+    private String region;
 
     public String upload(MultipartFile file) {
         String ext = getExtension(file.getOriginalFilename());
@@ -83,6 +90,14 @@ public class S3Uploader {
                         .delimiter("/")
                         .build()
         ).commonPrefixes().stream().map(CommonPrefix::prefix).toList();
+    }
+
+    public String getPresignedUrl(String key) {
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofHours(1))
+                .getObjectRequest(r -> r.bucket(bucket).key(key))
+                .build();
+        return s3Presigner.presignGetObject(presignRequest).url().toString();
     }
 
     public void delete(String key) {

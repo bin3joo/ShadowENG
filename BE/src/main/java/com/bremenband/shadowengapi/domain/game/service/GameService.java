@@ -92,7 +92,8 @@ public class GameService {
 
         String maskedSentence = (round == 2) ? gs.getMaskedContent() : null;
 
-        return new GameRoundResponse(level, round, sentence, maskedSentence, gs.getReferenceAudioUrl());
+        return new GameRoundResponse(level, round, sentence, maskedSentence,
+                s3Uploader.getPresignedUrl(gs.getReferenceAudioUrl()));
     }
 
     // ────────────────────────────────────────────────────────────────
