@@ -139,6 +139,8 @@ public class GameService {
 
         PythonEvaluateAudioResponse python = pythonApiClient.evaluateAudio(request);
         log.info("[Game.evaluate] python status={}", python.status());
+        log.info("[Game.evaluate] reference sentence={}", gs.getContent());
+        log.info("[Game.evaluate] user transcription={}", python.userTranscription());
         log.info("[Game.evaluate] raw scores: totalScore={}, wordAccuracy={}, prosodyAndStress={}, " +
                         "wordRhythmScore={}, boundaryToneScore={}, dynamicStressScore={}, " +
                         "speedSimilarity={}, pauseSimilarity={}",
