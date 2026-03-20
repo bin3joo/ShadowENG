@@ -2,6 +2,8 @@
 
 import logging
 from contextlib import asynccontextmanager
+from logging.handlers import TimedRotatingFileHandler
+from pathlib import Path
 
 from fastapi import FastAPI, APIRouter
 
@@ -12,9 +14,28 @@ from api.system import router as system_router
 from pipeline import get_pipeline
 router = APIRouter()
 
+_LOG_DIR = Path(__file__).resolve().parents[1] / "log"
+_LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+_LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+
+# 콘솔 핸들러
+_stream_handler = logging.StreamHandler()
+_stream_handler.setFormatter(logging.Formatter(_LOG_FORMAT))
+
+# 파일 핸들러 (매일 자정 로테이션, 최대 30일 보관)
+_file_handler = TimedRotatingFileHandler(
+    filename=str(_LOG_DIR / "styleecho.log"),
+    when="midnight",
+    interval=1,
+    backupCount=30,
+    encoding="utf-8",
+)
+_file_handler.setFormatter(logging.Formatter(_LOG_FORMAT))
+
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[_stream_handler, _file_handler],
 )
 logger = logging.getLogger(__name__)
 

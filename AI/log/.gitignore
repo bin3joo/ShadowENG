@@ -1,0 +1,5 @@
+# 로그 파일은 git에 커밋하지 않음
+*.log
+*.log.*
+!.gitkeep
+!.gitignore
