@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -43,11 +44,19 @@ class UserControllerTest {
     void getUserData_성공() throws Exception {
         // given
         Long userId = 1L;
+        List<LocalDate> studyDates = List.of(
+                LocalDate.of(2025, 8, 1),
+                LocalDate.of(2025, 8, 2),
+                LocalDate.of(2025, 8, 3)
+        );
         UserInfoResponse response = new UserInfoResponse(
                 userId,
                 "브레맨",
                 "user@example.com",
                 15,
+                3,
+                3,
+                studyDates,
                 LocalDateTime.of(2025, 8, 1, 10, 0, 0)
         );
 
@@ -66,7 +75,10 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.userId").value(userId))
                 .andExpect(jsonPath("$.data.nickname").value("브레맨"))
                 .andExpect(jsonPath("$.data.email").value("user@example.com"))
-                .andExpect(jsonPath("$.data.visitedCount").value(15))
+                .andExpect(jsonPath("$.data.totalVisitedDays").value(15))
+                .andExpect(jsonPath("$.data.totalStudyDays").value(3))
+                .andExpect(jsonPath("$.data.longestStreak").value(3))
+                .andExpect(jsonPath("$.data.studyDates[0]").value("2025-08-01"))
                 .andExpect(jsonPath("$.data.createdAt").value("2025-08-01T10:00:00"));
 
         then(userService).should(times(1)).getUserInfo(userId);

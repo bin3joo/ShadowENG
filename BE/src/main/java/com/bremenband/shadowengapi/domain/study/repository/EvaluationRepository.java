@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -27,6 +28,10 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, Long> {
 
     @Query("SELECT e.studySession.id, COUNT(DISTINCT e.sentence.id) FROM Evaluation e WHERE e.studySession.id IN :sessionIds GROUP BY e.studySession.id")
     List<Object[]> countDistinctEvaluatedSentencesBySessionIds(@Param("sessionIds") List<Long> sessionIds);
+
+    @Query("SELECT DISTINCT CAST(e.createdAt AS LocalDate) FROM Evaluation e " +
+            "WHERE e.studySession.user.id = :userId ORDER BY CAST(e.createdAt AS LocalDate)")
+    List<LocalDate> findDistinctStudyDatesByUserId(@Param("userId") Long userId);
 
     default Map<Long, Long> completedSentencesMapBySessionIds(List<Long> sessionIds) {
         return countDistinctEvaluatedSentencesBySessionIds(sessionIds).stream()
