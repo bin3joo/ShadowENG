@@ -68,3 +68,6 @@ nohup.out
 ### Prompt ###
 prompt.md
 result.md
+
+## erd ##
+erd.sql
