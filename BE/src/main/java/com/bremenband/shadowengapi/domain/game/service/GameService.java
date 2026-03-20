@@ -126,16 +126,21 @@ public class GameService {
                     .orElseThrow(() -> new CustomException(ErrorCode.GAME_ROUND_INVALID));
         }
 
-        // 4. S3 업로드
-        String s3Key = s3Uploader.upload(audioFile);
+        // 4. Base64 인코딩
+        String audioBase64;
+        try {
+            audioBase64 = java.util.Base64.getEncoder().encodeToString(audioFile.getBytes());
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         String audioFormat = getExtension(audioFile.getOriginalFilename());
-        log.info("[Game.evaluate] uploaded: s3Key={}, format={}", s3Key, audioFormat);
+        log.info("[Game.evaluate] audio encoded to base64: format={}", audioFormat);
 
         // 5. S3에서 features fetch 후 Python API 평가 호출
         JsonNode features = parseJson(s3Uploader.fetchJson(gs.getFeaturesUrl()));
         JsonNode wordTimestamps = parseJson(gs.getWordTimestamps());
         PythonEvaluateAudioRequest request =
-                new PythonEvaluateAudioRequest(s3Key, audioFormat, gs.getContent(), features, wordTimestamps, null);
+                new PythonEvaluateAudioRequest(audioBase64, audioFormat, gs.getContent(), features, wordTimestamps, null);
 
         PythonEvaluateAudioResponse python = pythonApiClient.evaluateAudio(request);
         log.info("[Game.evaluate] python status={}", python.status());
@@ -143,8 +148,7 @@ public class GameService {
         log.info("[Game.evaluate] user transcription={}", python.userTranscription());
 
         if ("FAIL".equals(python.status())) {
-            log.warn("[Game.evaluate] FAIL: userId={}, level={}, round={}, s3Key={}", userId, level, round, s3Key);
-            s3Uploader.delete(s3Key);
+            log.warn("[Game.evaluate] FAIL: userId={}, level={}, round={}", userId, level, round);
             throw new CustomException(ErrorCode.VOICE_RECOGNITION_FAILED);
         }
 
@@ -155,9 +159,6 @@ public class GameService {
                 python.scores().prosodyAndStress(), python.scores().wordRhythmScore(),
                 python.scores().boundaryToneScore(), python.scores().dynamicStressScore(),
                 python.scores().speedSimilarity(), python.scores().pauseSimilarity());
-
-        // 6. S3 삭제
-        s3Uploader.delete(s3Key);
 
         // 7. 점수 보정 (+15, 최대 100)
         double adjTotal      = adjust(python.scores().totalScore());

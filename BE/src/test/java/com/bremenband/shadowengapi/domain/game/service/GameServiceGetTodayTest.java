@@ -48,7 +48,7 @@ class GameServiceGetTodayTest {
         ReflectionTestUtils.setField(user, "id", USER_ID);
 
         GameSentence gs = GameSentence.builder().level(level).content("Test sentence.")
-                .features("{}").wordTimestamps("[]").build();
+                .featuresUrl(null).wordTimestamps("[]").build();
         GameRecord record = GameRecord.builder()
                 .user(user).level(level).playedDate(LocalDate.now())
                 .hearts(hearts)
