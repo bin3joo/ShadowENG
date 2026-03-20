@@ -75,7 +75,8 @@ class StudySessionCreateServiceTest {
         return new StudySessionCreateResponse(
                 12345L,
                 new StudySessionCreateResponse.VideoData(
-                        VIDEO_ID, EMBED_URL, "Never Gonna Give You Up",
+                        VIDEO_ID, EMBED_URL, "https://www.youtube.com/watch?v=" + VIDEO_ID,
+                        "Never Gonna Give You Up",
                         "https://i.ytimg.com/vi/" + VIDEO_ID + "/maxresdefault.jpg", 212L, "Rick Astley"),
                 List.of(new StudySessionCreateResponse.SentenceData(1L, "Hello world", 15.5, 20.0, 4.5, 0))
         );
@@ -93,7 +94,8 @@ class StudySessionCreateServiceTest {
         Video video = buildVideo();
         User user   = buildUser(userId);
         VideoInfoResponse youtubeInfo = new VideoInfoResponse(
-                VIDEO_ID, EMBED_URL, "Never Gonna Give You Up",
+                VIDEO_ID, EMBED_URL, "https://www.youtube.com/watch?v=" + VIDEO_ID,
+                "Never Gonna Give You Up",
                 "https://i.ytimg.com/vi/" + VIDEO_ID + "/maxresdefault.jpg", 212L, "Rick Astley");
 
         given(youtubeService.extractVideoId(EMBED_URL)).willReturn(VIDEO_ID);
@@ -142,7 +144,8 @@ class StudySessionCreateServiceTest {
         given(studySessionWriter.saveSessionAndSentences(any(), any(), anyDouble(), anyDouble(), anyList()))
                 .willReturn(new StudySessionCreateResponse(12345L,
                         new StudySessionCreateResponse.VideoData(
-                                VIDEO_ID, EMBED_URL, "Never Gonna Give You Up",
+                                VIDEO_ID, EMBED_URL, "https://www.youtube.com/watch?v=" + VIDEO_ID,
+                                "Never Gonna Give You Up",
                                 "https://i.ytimg.com/vi/" + VIDEO_ID + "/maxresdefault.jpg", 212L, "Rick Astley"),
                         List.of()));
 

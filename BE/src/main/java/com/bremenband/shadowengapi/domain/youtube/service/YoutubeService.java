@@ -43,6 +43,7 @@ public class YoutubeService {
         return new VideoInfoResponse(
                 videoId,
                 "https://www.youtube.com/embed/" + videoId,
+                "https://www.youtube.com/watch?v=" + videoId,
                 snippet.title(),
                 thumbnailUrl,
                 durationSec,

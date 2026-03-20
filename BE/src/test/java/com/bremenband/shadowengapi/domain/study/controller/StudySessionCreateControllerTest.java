@@ -52,7 +52,8 @@ class StudySessionCreateControllerTest {
         Long userId = 1L;
 
         StudySessionCreateResponse.VideoData videoData = new StudySessionCreateResponse.VideoData(
-                VIDEO_ID, EMBED_URL, "Never Gonna Give You Up",
+                VIDEO_ID, EMBED_URL, "https://www.youtube.com/watch?v=" + VIDEO_ID,
+                "Never Gonna Give You Up",
                 "https://i.ytimg.com/vi/" + VIDEO_ID + "/maxresdefault.jpg",
                 212L, "Rick Astley"
         );

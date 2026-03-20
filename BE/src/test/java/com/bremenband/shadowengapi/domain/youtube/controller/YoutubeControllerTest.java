@@ -47,6 +47,7 @@ class YoutubeControllerTest {
         VideoInfoResponse response = new VideoInfoResponse(
                 videoId,
                 "https://www.youtube.com/embed/" + videoId,
+                "https://www.youtube.com/watch?v=" + videoId,
                 "Rick Astley - Never Gonna Give You Up",
                 "https://i.ytimg.com/vi/" + videoId + "/maxresdefault.jpg",
                 212L,

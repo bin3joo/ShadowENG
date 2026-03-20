@@ -51,6 +51,7 @@ class StudySessionDetailControllerTest {
         StudySessionCreateResponse.VideoData videoData = new StudySessionCreateResponse.VideoData(
                 VIDEO_ID,
                 "https://www.youtube.com/embed/" + VIDEO_ID,
+                "https://www.youtube.com/watch?v=" + VIDEO_ID,
                 "Never Gonna Give You Up",
                 "https://i.ytimg.com/vi/" + VIDEO_ID + "/maxresdefault.jpg",
                 212L,
@@ -99,7 +100,7 @@ class StudySessionDetailControllerTest {
         Long sessionId = 2L;
 
         StudySessionCreateResponse.VideoData videoData = new StudySessionCreateResponse.VideoData(
-                VIDEO_ID, "embed", "title", "thumb", 212L, "ch");
+                VIDEO_ID, "embed", "https://www.youtube.com/watch?v=" + VIDEO_ID, "title", "thumb", 212L, "ch");
         StudySessionCreateResponse response =
                 new StudySessionCreateResponse(sessionId, videoData, List.of());
 
