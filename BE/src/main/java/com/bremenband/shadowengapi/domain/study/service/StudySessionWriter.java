@@ -84,6 +84,7 @@ public class StudySessionWriter {
                 new StudySessionCreateResponse.VideoData(
                         video.getVideoId(),
                         video.getEmbedUrl(),
+                        "https://www.youtube.com/watch?v=" + video.getVideoId(),
                         video.getTitle(),
                         video.getThumbnailUrl(),
                         video.getDuration(),
