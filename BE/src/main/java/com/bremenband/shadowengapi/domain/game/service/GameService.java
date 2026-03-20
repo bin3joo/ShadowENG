@@ -32,7 +32,7 @@ import java.util.*;
 public class GameService {
 
     private static final int MAX_LEVEL = 3;
-    private static final double HEART_THRESHOLD = 70.0;
+    private static final double HEART_THRESHOLD = 10.0;
     private static final double WEIGHT_FACTOR = 0.1;
 
     private final UserGameProfileRepository userGameProfileRepository;
@@ -139,6 +139,13 @@ public class GameService {
 
         PythonEvaluateAudioResponse python = pythonApiClient.evaluateAudio(request);
         log.info("[Game.evaluate] python status={}", python.status());
+        log.info("[Game.evaluate] raw scores: totalScore={}, wordAccuracy={}, prosodyAndStress={}, " +
+                        "wordRhythmScore={}, boundaryToneScore={}, dynamicStressScore={}, " +
+                        "speedSimilarity={}, pauseSimilarity={}",
+                python.scores().totalScore(), python.scores().wordAccuracy(),
+                python.scores().prosodyAndStress(), python.scores().wordRhythmScore(),
+                python.scores().boundaryToneScore(), python.scores().dynamicStressScore(),
+                python.scores().speedSimilarity(), python.scores().pauseSimilarity());
 
         if ("FAIL".equals(python.status())) {
             log.warn("[Game.evaluate] FAIL: userId={}, level={}, round={}, s3Key={}", userId, level, round, s3Key);
