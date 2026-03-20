@@ -141,6 +141,13 @@ public class GameService {
         log.info("[Game.evaluate] python status={}", python.status());
         log.info("[Game.evaluate] reference sentence={}", gs.getContent());
         log.info("[Game.evaluate] user transcription={}", python.userTranscription());
+
+        if ("FAIL".equals(python.status())) {
+            log.warn("[Game.evaluate] FAIL: userId={}, level={}, round={}, s3Key={}", userId, level, round, s3Key);
+            s3Uploader.delete(s3Key);
+            throw new CustomException(ErrorCode.VOICE_RECOGNITION_FAILED);
+        }
+
         log.info("[Game.evaluate] raw scores: totalScore={}, wordAccuracy={}, prosodyAndStress={}, " +
                         "wordRhythmScore={}, boundaryToneScore={}, dynamicStressScore={}, " +
                         "speedSimilarity={}, pauseSimilarity={}",
@@ -148,11 +155,6 @@ public class GameService {
                 python.scores().prosodyAndStress(), python.scores().wordRhythmScore(),
                 python.scores().boundaryToneScore(), python.scores().dynamicStressScore(),
                 python.scores().speedSimilarity(), python.scores().pauseSimilarity());
-
-        if ("FAIL".equals(python.status())) {
-            log.warn("[Game.evaluate] FAIL: userId={}, level={}, round={}, s3Key={}", userId, level, round, s3Key);
-            throw new CustomException(ErrorCode.VOICE_RECOGNITION_FAILED);
-        }
 
         // 6. S3 삭제
         s3Uploader.delete(s3Key);
