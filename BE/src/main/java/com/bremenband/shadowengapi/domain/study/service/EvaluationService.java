@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.util.Base64;
 import java.util.List;
 
 @Slf4j
@@ -65,13 +66,19 @@ public class EvaluationService {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
 
-        // 3. 음성 파일 S3 업로드
+        // 3. 음성 파일 Base64 인코딩
         log.info("[evaluate] audio received: name={}, size={}bytes, contentType={}",
                 audioFile.getOriginalFilename(), audioFile.getSize(), audioFile.getContentType());
 
-        String s3Key      = s3Uploader.upload(audioFile);
+        String audioBase64;
+        try {
+            audioBase64 = Base64.getEncoder().encodeToString(audioFile.getBytes());
+        } catch (Exception e) {
+            log.error("[evaluate] failed to encode audio to base64");
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         String audioFormat = getFileExtension(audioFile.getOriginalFilename());
-        log.info("[evaluate] audio uploaded: s3Key={}, format={}", s3Key, audioFormat);
+        log.info("[evaluate] audio encoded to base64: format={}", audioFormat);
 
         // 4. S3에서 features fetch 후 역직렬화
         JsonNode features       = parseJson(s3Uploader.fetchJson(sentence.getFeaturesUrl()));
@@ -80,24 +87,19 @@ public class EvaluationService {
 
         // 5. Python evaluate-audio 호출 (최대 35초 소요 — DB 커넥션 점유 방지를 위해 트랜잭션 밖에서 실행)
         PythonEvaluateAudioRequest request = new PythonEvaluateAudioRequest(
-                s3Key, audioFormat, sentence.getContent(), features, wordTimestamps, null);
-        log.info("[evaluate] calling python API: s3Key={}, format={}, script=\"{}\"", s3Key, audioFormat, sentence.getContent());
+                audioBase64, audioFormat, sentence.getContent(), features, wordTimestamps, null);
+        log.info("[evaluate] calling python API: format={}, script=\"{}\"", audioFormat, sentence.getContent());
 
         PythonEvaluateAudioResponse pythonResponse = pythonApiClient.evaluateAudio(request);
         log.info("[evaluate] python API response: status={}, userTranscription=\"{}\"",
                 pythonResponse.status(), pythonResponse.userTranscription());
 
         if ("FAIL".equals(pythonResponse.status())) {
-            log.warn("[evaluate] voice recognition failed: sessionId={}, sentenceId={}, step={}, s3Key={}", sessionId, sentenceId, step, s3Key);
-            s3Uploader.delete(s3Key);
+            log.warn("[evaluate] voice recognition failed: sessionId={}, sentenceId={}, step={}", sessionId, sentenceId, step);
             throw new CustomException(ErrorCode.VOICE_RECOGNITION_FAILED);
         }
 
-        // 6. 평가 완료 후 S3 파일 삭제
-        s3Uploader.delete(s3Key);
-        log.info("[evaluate] s3 file deleted: s3Key={}", s3Key);
-
-        // 7. 평가 결과를 Redis에 임시 저장 (step 1~4 공통)
+        // 6. 평가 결과를 Redis에 임시 저장 (step 1~4 공통)
         PendingEvaluation pending = buildPending(step, pythonResponse);
         pendingEvaluationStore.save(sessionId, sentenceId, pending);
         log.info("[evaluate] pending saved to redis: sessionId={}, sentenceId={}, step={}", sessionId, sentenceId, step);

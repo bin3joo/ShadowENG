@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -28,6 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 
@@ -55,7 +57,8 @@ class EvaluationServiceTest {
     @Mock private PendingEvaluationStore pendingEvaluationStore;
     @Spy  private ObjectMapper           objectMapper;
 
-    private static final Long USER_ID = 1L;
+    private static final Long   USER_ID       = 1L;
+    private static final String FEATURES_JSON = "{\"f0_array\":[120.1],\"rms_array\":[0.03]}";
 
     // ── 헬퍼 ────────────────────────────────────────────────────────────────────
 
@@ -78,7 +81,7 @@ class EvaluationServiceTest {
                 .content("I got it bad.")
                 .startSec(5.61).endSec(10.78).durationSec(5.17)
                 .wordTimestamps("[{\"word\":\"I\",\"start\":5.61,\"end\":5.9,\"score\":0.98}]")
-                .features("{\"f0_array\":[120.1],\"rms_array\":[0.03]}")
+                .featuresUrl("features/test.json")
                 .build();
         ReflectionTestUtils.setField(sentence, "id", sentenceId);
         return sentence;
@@ -124,6 +127,7 @@ class EvaluationServiceTest {
 
         given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(session));
         given(sentenceRepository.findById(sentenceId)).willReturn(Optional.of(sentence));
+        given(s3Uploader.fetchJson(any())).willReturn(FEATURES_JSON);
         given(pythonApiClient.evaluateAudio(any(PythonEvaluateAudioRequest.class)))
                 .willReturn(buildSuccessPythonResponse());
 
@@ -143,7 +147,7 @@ class EvaluationServiceTest {
         then(pendingEvaluationStore).should(times(1))
                 .save(eq(sessionId), eq(sentenceId), any(PendingEvaluation.class));
         then(evaluationRepository).should(never()).saveAll(any());
-        then(studySessionWriter).should(never()).completeSessionIfAllEvaluated(any());
+        then(studySessionWriter).should(never()).completeSessionIfAllEvaluated(any(), any());
     }
 
     @Test
@@ -157,6 +161,7 @@ class EvaluationServiceTest {
 
         given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(session));
         given(sentenceRepository.findById(sentenceId)).willReturn(Optional.of(sentence));
+        given(s3Uploader.fetchJson(any())).willReturn(FEATURES_JSON);
         given(pythonApiClient.evaluateAudio(any())).willReturn(buildSuccessPythonResponse());
         given(pendingEvaluationStore.findAll(sessionId, sentenceId)).willReturn(buildAllPending());
 
@@ -176,7 +181,7 @@ class EvaluationServiceTest {
         then(pendingEvaluationStore).should(times(1)).findAll(sessionId, sentenceId);
         then(evaluationRepository).should(times(1)).saveAll(any());
         then(pendingEvaluationStore).should(times(1)).deleteAll(sessionId, sentenceId);
-        then(studySessionWriter).should(times(1)).completeSessionIfAllEvaluated(sessionId);
+        then(studySessionWriter).should(times(1)).completeSessionIfAllEvaluated(sessionId, sentenceId);
     }
 
     @Test
@@ -224,6 +229,7 @@ class EvaluationServiceTest {
 
         given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(session));
         given(sentenceRepository.findById(sentenceId)).willReturn(Optional.of(sentence));
+        given(s3Uploader.fetchJson(any())).willReturn(FEATURES_JSON);
         given(pythonApiClient.evaluateAudio(any()))
                 .willReturn(new PythonEvaluateAudioResponse("FAIL",
                         "음성이 인식되지 않았습니다. 다시 녹음해주세요.", null, null, null));
@@ -232,8 +238,43 @@ class EvaluationServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.VOICE_RECOGNITION_FAILED);
 
+        then(s3Uploader).should(never()).upload(any());
+        then(s3Uploader).should(never()).delete(any());
         then(pendingEvaluationStore).should(never()).save(any(), any(), any());
         then(evaluationRepository).should(never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("음성 파일은 S3에 업로드하지 않고 Base64로 인코딩하여 Python API에 전달한다")
+    void evaluate_audioEncodedAsBase64_S3업로드없음() throws Exception {
+        Long sessionId  = 1L;
+        Long sentenceId = 10L;
+        StudySession session  = buildSession(sessionId);
+        Sentence     sentence = buildSentence(sentenceId, session);
+        byte[] audioBytes = "audio-bytes-content".getBytes();
+        MockMultipartFile audio = new MockMultipartFile(
+                "file", "test.webm", "audio/webm", audioBytes);
+
+        given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(session));
+        given(sentenceRepository.findById(sentenceId)).willReturn(Optional.of(sentence));
+        given(s3Uploader.fetchJson(any())).willReturn(FEATURES_JSON);
+        given(pythonApiClient.evaluateAudio(any())).willReturn(buildSuccessPythonResponse());
+
+        evaluationService.evaluate(sessionId, sentenceId, 1, audio, USER_ID);
+
+        // S3 업로드/삭제 없음
+        then(s3Uploader).should(never()).upload(any());
+        then(s3Uploader).should(never()).delete(any());
+
+        // Python에 Base64 인코딩된 바이트가 전달되었는지 검증
+        ArgumentCaptor<PythonEvaluateAudioRequest> captor =
+                ArgumentCaptor.forClass(PythonEvaluateAudioRequest.class);
+        then(pythonApiClient).should(times(1)).evaluateAudio(captor.capture());
+        PythonEvaluateAudioRequest captured = captor.getValue();
+
+        byte[] decoded = Base64.getDecoder().decode(captured.userAudio());
+        assertThat(decoded).isEqualTo(audioBytes);
+        assertThat(captured.userAudioFormat()).isEqualTo("webm");
     }
 
     @Test

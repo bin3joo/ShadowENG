@@ -27,6 +27,10 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import org.mockito.ArgumentCaptor;
+
+import java.util.Base64;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
@@ -50,8 +54,9 @@ class GameServiceEvaluateTest {
     @Mock private GameWriter                  gameWriter;
     @Spy  private ObjectMapper                objectMapper;
 
-    private static final Long USER_ID = 1L;
-    private static final int  LEVEL   = 1;
+    private static final Long   USER_ID       = 1L;
+    private static final int    LEVEL         = 1;
+    private static final String FEATURES_JSON = "{\"f0_array\":[120.1],\"rms_array\":[0.03]}";
 
     // ── 헬퍼 ────────────────────────────────────────────────────────────────────
 
@@ -59,7 +64,7 @@ class GameServiceEvaluateTest {
         GameSentence gs = GameSentence.builder()
                 .level(level)
                 .content("I got it bad.")
-                .features("{\"f0_array\":[120.1],\"rms_array\":[0.03]}")
+                .featuresUrl("features/game-test.json")
                 .wordTimestamps("[{\"word\":\"I\",\"start\":0.0,\"end\":0.5}]")
                 .referenceAudioUrl("https://s3.example.com/ref.mp3")
                 .build();
@@ -180,6 +185,7 @@ class GameServiceEvaluateTest {
     void evaluate_Python_FAIL_예외() {
         given(dailyGameSentenceRepository.findByLevelAndAssignedDate(eq(LEVEL), any(LocalDate.class)))
                 .willReturn(Optional.of(buildDailySentence(LEVEL)));
+        given(s3Uploader.fetchJson(any())).willReturn(FEATURES_JSON);
         given(pythonApiClient.evaluateAudio(any(PythonEvaluateAudioRequest.class)))
                 .willReturn(new PythonEvaluateAudioResponse("FAIL", "fail", null, null, null));
 
@@ -187,6 +193,8 @@ class GameServiceEvaluateTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.VOICE_RECOGNITION_FAILED);
 
+        then(s3Uploader).should(never()).upload(any());
+        then(s3Uploader).should(never()).delete(any());
         then(gameWriter).should(never()).saveGameResult(any(), anyInt(), any(), anyInt(),
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble());
     }
@@ -198,6 +206,7 @@ class GameServiceEvaluateTest {
     void evaluate_round1_합격_gameOver아님() {
         given(dailyGameSentenceRepository.findByLevelAndAssignedDate(eq(LEVEL), any(LocalDate.class)))
                 .willReturn(Optional.of(buildDailySentence(LEVEL)));
+        given(s3Uploader.fetchJson(any())).willReturn(FEATURES_JSON);
         given(pythonApiClient.evaluateAudio(any())).willReturn(buildPythonResponse(75.0));
 
         GameEvaluationResponse response = gameService.evaluate(USER_ID, LEVEL, 1, audioFile());
@@ -214,23 +223,23 @@ class GameServiceEvaluateTest {
     }
 
     @Test
-    @DisplayName("round 1에서 70점 미만이면 hearts=0, gameOver=true, 결과 반환")
-    void evaluate_round1_불합격_gameOver() {
+    @DisplayName("round 1은 보정 후 점수(최소 15)가 HEART_THRESHOLD(10) 이상이므로 항상 합격하고 gameOver가 발생하지 않는다")
+    void evaluate_round1_보정후항상합격_gameOver없음() {
         given(dailyGameSentenceRepository.findByLevelAndAssignedDate(eq(LEVEL), any(LocalDate.class)))
                 .willReturn(Optional.of(buildDailySentence(LEVEL)));
-        given(pythonApiClient.evaluateAudio(any())).willReturn(buildPythonResponse(65.0));
+        given(s3Uploader.fetchJson(any())).willReturn(FEATURES_JSON);
+        given(pythonApiClient.evaluateAudio(any())).willReturn(buildPythonResponse(0.0)); // 최저 raw 점수
 
         GameEvaluationResponse response = gameService.evaluate(USER_ID, LEVEL, 1, audioFile());
 
-        assertThat(response.hearts()).isEqualTo(0);
-        assertThat(response.gameOver()).isTrue();
-        assertThat(response.result()).isNotNull();
-        assertThat(response.result().hearts()).isEqualTo(0);
+        // 0.0 + 15.0 = 15.0 >= HEART_THRESHOLD(10.0) → 항상 합격
+        assertThat(response.hearts()).isEqualTo(1);
+        assertThat(response.gameOver()).isFalse();
+        assertThat(response.result()).isNull();
 
-        // DB 저장 호출
-        then(gameWriter).should(times(1)).saveGameResult(eq(USER_ID), eq(LEVEL), any(LocalDate.class),
-                eq(0), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble());
-        then(gameSessionStore).should(times(1)).delete(eq(USER_ID), eq(LEVEL), any(LocalDate.class));
+        // round 1이 gameOver가 아니므로 DB 저장 없음
+        then(gameWriter).should(never()).saveGameResult(any(), anyInt(), any(), anyInt(),
+                anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble());
     }
 
     @Test
@@ -242,6 +251,7 @@ class GameServiceEvaluateTest {
                 .willReturn(Optional.of(buildDailySentence(LEVEL)));
         given(gameSessionStore.find(eq(USER_ID), eq(LEVEL), any(LocalDate.class)))
                 .willReturn(Optional.of(existingSession));
+        given(s3Uploader.fetchJson(any())).willReturn(FEATURES_JSON);
         given(pythonApiClient.evaluateAudio(any())).willReturn(buildPythonResponse(80.0));
 
         GameEvaluationResponse response = gameService.evaluate(USER_ID, LEVEL, 2, audioFile());
@@ -260,6 +270,7 @@ class GameServiceEvaluateTest {
                 .willReturn(Optional.of(buildDailySentence(LEVEL)));
         given(gameSessionStore.find(eq(USER_ID), eq(LEVEL), any(LocalDate.class)))
                 .willReturn(Optional.of(existingSession));
+        given(s3Uploader.fetchJson(any())).willReturn(FEATURES_JSON);
         given(pythonApiClient.evaluateAudio(any())).willReturn(buildPythonResponse(85.0));
 
         GameEvaluationResponse response = gameService.evaluate(USER_ID, LEVEL, 3, audioFile());
@@ -280,6 +291,7 @@ class GameServiceEvaluateTest {
         // 이전 gameOver 세션이 있어도 round 1은 새로 시작
         given(dailyGameSentenceRepository.findByLevelAndAssignedDate(eq(LEVEL), any(LocalDate.class)))
                 .willReturn(Optional.of(buildDailySentence(LEVEL)));
+        given(s3Uploader.fetchJson(any())).willReturn(FEATURES_JSON);
         given(pythonApiClient.evaluateAudio(any())).willReturn(buildPythonResponse(75.0));
 
         GameEvaluationResponse response = gameService.evaluate(USER_ID, LEVEL, 1, audioFile());
@@ -290,17 +302,53 @@ class GameServiceEvaluateTest {
     }
 
     @Test
-    @DisplayName("게임 종료 시 final_score = avgTotal × (1 + hearts × 0.1)")
+    @DisplayName("게임 종료(round 3) 시 final_score = avgTotal × (1 + hearts × 0.1)")
     void evaluate_finalScore_가중치계산() {
-        // round 1: score=80, hearts=1 → final = 80 × 1.1 = 88
+        // round 1,2 완료 (hearts=2), round 3에서 합격 → hearts=3
+        // finalScore = avgTotal × (1 + 3 × 0.1) = avgTotal × 1.3
+        GameSessionData existingSession = buildSession(2, 2);
+
         given(dailyGameSentenceRepository.findByLevelAndAssignedDate(eq(LEVEL), any(LocalDate.class)))
                 .willReturn(Optional.of(buildDailySentence(LEVEL)));
-        given(pythonApiClient.evaluateAudio(any())).willReturn(buildPythonResponse(65.0)); // < 70 → gameOver
+        given(gameSessionStore.find(eq(USER_ID), eq(LEVEL), any(LocalDate.class)))
+                .willReturn(Optional.of(existingSession));
+        given(s3Uploader.fetchJson(any())).willReturn(FEATURES_JSON);
+        given(pythonApiClient.evaluateAudio(any())).willReturn(buildPythonResponse(65.0));
 
-        GameEvaluationResponse response = gameService.evaluate(USER_ID, LEVEL, 1, audioFile());
+        GameEvaluationResponse response = gameService.evaluate(USER_ID, LEVEL, 3, audioFile());
 
-        // hearts=0, finalScore = avgTotal * 1.0
-        assertThat(response.result().hearts()).isEqualTo(0);
-        assertThat(response.result().finalScore()).isEqualTo(response.result().avgTotalScore());
+        // hearts=3 (모든 라운드 합격), finalScore > avgTotalScore
+        assertThat(response.result()).isNotNull();
+        assertThat(response.result().hearts()).isEqualTo(3);
+        assertThat(response.result().finalScore()).isGreaterThan(response.result().avgTotalScore());
+    }
+
+    @Test
+    @DisplayName("음성 파일은 S3에 업로드하지 않고 Base64로 인코딩하여 Python API에 전달한다")
+    void evaluate_audioEncodedAsBase64_S3업로드없음() {
+        byte[] audioBytes = "game-audio-content".getBytes();
+        MockMultipartFile audio = new MockMultipartFile(
+                "file", "test.webm", "audio/webm", audioBytes);
+
+        given(dailyGameSentenceRepository.findByLevelAndAssignedDate(eq(LEVEL), any(LocalDate.class)))
+                .willReturn(Optional.of(buildDailySentence(LEVEL)));
+        given(s3Uploader.fetchJson(any())).willReturn(FEATURES_JSON);
+        given(pythonApiClient.evaluateAudio(any())).willReturn(buildPythonResponse(80.0));
+
+        gameService.evaluate(USER_ID, LEVEL, 1, audio);
+
+        // S3 업로드/삭제 없음
+        then(s3Uploader).should(never()).upload(any());
+        then(s3Uploader).should(never()).delete(any());
+
+        // Python에 Base64 인코딩된 바이트가 전달되었는지 검증
+        ArgumentCaptor<PythonEvaluateAudioRequest> captor =
+                ArgumentCaptor.forClass(PythonEvaluateAudioRequest.class);
+        then(pythonApiClient).should(times(1)).evaluateAudio(captor.capture());
+        PythonEvaluateAudioRequest captured = captor.getValue();
+
+        byte[] decoded = Base64.getDecoder().decode(captured.userAudio());
+        assertThat(decoded).isEqualTo(audioBytes);
+        assertThat(captured.userAudioFormat()).isEqualTo("webm");
     }
 }

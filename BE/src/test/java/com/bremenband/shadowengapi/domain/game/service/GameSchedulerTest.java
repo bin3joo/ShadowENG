@@ -40,7 +40,7 @@ class GameSchedulerTest {
 
     private GameSentence buildSentence(Long id, int level) {
         GameSentence gs = GameSentence.builder()
-                .level(level).content("Sentence " + id).features("{}").wordTimestamps("[]").build();
+                .level(level).content("Sentence " + id).featuresUrl(null).wordTimestamps("[]").build();
         ReflectionTestUtils.setField(gs, "id", id);
         return gs;
     }

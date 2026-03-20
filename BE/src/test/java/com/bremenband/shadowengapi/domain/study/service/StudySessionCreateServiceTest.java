@@ -104,7 +104,8 @@ class StudySessionCreateServiceTest {
         given(transcriptionService.transcribe(VIDEO_ID, 15.5, 45.0)).willReturn(List.of(
                 new TranscribedSentence("Hello world", 15.5, 20.0, 4.5,
                         "[{\"word\":\"Hello\",\"start\":15.5,\"end\":16.0,\"score\":0.98}]",
-                        "{\"f0_array\":[120.1],\"rms_array\":[0.03]}")
+                        "features/test.json",
+                        "metadata/test.json")
         ));
         given(studySessionWriter.saveSessionAndSentences(any(), any(), anyDouble(), anyDouble(), anyList()))
                 .willReturn(buildExpectedResponse());
