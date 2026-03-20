@@ -72,6 +72,10 @@ def remove_dir(path: str) -> None:
 def download_audio_from_url(url: str, target_path: str) -> None:
     """Download a remote audio file or S3 object to a local path.
 
+    If audio caching is enabled, the file is looked up in cache first.
+    On a cache miss the file is downloaded normally and then stored
+    in the cache for future reuse.
+
     Args:
         url: Remote audio source. Supports ``http``, ``https``, ``s3``, and
             direct S3 object keys.
@@ -81,7 +85,14 @@ def download_audio_from_url(url: str, target_path: str) -> None:
         HTTPException: If the source format is unsupported or the download
             fails.
     """
+    from integrations.audio_cache import get_audio_cache
+
     source = url.strip()
+    cache = get_audio_cache()
+
+    if cache is not None and cache.get(source, target_path):
+        return
+
     parsed = urllib.parse.urlparse(source)
 
     is_s3 = False
@@ -132,6 +143,8 @@ def download_audio_from_url(url: str, target_path: str) -> None:
                 "Downloading S3 object: bucket=%s, key=%s", bucket, key
             )
             s3_client.download_file(bucket, key, target_path)
+            if cache is not None:
+                cache.put(source, target_path)
             return
         except (NoCredentialsError, ClientError) as exc:
             logger.error("Failed to download from S3: %s", exc)
@@ -143,6 +156,9 @@ def download_audio_from_url(url: str, target_path: str) -> None:
     with urllib.request.urlopen(source, timeout=30) as response:
         with open(target_path, "wb") as file_obj:
             file_obj.write(response.read())
+
+    if cache is not None:
+        cache.put(source, target_path)
 
 
 def prepare_reference_audio_dir(

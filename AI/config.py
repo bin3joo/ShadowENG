@@ -96,6 +96,11 @@ LLM_GEMINI_MAX_OUTPUT_TOKENS: int = get("llm.gemini_max_output_tokens", 4096)
 TARGET_SR: int = get("audio.target_sr", 16000)
 HOP_LENGTH: int = get("audio.hop_length", 256)
 
+AUDIO_CACHE_ENABLED: bool = get("audio.cache.enabled", True)
+AUDIO_CACHE_DIR: str = get("audio.cache.dir", "temp/audio_cache")
+AUDIO_CACHE_MAX_SIZE_MB: int = get("audio.cache.max_size_mb", 500)
+AUDIO_CACHE_TTL_HOURS: int = get("audio.cache.ttl_hours", 24)
+
 DENOISE_ENABLED: bool = get("denoise.enabled", True)
 DENOISE_STATIONARY: bool = get("denoise.stationary", True)
 DENOISE_PROP_DECREASE: float = get("denoise.prop_decrease", 0.6)
