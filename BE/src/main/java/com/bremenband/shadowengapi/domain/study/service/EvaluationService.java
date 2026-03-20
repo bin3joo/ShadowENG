@@ -89,8 +89,7 @@ public class EvaluationService {
 
         if ("FAIL".equals(pythonResponse.status())) {
             log.warn("[evaluate] voice recognition failed: sessionId={}, sentenceId={}, step={}, s3Key={}", sessionId, sentenceId, step, s3Key);
-            // TODO: FAIL 원인 파악 후 삭제 로직 복구
-            // s3Uploader.delete(s3Key);
+            s3Uploader.delete(s3Key);
             throw new CustomException(ErrorCode.VOICE_RECOGNITION_FAILED);
         }
 
