@@ -29,7 +29,7 @@ public class GameScheduler {
      * 당주(월~일) 출제된 문장은 제외 후 랜덤 선택.
      * 모든 문장이 이미 출제됐으면 전체 풀에서 다시 선택.
      */
-    @Scheduled(cron = "0 1 0 * * *")
+    @Scheduled(cron = "0 1 0 * * *", zone = "Asia/Seoul")
     @Transactional
     public void assignDailySentences() {
         LocalDate today = LocalDate.now();
@@ -78,7 +78,7 @@ public class GameScheduler {
      * 2) 지난 주 비활성 유저: 1단계 강등 패널티 (4주 이상 → freeze)
      * 3) 전체 주간 점수 초기화
      */
-    @Scheduled(cron = "0 0 0 * * MON")
+    @Scheduled(cron = "0 0 0 * * MON", zone = "Asia/Seoul")
     @Transactional
     public void recalculateTiers() {
         log.info("[GameScheduler] recalculateTiers start");
