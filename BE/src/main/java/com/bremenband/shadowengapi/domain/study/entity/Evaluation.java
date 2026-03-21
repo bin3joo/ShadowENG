@@ -5,6 +5,8 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -33,12 +35,15 @@ public class Evaluation {
     @Column(name = "user_transcription", nullable = false, columnDefinition = "TEXT")
     private String userTranscription;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "word_level_feedback", nullable = false, columnDefinition = "json")
     private String wordLevelFeedback;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "boundary_tone_feedback", nullable = false, columnDefinition = "json")
     private String boundaryToneFeedback;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "dynamic_stress_feedback", nullable = false, columnDefinition = "json")
     private String dynamicStressFeedback;
 
