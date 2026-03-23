@@ -9,6 +9,9 @@ public record ActiveSessionResponse(
         @Schema(description = "학습 세션 ID", example = "12345")
         Long sessionId,
 
+        @Schema(description = "영상 제목", example = "Friends Season 1 Episode 1")
+        String videoTitle,
+
         @Schema(description = "영상 썸네일 (standard 사이즈, 640x480)")
         ThumbnailInfo thumbnails,
 

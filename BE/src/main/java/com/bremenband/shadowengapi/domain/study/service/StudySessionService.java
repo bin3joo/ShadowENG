@@ -80,7 +80,7 @@ public class StudySessionService {
                                     "https://i.ytimg.com/vi/" + videoId + "/sddefault.jpg", 640, 480);
                             long total     = totalMap.getOrDefault(session.getId(), 0L);
                             long completed = completedMap.getOrDefault(session.getId(), 0L);
-                            return new ActiveSessionResponse(session.getId(), thumbnail, total, completed);
+                            return new ActiveSessionResponse(session.getId(), session.getVideo().getTitle(), thumbnail, total, completed);
                         }, Collectors.toList())
                 ));
 

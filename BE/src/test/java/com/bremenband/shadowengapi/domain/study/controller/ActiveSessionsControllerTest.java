@@ -50,11 +50,11 @@ class ActiveSessionsControllerTest {
 
         ActiveSessionsResponse response = new ActiveSessionsResponse(
                 List.of(
-                        new ActiveSessionResponse(12345L, new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 8L, 5L),
-                        new ActiveSessionResponse(67890L, new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 6L, 2L)
+                        new ActiveSessionResponse(12345L, "Test Video Title", new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 8L, 5L),
+                        new ActiveSessionResponse(67890L, "Test Video Title", new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 6L, 2L)
                 ),
                 List.of(
-                        new ActiveSessionResponse(11111L, new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 10L, 10L)
+                        new ActiveSessionResponse(11111L, "Test Video Title", new ThumbnailInfo(THUMBNAIL_URL, 640, 480), 10L, 10L)
                 )
         );
 

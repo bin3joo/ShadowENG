@@ -110,7 +110,7 @@ public class EvaluationService {
         }
 
         log.info("[evaluate] done: sessionId={}, sentenceId={}, step={}", sessionId, sentenceId, step);
-        return buildResponse(sentence, pythonResponse);
+        return buildResponse(step, sentence, pythonResponse);
     }
 
     /**
@@ -166,7 +166,7 @@ public class EvaluationService {
         );
     }
 
-    private EvaluationResponse buildResponse(Sentence sentence, PythonEvaluateAudioResponse python) {
+    private EvaluationResponse buildResponse(int step, Sentence sentence, PythonEvaluateAudioResponse python) {
         PythonEvaluateAudioResponse.Details d = python.details();
         PythonEvaluateAudioResponse.Scores  s = python.scores();
 
@@ -186,6 +186,7 @@ public class EvaluationService {
                 s.speedSimilarity(), s.pauseSimilarity());
 
         return new EvaluationResponse(
+                step,
                 sentence.getId(),
                 sentence.getStartSec(),
                 sentence.getEndSec(),
