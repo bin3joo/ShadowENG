@@ -964,13 +964,23 @@ class StyleEchoPipeline:
         Returns:
             ``(rhythm_score, word_feedback)`` 튜플.
         """
-        if (
-            not ref_words
-            or not user_words
-            or ref_active_time <= 0
-            or user_active_time <= 0
-        ):
+        if not ref_words or ref_active_time <= 0:
             return 100.0, []
+        
+        if not user_words or user_active_time <= 0:
+            word_feedback = []
+            for r_word in ref_words:
+                word_feedback.append(
+                    {
+                        "word": r_word.get("word", ""),
+                        "status": "missed",
+                        "ref_start_time": round(r_word.get("start", 0.0), 2),
+                        "ref_end_time": round(r_word.get("end", 0.0), 2),
+                        "user_start_time": None,
+                        "user_end_time": None,
+                    }
+                )
+            return 0.0, word_feedback
 
         word_scores: list[float] = []
         word_feedback: list[dict] = []
@@ -1046,7 +1056,7 @@ class StyleEchoPipeline:
         rhythm_score = (
             100.0 * (sum(word_scores) / len(word_scores))
             if word_scores
-            else 100.0
+            else 0.0
         )
         return round(rhythm_score, 1), word_feedback
 
