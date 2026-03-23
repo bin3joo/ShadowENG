@@ -96,6 +96,16 @@ public class EvaluationService {
 
         if ("FAIL".equals(pythonResponse.status())) {
             log.warn("[evaluate] voice recognition failed: sessionId={}, sentenceId={}, step={}", sessionId, sentenceId, step);
+            log.warn("[evaluate] FAIL response scores: totalScore={}, wordAccuracy={}, prosodyAndStress={}, " +
+                            "wordRhythmScore={}, boundaryToneScore={}, dynamicStressScore={}, speedSimilarity={}, pauseSimilarity={}",
+                    pythonResponse.scores() != null ? pythonResponse.scores().totalScore() : "null",
+                    pythonResponse.scores() != null ? pythonResponse.scores().wordAccuracy() : "null",
+                    pythonResponse.scores() != null ? pythonResponse.scores().prosodyAndStress() : "null",
+                    pythonResponse.scores() != null ? pythonResponse.scores().wordRhythmScore() : "null",
+                    pythonResponse.scores() != null ? pythonResponse.scores().boundaryToneScore() : "null",
+                    pythonResponse.scores() != null ? pythonResponse.scores().dynamicStressScore() : "null",
+                    pythonResponse.scores() != null ? pythonResponse.scores().speedSimilarity() : "null",
+                    pythonResponse.scores() != null ? pythonResponse.scores().pauseSimilarity() : "null");
             throw new CustomException(ErrorCode.VOICE_RECOGNITION_FAILED);
         }
 
