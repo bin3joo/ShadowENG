@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * 세션 + 문장 저장의 원자성을 보장하기 위한 별도 빈.
@@ -90,15 +91,19 @@ public class StudySessionWriter {
                         video.getDuration(),
                         video.getChannelTitle()
                 ),
-                sentences.stream()
-                        .map(s -> new StudySessionCreateResponse.SentenceData(
-                                s.getId(),
-                                s.getContent(),
-                                s.getStartSec(),
-                                s.getEndSec(),
-                                s.getDurationSec(),
-                                0
-                        ))
+                IntStream.range(0, sentences.size())
+                        .mapToObj(i -> {
+                            Sentence s = sentences.get(i);
+                            return new StudySessionCreateResponse.SentenceData(
+                                    s.getId(),
+                                    i + 1,
+                                    s.getContent(),
+                                    s.getStartSec(),
+                                    s.getEndSec(),
+                                    s.getDurationSec(),
+                                    0
+                            );
+                        })
                         .toList()
         );
     }
