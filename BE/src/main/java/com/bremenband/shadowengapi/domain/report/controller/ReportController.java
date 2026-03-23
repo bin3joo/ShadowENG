@@ -66,6 +66,17 @@ public class ReportController {
         return ApiResponse.success(reportService.getReport(sessionId, reportId, userId));
     }
 
+    @GetMapping("/reports")
+    @Operation(
+            summary = "내 전체 레포트 목록 조회",
+            description = "인증된 사용자의 모든 세션에 걸친 레포트 목록을 최신순으로 조회합니다."
+    )
+    public ApiResponse<List<ReportResponse>> getUserReports(
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId
+    ) {
+        return ApiResponse.success(reportService.getUserReports(userId));
+    }
+
     @GetMapping("/reports/daily")
     @Operation(
             summary = "데일리 학습 리포트 조회",

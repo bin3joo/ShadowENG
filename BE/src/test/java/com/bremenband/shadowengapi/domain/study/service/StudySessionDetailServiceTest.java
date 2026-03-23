@@ -109,13 +109,11 @@ class StudySessionDetailServiceTest {
         Sentence s1 = buildSentence(10L, session, 5.61, 10.78, 5.17);
         Sentence s2 = buildSentence(11L, session, 11.1, 15.83, 4.73);
 
-        // 문장 10에 대한 평가 2개, 문장 11에 대한 평가 0개
-        Evaluation eval1 = buildEvaluation(s1, session);
-        Evaluation eval2 = buildEvaluation(s1, session);
+        // 문장 10에 대한 studyCount=2, 문장 11에 대한 studyCount=0
+        ReflectionTestUtils.setField(s1, "studyCount", 2);
 
         given(studySessionRepository.findByIdWithVideo(sessionId)).willReturn(Optional.of(session));
         given(sentenceRepository.findByStudySession_Id(sessionId)).willReturn(List.of(s1, s2));
-        given(evaluationRepository.findByStudySession_Id(sessionId)).willReturn(List.of(eval1, eval2));
 
         // when
         StudySessionCreateResponse response = studySessionService.getStudySession(sessionId, USER_ID);
@@ -146,7 +144,6 @@ class StudySessionDetailServiceTest {
 
         then(studySessionRepository).should(times(1)).findByIdWithVideo(sessionId);
         then(sentenceRepository).should(times(1)).findByStudySession_Id(sessionId);
-        then(evaluationRepository).should(times(1)).findByStudySession_Id(sessionId);
     }
 
     @Test
@@ -158,7 +155,6 @@ class StudySessionDetailServiceTest {
 
         given(studySessionRepository.findByIdWithVideo(sessionId)).willReturn(Optional.of(session));
         given(sentenceRepository.findByStudySession_Id(sessionId)).willReturn(List.of());
-        given(evaluationRepository.findByStudySession_Id(sessionId)).willReturn(List.of());
 
         // when
         StudySessionCreateResponse response = studySessionService.getStudySession(sessionId, USER_ID);

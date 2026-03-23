@@ -10,5 +10,7 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
 
     List<Report> findByStudySession_IdOrderByCreatedAtDesc(Long sessionId);
 
+    List<Report> findByStudySession_User_IdOrderByCreatedAtDesc(Long userId);
+
     Optional<Report> findByIdAndStudySession_Id(Long reportId, Long sessionId);
 }
