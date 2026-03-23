@@ -1,4 +1,4 @@
-"""Reference payload helper functions."""
+"""레퍼런스 페이로드 헬퍼 함수."""
 
 import re
 from typing import Any
@@ -15,14 +15,13 @@ _SPACE_BEFORE_PUNCT_RE = re.compile(r"\s+([.,!?])")
 
 
 def _numpy_to_python(obj: Any) -> Any:
-    """Convert NumPy values into JSON-serializable Python values.
+    """NumPy 값을 JSON 직렬화 가능한 Python 값으로 변환합니다.
 
     Args:
-        obj: Arbitrary object that may contain NumPy scalar or array values.
+        obj: NumPy 스칼라 또는 배열 값을 포함할 수 있는 임의 객체.
 
     Returns:
-        Native Python value if conversion is needed, otherwise the original
-        object.
+        변환이 필요한 경우 네이티브 Python 값, 그렇지 않으면 원본 객체.
     """
     if isinstance(obj, np.integer):
         return int(obj)
@@ -34,13 +33,13 @@ def _numpy_to_python(obj: Any) -> Any:
 
 
 def sanitize_reference_text(text: str) -> str:
-    """Sanitize transcript text while keeping basic sentence punctuation.
+    """기본 문장 구두점을 유지하면서 트랜스크립트 텍스트를 정제합니다.
 
     Args:
-        text: Raw transcript text.
+        text: 원본 트랜스크립트 텍스트.
 
     Returns:
-        Sanitized transcript text.
+        정제된 트랜스크립트 텍스트.
     """
     normalized = text.replace("\r", " ").replace("\n", " ")
     normalized = _DISALLOWED_SCRIPT_CHAR_RE.sub(" ", normalized)
@@ -52,13 +51,13 @@ def sanitize_reference_text(text: str) -> str:
 def _build_public_word_timestamps(
     words: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Build sanitized word timestamps for the public response.
+    """공개 응답용 정제된 단어 타임스탬프를 생성합니다.
 
     Args:
-        words: Internal word timestamp payload list.
+        words: 내부 단어 타임스탬프 페이로드 리스트.
 
     Returns:
-        Public-safe word timestamp list.
+        공개용 단어 타임스탬프 리스트.
     """
     public_words: list[dict[str, Any]] = []
     for word in words:
@@ -78,13 +77,13 @@ def _build_public_word_timestamps(
 def _build_public_parts(
     sentence_data: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Build public-facing part payloads.
+    """공개용 파트 페이로드를 생성합니다.
 
     Args:
-        sentence_data: Internal reference part payload list.
+        sentence_data: 내부 레퍼런스 파트 페이로드 리스트.
 
     Returns:
-        Public response part list.
+        공개 응답용 파트 리스트.
     """
     public_parts: list[dict[str, Any]] = []
     for part in sentence_data:
@@ -113,13 +112,13 @@ def _build_public_parts(
 def sanitize_word_timestamps(
     words: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Sanitize word timestamp text and drop punctuation-only entries.
+    """단어 타임스탬프 텍스트를 정제하고 구두점만 있는 항목을 제거합니다.
 
     Args:
-        words: Internal word timestamp payload list.
+        words: 내부 단어 타임스탬프 페이로드 리스트.
 
     Returns:
-        Sanitized word timestamp list.
+        정제된 단어 타임스탬프 리스트.
     """
     sanitized_words: list[dict[str, Any]] = []
     for word in words:
@@ -142,18 +141,18 @@ def attach_part_analysis(
     target_sr: int,
     hop_length: int,
 ) -> list[dict[str, Any]]:
-    """Attach prosody features and pause counts to sentence parts.
+    """문장 파트에 억양 특징과 pause 수를 추가합니다.
 
     Args:
-        sentence_data: Reference part payload list.
-        f0: F0 feature array.
-        rms: RMS feature array.
-        speech_start_sec: Speech start time in seconds within the request clip.
-        target_sr: Feature extraction sample rate.
-        hop_length: Feature hop length.
+        sentence_data: 레퍼런스 파트 페이로드 리스트.
+        f0: F0 특징 배열.
+        rms: RMS 특징 배열.
+        speech_start_sec: 요청 클립 내 발화 시작 시간(초).
+        target_sr: 특징 추출 샘플레이트.
+        hop_length: 특징 홈 길이.
 
     Returns:
-        Updated reference part payload list.
+        갱신된 레퍼런스 파트 페이로드 리스트.
     """
     for part in sentence_data:
         part_words = part.get("word_timestamps", [])
@@ -192,22 +191,22 @@ def build_reference_response(
     translation_metadata: dict[str, Any] | None = None,
     hop_length: int | None = None,
 ) -> dict[str, Any]:
-    """Build the ``generate-reference`` response payload.
+    """``generate-reference`` 응답 페이로드를 생성합니다.
 
     Args:
-        video_id: YouTube video identifier.
-        start_sec: Request start time in seconds.
-        end_sec: Request end time in seconds.
-        final_script: Final sanitized transcript.
-        sentence_data: Reference part payload list.
-        trimmed_word_count: Number of boundary-trimmed words.
-        final_words: Final word timestamp list.
-        quality_metadata: Optional reference quality metadata.
-        translation_metadata: Optional translation metadata.
-        hop_length: Optional feature hop length used by the reference.
+        video_id: YouTube 비디오 식별자.
+        start_sec: 요청 시작 시간(초).
+        end_sec: 요청 종료 시간(초).
+        final_script: 최종 정제된 트랜스크립트.
+        sentence_data: 레퍼런스 파트 페이로드 리스트.
+        trimmed_word_count: 경계 정제된 단어 수.
+        final_words: 최종 단어 타임스탬프 리스트.
+        quality_metadata: 레퍼런스 품질 메타데이터 (선택).
+        translation_metadata: 번역 메타데이터 (선택).
+        hop_length: 레퍼런스에 사용된 특징 홈 길이 (선택).
 
     Returns:
-        Serialized API response payload.
+        직렬화된 API 응답 페이로드.
     """
     translation_metadata = translation_metadata or {}
     payload = {

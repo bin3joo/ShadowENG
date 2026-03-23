@@ -1,4 +1,4 @@
-"""Use-case service for StyleEcho reference generation."""
+"""StyleEcho 레퍼런스 생성 유스케이스 서비스."""
 
 import logging
 import os
@@ -52,11 +52,11 @@ def _apply_speaker_risk_policy(
     sentence_data: list[dict[str, Any]],
     quality_metadata: dict[str, Any],
 ) -> None:
-    """Adjust per-part speaker risk according to global speaker mode.
+    """전역 화자 모드에 따라 파트별 화자 위험도를 조정합니다.
 
     Args:
-        sentence_data: Reference part payload list to update in place.
-        quality_metadata: Reference-level quality metadata.
+        sentence_data: 제자리 수정할 레퍼런스 파트 페이로드 리스트.
+        quality_metadata: 레퍼런스 수준 품질 메타데이터.
     """
     if quality_metadata.get("speaker_mode") == "multi_speaker_suspected":
         for part in sentence_data:
@@ -74,16 +74,16 @@ def _slice_audio_segment(
     start_sec: float,
     end_sec: float,
 ) -> np.ndarray:
-    """Slice an audio array for the requested time window.
+    """요청 시간 구간으로 오디오 배열을 자릅니다.
 
     Args:
-        audio_array: Source audio array.
-        sample_rate: Sample rate of ``audio_array``.
-        start_sec: Segment start time in seconds.
-        end_sec: Segment end time in seconds.
+        audio_array: 소스 오디오 배열.
+        sample_rate: ``audio_array`` 의 샘플레이트.
+        start_sec: 세그먼트 시작 시간(초).
+        end_sec: 세그먼트 종료 시간(초).
 
     Returns:
-        Sliced audio array as ``np.float32``.
+        ``np.float32`` 형식의 잘린 오디오 배열.
     """
     start_idx = max(0, int(start_sec * sample_rate))
     end_idx = max(start_idx, int(end_sec * sample_rate))
@@ -95,15 +95,15 @@ def _rebase_reference_words(
     offset_sec: float,
     clip_duration_sec: float,
 ) -> list[dict[str, Any]]:
-    """Rebase padded word timestamps into the request-local timebase.
+    """패딩된 단어 타임스탬프를 요청 로컬 타임베이스로 변환합니다.
 
     Args:
-        words: Word timestamp payload based on the padded clip.
-        offset_sec: Request start offset inside the padded clip.
-        clip_duration_sec: Requested clip duration in seconds.
+        words: 패딩된 클립 기준 단어 타임스탬프 페이로드.
+        offset_sec: 패딩된 클립 내 요청 시작 오프셋(초).
+        clip_duration_sec: 요청 클립 길이(초).
 
     Returns:
-        Rebased word timestamp list clipped to the requested window.
+        요청 구간에 맞춰 재기준된 단어 타임스탬프 리스트.
     """
     rebased_words: list[dict[str, Any]] = []
     for word in words:
@@ -138,13 +138,13 @@ def _export_part_audio_files(
     save_dir: str,
     sentence_data: list[dict[str, Any]],
 ) -> None:
-    """Export per-part WAV files for the generated reference.
+    """생성된 레퍼런스의 파트별 WAV 파일을 내보냅니다.
 
     Args:
-        audio_array: Request-local reference audio array.
-        sample_rate: Sample rate of ``audio_array``.
-        save_dir: Output directory for reference artifacts.
-        sentence_data: Reference part payload list updated with audio paths.
+        audio_array: 요청 구간 레퍼런스 오디오 배열.
+        sample_rate: ``audio_array`` 의 샘플레이트.
+        save_dir: 레퍼런스 아티팩트 출력 디렉터리.
+        sentence_data: 오디오 경로가 추가된 레퍼런스 파트 페이로드 리스트.
     """
     parts_dir = os.path.join(save_dir, "parts")
     for idx, part in enumerate(sentence_data, start=1):
@@ -178,17 +178,17 @@ def generate_reference(
     req: GenerateReferenceRequest,
     background_tasks: BackgroundTasks,
 ) -> dict[str, Any]:
-    """Generate a reference payload from YouTube captions and audio.
+    """YouTube 자막과 오디오로부터 레퍼런스 페이로드를 생성합니다.
 
     Args:
-        req: Reference generation request.
-        background_tasks: FastAPI background task registry.
+        req: 레퍼런스 생성 요청.
+        background_tasks: FastAPI 백그라운드 태스크 레지스트리.
 
     Returns:
-        Serialized reference response payload.
+        직렬화된 레퍼런스 응답 페이로드.
 
     Raises:
-        HTTPException: If reference generation fails or quality gates reject it.
+        HTTPException: 레퍼런스 생성 실패 또는 품질 게이트 거부 시.
     """
     tmp_dir: str | None = None
     actual_audio: str | None = None

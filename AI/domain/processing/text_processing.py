@@ -1,6 +1,5 @@
-"""
-StyleEcho 텍스트 처리
-=====================
+"""StyleEcho 텍스트 처리.
+
 문장/턴 분할, 레퍼런스 파트 빌드, 짧은 파트 병합 등
 텍스트 기반 세그멘테이션 로직을 담당합니다.
 """
@@ -9,10 +8,7 @@ import re
 
 import config
 from domain.processing.constants import A1_WORDS, REDUCTION_PATTERNS
-from domain.processing.engine_utils import (
-    _CLEAN_WORD_RE,
-    _count_word_tokens,
-)
+from domain.processing.engine_utils import _CLEAN_WORD_RE, _count_word_tokens
 from domain.processing.speaker_analysis import (
     _get_word_speaker_label,
     _parts_have_compatible_speakers,
@@ -25,7 +21,15 @@ def _first_sentence_has_terminal_punctuation(
     words: list[dict],
     max_words: int,
 ) -> bool:
-    """초반 단어 중 문장 종료 구두점이 포함되어 있는지 확인합니다."""
+    """초반 단어 중 문장 종료 구두점이 포함되어 있는지 확인합니다.
+
+    Args:
+        words: 단어 타임스탬프 리스트.
+        max_words: 검사할 초반 단어 수.
+
+    Returns:
+        종료 구두점 포함 여부.
+    """
     for word in words[:max_words]:
         token = str(word.get("word", "")).strip()
         if token.endswith((".", "?", "!")):
@@ -34,12 +38,26 @@ def _first_sentence_has_terminal_punctuation(
 
 
 def _has_terminal_punctuation(sentence: str) -> bool:
-    """문장이 문장 종료 구두점으로 끝나는지 반환합니다."""
+    """문장이 문장 종료 구두점으로 끝나는지 반환합니다.
+
+    Args:
+        sentence: 검사할 문장.
+
+    Returns:
+        종료 구두점 여부.
+    """
     return sentence.rstrip().endswith((".", "?", "!"))
 
 
 def _words_duration_sec(words: list[dict]) -> float:
-    """단어 리스트의 총 구간 길이를 계산합니다."""
+    """단어 리스트의 총 구간 길이를 계산합니다.
+
+    Args:
+        words: 단어 타임스탬프 리스트.
+
+    Returns:
+        구간 길이(초).
+    """
     if not words:
         return 0.0
     start = words[0].get("start")
@@ -54,7 +72,16 @@ def _words_meet_turn_evidence(
     min_words: int = config.REFERENCE_SPEAKER_TURN_MIN_WORDS,
     min_duration_sec: float = config.REFERENCE_SPEAKER_TURN_MIN_DURATION_SEC,
 ) -> bool:
-    """화자 기반 turn 경계로 인정할 최소 증거량을 판단합니다."""
+    """화자 기반 turn 경계로 인정할 최소 증거량을 판단합니다.
+
+    Args:
+        words: 단어 타임스탬프 리스트.
+        min_words: 최소 단어 수.
+        min_duration_sec: 최소 구간 길이(초).
+
+    Returns:
+        turn 증거 충족 여부.
+    """
     if not words:
         return False
 
@@ -71,7 +98,19 @@ def _build_reference_part(
     turn_id: int | None = None,
     turn_break_reason: str | None = None,
 ) -> dict | None:
-    """문장/턴 기준 레퍼런스 파트 메타데이터를 계산합니다."""
+    """문장/턴 기준 레퍼런스 파트 메타데이터를 계산합니다.
+
+    Args:
+        sentence: 파트 텍스트.
+        sentence_words: 파트에 대응하는 단어 타임스탬프.
+        target_words: 대상 단어 리스트.
+        part_source: 파트 원본 (``"sentence"`` 또는 ``"turn"``).
+        turn_id: 턴 ID.
+        turn_break_reason: 턴 분리 사유.
+
+    Returns:
+        파트 메타데이터 딕셔너리 또는 ``None``.
+    """
     starts = [w["start"] for w in sentence_words if "start" in w]
     ends = [w["end"] for w in sentence_words if "end" in w]
     if not starts or not ends:
@@ -144,7 +183,15 @@ def _should_merge_short_reference_part(
     part: dict,
     min_duration_sec: float,
 ) -> bool:
-    """짧은 part 가 병합 대상인 파편인지 판단합니다."""
+    """짧은 part 가 병합 대상인 파편인지 판단합니다.
+
+    Args:
+        part: 파트 딕셔너리.
+        min_duration_sec: 최소 구간 길이(초).
+
+    Returns:
+        병합 대상 여부.
+    """
     duration_sec = float(part.get("duration_sec", 0.0))
     if duration_sec >= min_duration_sec:
         return False
@@ -177,7 +224,16 @@ def merge_short_reference_parts(
     min_duration_sec: float = config.REFERENCE_MIN_PART_DURATION_SEC,
     max_gap_sec: float = config.REFERENCE_MAX_PART_MERGE_GAP_SEC,
 ) -> list[dict]:
-    """지나치게 짧은 레퍼런스 part 를 인접 part 와 병합합니다."""
+    """지나치게 짧은 레퍼런스 part 를 인접 part 와 병합합니다.
+
+    Args:
+        parts: 레퍼런스 파트 리스트.
+        min_duration_sec: 병합 기준 최소 구간 길이(초).
+        max_gap_sec: 병합 허용 최대 간격(초).
+
+    Returns:
+        병합된 파트 리스트.
+    """
     if len(parts) < 2:
         return parts
 
@@ -306,7 +362,16 @@ def split_into_dialog_turns(
     gap_sec: float = config.REFERENCE_TURN_GAP_SEC,
     max_words: int = config.REFERENCE_DIALOG_TURN_MAX_WORDS,
 ) -> list[dict]:
-    """긴 대화형 발화를 pause 기반 turn 단위로 분리합니다."""
+    """긴 대화형 발화를 pause 기반 turn 단위로 분리합니다.
+
+    Args:
+        word_timestamps: 단어 타임스탬프 리스트.
+        gap_sec: 턴 분리 기준 gap(초).
+        max_words: 턴당 최대 단어 수.
+
+    Returns:
+        턴 단위 파트 리스트.
+    """
     if not word_timestamps:
         return []
 
@@ -390,9 +455,16 @@ def split_into_sentences_with_timestamps(
     full_text: str,
     word_timestamps: list[dict],
 ) -> list[dict]:
-    """
-    전체 텍스트를 문법적 문장 단위로 분리하고, word_timestamps 를 매핑하여
-    각 문장의 start_sec / end_sec 및 학습 메타데이터를 계산합니다.
+    """전체 텍스트를 문장 단위로 분리하고 word_timestamps 를 매핑합니다.
+
+    각 문장의 ``start_sec`` / ``end_sec`` 및 학습 메타데이터를 계산합니다.
+
+    Args:
+        full_text: 전체 텍스트.
+        word_timestamps: 단어 타임스탬프 리스트.
+
+    Returns:
+        문장별 레퍼런스 파트 리스트.
     """
     if not full_text.strip() or not word_timestamps:
         return []

@@ -9,7 +9,8 @@ from pathlib import Path
 
 import requests
 
-BASE_URL = "http://localhost:8000"
+# BASE_URL = "http://localhost:8000"
+BASE_URL = "https://exertive-overlogically-carl.ngrok-free.dev"
 TEST_DIR = Path(__file__).resolve().parent
 RESULT_DIR = TEST_DIR / "result"
 RESULT_DIR.mkdir(parents=True, exist_ok=True)

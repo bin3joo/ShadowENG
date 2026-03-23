@@ -1,4 +1,4 @@
-"""StyleEcho YouTube integration functions."""
+"""StyleEcho YouTube 통합 함수."""
 
 import logging
 import os
@@ -11,7 +11,14 @@ logger = logging.getLogger(__name__)
 
 
 def build_youtube_url(video_id: str) -> str:
-    """Build a canonical YouTube watch URL from a video ID."""
+    """비디오 ID로 YouTube 표준 시청 URL을 생성합니다.
+
+    Args:
+        video_id: YouTube 비디오 식별자.
+
+    Returns:
+        YouTube 표준 시청 URL.
+    """
     return f"https://www.youtube.com/watch?v={video_id}"
 
 
@@ -23,7 +30,23 @@ def download_reference_audio(
     tmp_dir: str,
     audio_padding_sec: float = 0.0,
 ) -> tuple[str, str]:
-    """Download YouTube reference audio and return canonical URL and file path."""
+    """YouTube 레퍼런스 오디오를 다운로드하고 URL 및 파일 경로를 반환합니다.
+
+    Args:
+        video_id: YouTube 비디오 식별자.
+        start_sec: 요청 시작 시간(초).
+        end_sec: 요청 종료 시간(초).
+        audio_path: 대상 WAV 파일 경로.
+        tmp_dir: 중간 파일용 임시 디렉터리.
+        audio_padding_sec: 오디오 패딩(초).
+
+    Returns:
+        ``(youtube_url, actual_audio_path)`` 튜플.
+
+    Raises:
+        RuntimeError: yt-dlp 다운로드 실패 시.
+        FileNotFoundError: 다운로드된 오디오 파일을 찾을 수 없을 때.
+    """
     import yt_dlp
     import yt_dlp.utils
 
@@ -37,20 +60,26 @@ def download_reference_audio(
         base_outtmpl = base_outtmpl[:-4]
 
     ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': base_outtmpl,
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'wav',
-        }],
-        'download_ranges': yt_dlp.utils.download_range_func(None, [(padded_start_sec, int(padded_end_sec+1.0))]),
-        'force_keyframes_at_cuts': True,
-        'noplaylist': True,
-        'quiet': True,
-        'no_warnings': True,
+        "format": "bestaudio/best",
+        "outtmpl": base_outtmpl,
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "wav",
+            }
+        ],
+        "download_ranges": yt_dlp.utils.download_range_func(
+            None, [(padded_start_sec, int(padded_end_sec + 1.0))]
+        ),
+        "force_keyframes_at_cuts": True,
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
     }
 
-    logger.info("Downloading audio for %s natively via yt_dlp Python API", video_id)
+    logger.info(
+        "Downloading audio for %s natively via yt_dlp Python API", video_id
+    )
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([youtube_url])
@@ -65,7 +94,9 @@ def download_reference_audio(
                 actual_audio = os.path.join(tmp_dir, file_name)
                 break
         else:
-            raise FileNotFoundError("다운로드된 오디오 파일을 찾을 수 없습니다.")
+            raise FileNotFoundError(
+                "다운로드된 오디오 파일을 찾을 수 없습니다."
+            )
 
     return youtube_url, actual_audio
 
@@ -76,7 +107,18 @@ def fetch_youtube_captions(
     end_sec: float,
     padding_sec: float,
 ) -> tuple[str | None, Literal["manual", "auto", "none"]]:
-    """Fetch English YouTube captions for the requested time range."""
+    """요청 시간 범위의 영어 YouTube 자막을 가져옵니다.
+
+    Args:
+        video_id: YouTube 비디오 식별자.
+        start_sec: 요청 시작 시간(초).
+        end_sec: 요청 종료 시간(초).
+        padding_sec: 자막 오버랩 시간 패딩.
+
+    Returns:
+        ``(caption_text, caption_source)`` 튜플.
+        사용 가능한 자막이 없으면 ``caption_text`` 는 ``None``.
+    """
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
 

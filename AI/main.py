@@ -1,4 +1,4 @@
-"""StyleEcho root entrypoint."""
+"""StyleEcho 루트 진입점."""
 
 import importlib
 

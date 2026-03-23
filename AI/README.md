@@ -243,6 +243,18 @@ vocal_remover:
 
 이 경우 prosody는 원본 오디오만 사용합니다.
 
+#### 채점 하이퍼파라미터 커스터마이징
+
+```yaml
+# config.yaml 예시 — 채점 민감도 조절
+scoring:
+  wer_penalty: 2.0           # WER 감점 강도 (낮을수록 관대)
+  speed_deadband: 0.15       # 속도 불감대 ±15%
+  boundary_k: 0.5            # 종결 억양 민감도
+  boundary_slope_bias: 0.3   # Soft Ratio bias
+  pitch_flat_threshold_ratio: 0.04  # 피치 flat 판정 비율
+```
+
 ### 6.6. 서버 실행
 
 ```bash
@@ -337,6 +349,8 @@ python -m test.fix_verify         # 보정 로직 검증
     * `reference.short_part_terminal_protection_enabled`
     * `alignment.caption_fallback_enabled`
     * `vocal_remover.enabled`
+    * `scoring.*` — 채점 하이퍼파라미터 (WER 감점 강도, 속도 불감대, 종결 억양 민감도 등)
+    * `audio.cache.*` — 오디오 캐시 설정 (활성화, 크기 제한, TTL)
 
 ### 7.3. 외부 서비스 / 토큰
 
@@ -463,7 +477,9 @@ AI/
 ├── integrations/
 │   ├── __init__.py
 │   ├── io_utils.py                # 파일/오디오 I/O 실제 구현
+│   ├── audio_cache.py             # 오디오 다운로드 LRU+TTL 캐시
 │   └── youtube_service.py         # YouTube 연동 실제 구현
+├── log/                           # 서버 로그 저장 디렉터리 (daily rotation)
 ├── test/
 │   ├── __init__.py
 │   ├── test_api.py                # API 수동 테스트 CLI

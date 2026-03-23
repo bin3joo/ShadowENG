@@ -1,6 +1,5 @@
-"""
-StyleEcho 화자 분석
-===================
+"""StyleEcho 화자 분석.
+
 단어 레벨 화자 라벨 처리, 파트별 화자 메타데이터 산출,
 speaker label smoothing 등 화자 관련 로직을 담당합니다.
 """
@@ -15,7 +14,14 @@ logger = logging.getLogger(__name__)
 
 
 def _get_word_speaker_label(word: dict) -> str | None:
-    """단어 타임스탬프에서 화자 라벨을 읽어옵니다."""
+    """단어 타임스탬프에서 화자 라벨을 읽어옵니다.
+
+    Args:
+        word: 단어 타임스탬프 딕셔너리.
+
+    Returns:
+        화자 라벨 문자열 또는 ``None``.
+    """
     if not word:
         return None
     speaker = word.get("speaker")
@@ -27,7 +33,15 @@ def _get_word_speaker_label(word: dict) -> str | None:
 def _speaker_run_words(
     word_timestamps: list[dict], start_idx: int
 ) -> list[dict]:
-    """특정 인덱스부터 이어지는 동일 화자 구간을 반환합니다."""
+    """특정 인덱스부터 이어지는 동일 화자 구간을 반환합니다.
+
+    Args:
+        word_timestamps: 단어 타임스탬프 리스트.
+        start_idx: 시작 인덱스.
+
+    Returns:
+        동일 화자의 연속 단어 리스트.
+    """
     if start_idx < 0 or start_idx >= len(word_timestamps):
         return []
 
@@ -45,7 +59,14 @@ def _speaker_run_words(
 
 
 def _dominant_speaker_label(words: list[dict]) -> str | None:
-    """단어 리스트에서 대표 화자 라벨을 계산합니다."""
+    """단어 리스트에서 대표 화자 라벨을 계산합니다.
+
+    Args:
+        words: 단어 타임스탬프 리스트.
+
+    Returns:
+        최빈 화자 라벨 또는 ``None``.
+    """
     labels = [_get_word_speaker_label(word) for word in words]
     labels = [label for label in labels if label]
     if not labels:
@@ -54,7 +75,15 @@ def _dominant_speaker_label(words: list[dict]) -> str | None:
 
 
 def _parts_have_compatible_speakers(left_part: dict, right_part: dict) -> bool:
-    """짧은 part 병합 시 화자 경계를 보존할 수 있는지 판단합니다."""
+    """짧은 part 병합 시 화자 경계를 보존할 수 있는지 판단합니다.
+
+    Args:
+        left_part: 왼쪽 파트 딕셔너리.
+        right_part: 오른쪽 파트 딕셔너리.
+
+    Returns:
+        화자 호환 여부.
+    """
     left_label = _dominant_speaker_label(left_part.get("word_timestamps", []))
     right_label = _dominant_speaker_label(
         right_part.get("word_timestamps", [])
@@ -73,8 +102,16 @@ def smooth_word_speaker_labels(
 ) -> list[dict]:
     """짧은 화자 라벨 흔들림을 smoothing 합니다.
 
-    예: [A, A, B, A, A] 에서 B 가 1~2 단어이고 duration 이 짧으면
+    예: ``[A, A, B, A, A]`` 에서 B 가 1~2 단어이고 duration 이 짧으면
     주변 화자 A 로 교체합니다.
+
+    Args:
+        word_timestamps: 단어 타임스탬프 리스트.
+        max_words: smoothing 대상 최대 단어 수.
+        max_duration_sec: smoothing 대상 최대 구간 길이(초).
+
+    Returns:
+        smoothing 적용된 단어 타임스탬프 리스트.
     """
     if len(word_timestamps) < 3:
         return word_timestamps
@@ -144,7 +181,14 @@ def smooth_word_speaker_labels(
 
 
 def _speaker_token_counts(words: list[dict]) -> Counter[str]:
-    """단어 리스트의 화자별 token 수를 집계합니다."""
+    """단어 리스트의 화자별 token 수를 집계합니다.
+
+    Args:
+        words: 단어 타임스탬프 리스트.
+
+    Returns:
+        화자 라벨별 토큰 수 ``Counter``.
+    """
     counts: Counter[str] = Counter()
     for word in words:
         label = _get_word_speaker_label(word)
@@ -157,10 +201,11 @@ def _speaker_token_counts(words: list[dict]) -> Counter[str]:
 def annotate_reference_part_speakers(sentence_data: list[dict]) -> dict:
     """part 별 대표 화자 및 화자 수 메타데이터를 채웁니다.
 
-    Returns
-    -------
-    dict
-        diarization_used, detected_speaker_count 등 집계 통계.
+    Args:
+        sentence_data: 레퍼런스 파트 페이로드 리스트.
+
+    Returns:
+        ``diarization_used``, ``detected_speaker_count`` 등 집계 통계 딕셔너리.
     """
     detected_speakers: set[str] = set()
     dominant_speakers: list[str] = []

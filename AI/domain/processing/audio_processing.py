@@ -1,6 +1,5 @@
-"""
-StyleEcho 오디오 처리
-=====================
+"""StyleEcho 오디오 처리.
+
 분석용 디노이징(Track B)과 구간 경계 정제(trim) 로직을 담당합니다.
 """
 
@@ -21,15 +20,15 @@ def denoise_for_analysis(
     sr: int,
     profile: str | None = None,
 ) -> np.ndarray:
-    """Apply denoising for prosody analysis only.
+    """억양 분석 전용 디노이징을 적용합니다.
 
     Args:
-        y: Input audio array.
-        sr: Sample rate of ``y``.
-        profile: Optional denoise intensity profile.
+        y: 입력 오디오 배열.
+        sr: ``y`` 의 샘플레이트.
+        profile: 디노이즈 강도 프로필 (선택).
 
     Returns:
-        Denoised audio array.
+        디노이즈된 오디오 배열.
     """
     if not config.DENOISE_ENABLED or profile == "off":
         return y
@@ -51,13 +50,13 @@ def denoise_for_analysis(
 
 
 def peak_normalize_audio(y: np.ndarray) -> np.ndarray:
-    """Peak-normalize an audio array without clipping.
+    """클리핑 없이 오디오 배열을 피크 정규화합니다.
 
     Args:
-        y: Input audio array.
+        y: 입력 오디오 배열.
 
     Returns:
-        Peak-normalized audio array. Returns the original array for silent input.
+        피크 정규화된 오디오 배열. 무음 입력 시 원본 배열 반환.
     """
     max_amp = np.max(np.abs(y))
     if max_amp > 0:
@@ -69,15 +68,15 @@ def separate_vocals(
     audio_path: str,
     output_dir: str,
 ) -> str:
-    """Separate vocals from a reference audio file when VR is enabled.
+    """VR 활성화 시 레퍼런스 오디오에서 보컬을 분리합니다.
 
     Args:
-        audio_path: Source WAV path.
-        output_dir: Directory for separated vocal output.
+        audio_path: 소스 WAV 경로.
+        output_dir: 분리된 보컬 출력 디렉터리.
 
     Returns:
-        Separated vocal WAV path. Returns the original path when VR is disabled
-        or separation fails.
+        분리된 보컬 WAV 경로. VR 비활성화 또는 분리 실패 시
+        원본 경로 반환.
     """
 
     if not config.VR_ENABLED:
@@ -143,19 +142,19 @@ def trim_boundary_fragments(
     boundary_gap_sec: float = config.TRIM_BOUNDARY_GAP,
     min_words: int = config.TRIM_MIN_WORDS,
 ) -> tuple[list[dict[str, Any]], str]:
-    """Trim incomplete utterances near the request boundaries.
+    """요청 경계 근처의 불완전한 발화를 정제합니다.
 
     Args:
-        word_timestamps: WhisperX aligned word list.
-        full_text: Full aligned transcript text.
-        audio_duration_sec: Actual audio duration in seconds.
-        front_score_threshold: Low-confidence threshold for the front boundary.
-        back_score_threshold: Low-confidence threshold for the back boundary.
-        boundary_gap_sec: Boundary gap threshold in seconds.
-        min_words: Minimum word count required after trimming.
+        word_timestamps: WhisperX 정렬된 단어 리스트.
+        full_text: 전체 정렬된 트랜스크립트.
+        audio_duration_sec: 실제 오디오 길이(초).
+        front_score_threshold: 전방 경계 저신뢰도 임계값.
+        back_score_threshold: 후방 경계 저신뢰도 임계값.
+        boundary_gap_sec: 경계 gap 임계값(초).
+        min_words: 정제 후 필요한 최소 단어 수.
 
     Returns:
-        Tuple of trimmed word timestamps and refined text.
+        정제된 단어 타임스탬프와 정제된 텍스트 튜플.
     """
     if not word_timestamps:
         return [], ""

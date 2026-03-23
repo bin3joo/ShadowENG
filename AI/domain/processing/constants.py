@@ -1,8 +1,7 @@
-"""
-StyleEcho 언어 상수
-====================
+"""StyleEcho 언어 상수.
+
 구어체 연음/축약 패턴 사전 및 기본 고빈도 단어 목록.
-engine.py 의 문장 파싱 로직에서 사용됩니다.
+engine_utils 의 문장 파싱 로직에서 사용됩니다.
 """
 
 REDUCTION_PATTERNS: dict[str, str] = {
@@ -249,4 +248,3 @@ A1_WORDS: frozenset[str] = frozenset(
         "said",
     }
 )
-

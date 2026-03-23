@@ -1,19 +1,15 @@
-"""
-StyleEcho 품질 평가
-===================
+"""StyleEcho 품질 평가.
+
 레퍼런스 오디오 품질 메트릭 추정, 디노이즈 모드 선택,
 캡션 정렬 건강도 평가, 종합 reference quality 판정을 담당합니다.
 """
 
 import logging
 
-import numpy as np
-
 import config
+import numpy as np
 from domain.processing.engine_utils import _sum_word_durations
-from domain.processing.speaker_analysis import (
-    annotate_reference_part_speakers,
-)
+from domain.processing.speaker_analysis import annotate_reference_part_speakers
 from domain.processing.text_processing import (
     _first_sentence_has_terminal_punctuation,
 )
@@ -26,7 +22,16 @@ def evaluate_caption_alignment_health(
     valid_words: list[dict],
     audio_duration_sec: float,
 ) -> dict:
-    """caption_align 결과의 건강도를 평가하여 fallback 여부를 판단합니다."""
+    """Caption alignment 결과의 건강도를 평가하여 fallback 여부를 판단합니다.
+
+    Args:
+        caption_text: Caption 원문.
+        valid_words: 정렬 후 유효한 단어 리스트.
+        audio_duration_sec: 오디오 총 길이(초).
+
+    Returns:
+        Caption 건강도 메트릭 및 fallback 여부 딕셔너리.
+    """
     caption_word_count = max(1, len(caption_text.split()))
     surviving_word_count = len(valid_words)
     surviving_word_ratio = surviving_word_count / caption_word_count
@@ -100,7 +105,17 @@ def estimate_reference_audio_metrics(
     sr: int,
     word_timestamps: list[dict],
 ) -> dict:
-    """레퍼런스 suitability 판단용 오디오 품질 지표를 추정합니다."""
+    """레퍼런스 suitability 판단용 오디오 품질 지표를 추정합니다.
+
+    Args:
+        y: 입력 오디오 배열.
+        sr: 샘플레이트.
+        word_timestamps: 단어 타임스탬프 리스트.
+
+    Returns:
+        ``speech_ratio``, ``estimated_snr_db``, ``noise_level`` 등을 포함한
+        품질 지표 딕셔너리.
+    """
     if y.size == 0:
         return {
             "speech_ratio": 0.0,
@@ -162,7 +177,14 @@ def estimate_reference_audio_metrics(
 def select_reference_denoise_mode_from_metrics(
     metrics: dict,
 ) -> str:
-    """사전 계산된 메트릭으로 분석용 디노이즈 강도를 선택합니다."""
+    """사전 계산된 메트릭으로 분석용 디노이즈 강도를 선택합니다.
+
+    Args:
+        metrics: ``estimate_reference_audio_metrics`` 반환값.
+
+    Returns:
+        ``"off"``, ``"mild"``, ``"moderate"`` 중 하나.
+    """
     if not config.DENOISE_ENABLED:
         return "off"
 
@@ -182,7 +204,16 @@ def select_reference_denoise_mode(
     sr: int,
     word_timestamps: list[dict],
 ) -> str:
-    """레퍼런스 품질에 따라 분석용 디노이즈 강도를 선택합니다."""
+    """레퍼런스 품질에 따라 분석용 디노이즈 강도를 선택합니다.
+
+    Args:
+        y: 입력 오디오 배열.
+        sr: 샘플레이트.
+        word_timestamps: 단어 타임스탬프 리스트.
+
+    Returns:
+        ``"off"``, ``"mild"``, ``"moderate"`` 중 하나.
+    """
     metrics = estimate_reference_audio_metrics(y, sr, word_timestamps)
     return select_reference_denoise_mode_from_metrics(metrics)
 
@@ -197,7 +228,21 @@ def assess_reference_quality(
     denoise_mode: str,
     precomputed_metrics: dict | None = None,
 ) -> dict:
-    """레퍼런스 suitability, speaker risk, dialog risk 메타데이터를 계산합니다."""
+    """레퍼런스 suitability, speaker risk, dialog risk 메타데이터를 계산합니다.
+
+    Args:
+        y: 입력 오디오 배열.
+        sr: 샘플레이트.
+        word_timestamps: 단어 타임스탬프 리스트.
+        sentence_data: 레퍼런스 파트 페이로드 리스트.
+        caption_source: 측션 출처 (``"manual"``, ``"auto"``, ``"none"``).
+        stt_method: STT 방식 (``"whisper_stt"``, ``"caption_align"``).
+        denoise_mode: 적용된 디노이즈 모드.
+        precomputed_metrics: 사전 계산된 품질 메트릭 (``None`` 이면 재계산).
+
+    Returns:
+        레퍼런스 품질 메타데이터 딕셔너리.
+    """
     metrics = (
         precomputed_metrics
         if precomputed_metrics is not None

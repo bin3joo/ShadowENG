@@ -1,1 +1,1 @@
-"""StyleEcho domain package."""
+"""StyleEcho 도메인 패키지."""
