@@ -59,7 +59,7 @@ public class StudySessionService {
 
     public ActiveSessionsResponse getAllSessions(Long userId) {
         List<StudySession> sessions = studySessionRepository
-                .findByUser_IdOrderByCreatedAtDesc(userId);
+                .findByUser_IdAndStatusNotOrderByCreatedAtDesc(userId, SessionStatus.DELETED);
 
         if (sessions.isEmpty()) {
             return new ActiveSessionsResponse(List.of(), List.of());
@@ -93,6 +93,10 @@ public class StudySessionService {
     public StudySessionCreateResponse getStudySession(Long sessionId, Long userId) {
         StudySession session = studySessionRepository.findByIdWithVideo(sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
+
+        if (session.getStatus() == SessionStatus.DELETED) {
+            throw new CustomException(ErrorCode.SESSION_NOT_FOUND);
+        }
 
         if (!session.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.FORBIDDEN);
@@ -190,6 +194,10 @@ public class StudySessionService {
         StudySession session = studySessionRepository.findById(sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
 
+        if (session.getStatus() == SessionStatus.DELETED) {
+            throw new CustomException(ErrorCode.SESSION_NOT_FOUND);
+        }
+
         if (!session.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.FORBIDDEN);
         }
@@ -229,9 +237,29 @@ public class StudySessionService {
     }
 
     @Transactional
+    public void deleteStudySession(Long sessionId, Long userId) {
+        StudySession session = studySessionRepository.findById(sessionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
+
+        if (session.getStatus() == SessionStatus.DELETED) {
+            throw new CustomException(ErrorCode.SESSION_NOT_FOUND);
+        }
+
+        if (!session.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
+
+        session.delete();
+    }
+
+    @Transactional
     public void startReview(Long sessionId, Long userId) {
         StudySession session = studySessionRepository.findById(sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
+
+        if (session.getStatus() == SessionStatus.DELETED) {
+            throw new CustomException(ErrorCode.SESSION_NOT_FOUND);
+        }
 
         if (!session.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.FORBIDDEN);

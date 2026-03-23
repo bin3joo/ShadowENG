@@ -80,7 +80,7 @@ class ActiveSessionsServiceTest {
         StudySession completed1 = buildCompletedSession(300L);
         List<Long> sessionIds   = List.of(100L, 200L, 300L);
 
-        given(studySessionRepository.findByUser_IdOrderByCreatedAtDesc(userId))
+        given(studySessionRepository.findByUser_IdAndStatusNotOrderByCreatedAtDesc(userId, SessionStatus.DELETED))
                 .willReturn(List.of(active1, active2, completed1));
         given(sentenceRepository.countMapBySessionIds(sessionIds))
                 .willReturn(Map.of(100L, 8L, 200L, 6L, 300L, 10L));
@@ -100,7 +100,7 @@ class ActiveSessionsServiceTest {
         assertThat(response.completedSessions().get(0).totalSentences()).isEqualTo(10L);
         assertThat(response.completedSessions().get(0).completedSentences()).isEqualTo(10L);
 
-        then(studySessionRepository).should(times(1)).findByUser_IdOrderByCreatedAtDesc(userId);
+        then(studySessionRepository).should(times(1)).findByUser_IdAndStatusNotOrderByCreatedAtDesc(userId, SessionStatus.DELETED);
         then(sentenceRepository).should(times(1)).countMapBySessionIds(sessionIds);
         then(evaluationRepository).should(times(1)).completedSentencesMapBySessionIds(sessionIds);
     }
@@ -114,7 +114,7 @@ class ActiveSessionsServiceTest {
         StudySession session2 = buildSession(200L);
         List<Long> sessionIds = List.of(100L, 200L);
 
-        given(studySessionRepository.findByUser_IdOrderByCreatedAtDesc(userId))
+        given(studySessionRepository.findByUser_IdAndStatusNotOrderByCreatedAtDesc(userId, SessionStatus.DELETED))
                 .willReturn(List.of(session1, session2));
         given(sentenceRepository.countMapBySessionIds(sessionIds))
                 .willReturn(Map.of(100L, 8L, 200L, 6L));
@@ -148,7 +148,7 @@ class ActiveSessionsServiceTest {
         StudySession completed2 = buildCompletedSession(200L);
         List<Long> sessionIds   = List.of(100L, 200L);
 
-        given(studySessionRepository.findByUser_IdOrderByCreatedAtDesc(userId))
+        given(studySessionRepository.findByUser_IdAndStatusNotOrderByCreatedAtDesc(userId, SessionStatus.DELETED))
                 .willReturn(List.of(completed1, completed2));
         given(sentenceRepository.countMapBySessionIds(sessionIds))
                 .willReturn(Map.of(100L, 5L, 200L, 7L));
@@ -172,7 +172,7 @@ class ActiveSessionsServiceTest {
         // given
         Long userId = 1L;
 
-        given(studySessionRepository.findByUser_IdOrderByCreatedAtDesc(userId))
+        given(studySessionRepository.findByUser_IdAndStatusNotOrderByCreatedAtDesc(userId, SessionStatus.DELETED))
                 .willReturn(List.of());
 
         // when
@@ -182,7 +182,7 @@ class ActiveSessionsServiceTest {
         assertThat(response.activeSessions()).isEmpty();
         assertThat(response.completedSessions()).isEmpty();
 
-        then(studySessionRepository).should(times(1)).findByUser_IdOrderByCreatedAtDesc(userId);
+        then(studySessionRepository).should(times(1)).findByUser_IdAndStatusNotOrderByCreatedAtDesc(userId, SessionStatus.DELETED);
         then(sentenceRepository).should(never()).countMapBySessionIds(List.of());
         then(evaluationRepository).should(never()).completedSentencesMapBySessionIds(List.of());
     }

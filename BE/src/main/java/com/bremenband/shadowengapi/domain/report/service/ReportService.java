@@ -8,6 +8,7 @@ import com.bremenband.shadowengapi.domain.report.repository.ReportRepository;
 import com.bremenband.shadowengapi.domain.report.repository.WeekSentenceRepository;
 import com.bremenband.shadowengapi.domain.study.entity.Evaluation;
 import com.bremenband.shadowengapi.domain.study.entity.Sentence;
+import com.bremenband.shadowengapi.domain.study.entity.SessionStatus;
 import com.bremenband.shadowengapi.domain.study.entity.StudySession;
 import com.bremenband.shadowengapi.domain.study.repository.EvaluationRepository;
 import com.bremenband.shadowengapi.domain.study.repository.StudySessionRepository;
@@ -47,6 +48,10 @@ public class ReportService {
         // 1. 세션 조회 및 소유권 검증
         StudySession session = studySessionRepository.findById(sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
+
+        if (session.getStatus() == SessionStatus.DELETED) {
+            throw new CustomException(ErrorCode.SESSION_NOT_FOUND);
+        }
 
         if (!session.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.FORBIDDEN);
@@ -121,6 +126,10 @@ public class ReportService {
     public List<ReportResponse> getReports(Long sessionId, Long userId) {
         StudySession session = studySessionRepository.findById(sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
+
+        if (session.getStatus() == SessionStatus.DELETED) {
+            throw new CustomException(ErrorCode.SESSION_NOT_FOUND);
+        }
 
         if (!session.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.FORBIDDEN);
