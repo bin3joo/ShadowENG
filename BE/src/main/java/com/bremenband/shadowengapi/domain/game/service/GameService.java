@@ -247,7 +247,7 @@ public class GameService {
         }
 
         return new GameLeaderboardResponse(
-                myTier.name(), promotionCount, calcTimeUntilReset(), topRankers, nearbyRankers);
+                myTier.name(), total, promotionCount, calcTimeUntilReset(), topRankers, nearbyRankers);
     }
 
     // ────────────────────────────────────────────────────────────────
