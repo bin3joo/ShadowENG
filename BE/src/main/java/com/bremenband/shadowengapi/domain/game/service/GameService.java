@@ -152,32 +152,32 @@ public class GameService {
             throw new CustomException(ErrorCode.VOICE_RECOGNITION_FAILED);
         }
 
-        log.info("[Game.evaluate] raw scores: totalScore={}, wordAccuracy={}, prosodyAndStress={}, " +
+        log.info("[Game.evaluate] raw scores: wordAccuracy={}, prosodyAndStress={}, " +
                         "wordRhythmScore={}, boundaryToneScore={}, dynamicStressScore={}, " +
                         "speedSimilarity={}, pauseSimilarity={}",
-                python.scores().totalScore(), python.scores().wordAccuracy(),
+                python.scores().wordAccuracy(),
                 python.scores().prosodyAndStress(), python.scores().wordRhythmScore(),
                 python.scores().boundaryToneScore(), python.scores().dynamicStressScore(),
                 python.scores().speedSimilarity(), python.scores().pauseSimilarity());
 
-        // 7. 점수 보정 (+15, 최대 100)
-        double adjTotal      = adjust(python.scores().totalScore());
-        double adjWordAcc    = adjust(python.scores().wordAccuracy());
-        double adjProsody    = adjust(python.scores().prosodyAndStress());
-        double adjWordRhythm = adjust(python.scores().wordRhythmScore());
-        double adjBoundary   = adjust(python.scores().boundaryToneScore());
-        double adjDynamic    = adjust(python.scores().dynamicStressScore());
-        double adjSpeed      = adjust(python.scores().speedSimilarity());
-        double adjPause      = adjust(python.scores().pauseSimilarity());
-        log.info("[Game.evaluate] adjustedTotal={}", adjTotal);
+        // 7. 점수 계산 (가중 합산: wordAccuracy 50% + wordRhythmScore 30% + dynamicStressScore 20%)
+        double wordAccuracy      = python.scores().wordAccuracy();
+        double prosodyAndStress  = python.scores().prosodyAndStress();
+        double wordRhythmScore   = python.scores().wordRhythmScore();
+        double boundaryToneScore = python.scores().boundaryToneScore();
+        double dynamicStressScore = python.scores().dynamicStressScore();
+        double speedSimilarity   = python.scores().speedSimilarity();
+        double pauseSimilarity   = python.scores().pauseSimilarity();
+
+        double totalScore = wordAccuracy * 0.5 + wordRhythmScore * 0.3 + dynamicStressScore * 0.2;
+        log.info("[Game.evaluate] totalScore(weighted)={}", totalScore);
 
         // 8. 결과 계산
-        double totalScore = adjTotal;
         boolean passed = totalScore >= HEART_THRESHOLD;
         boolean gameOver = !passed || round == MAX_LEVEL;
 
         // 9. 세션 업데이트 (Redis)
-        GameSessionData.RoundResult roundResult = buildRoundResult(round, python, adjTotal, adjSpeed, adjDynamic, adjBoundary);
+        GameSessionData.RoundResult roundResult = buildRoundResult(round, python, totalScore, speedSimilarity, dynamicStressScore, boundaryToneScore);
         session.addRound(roundResult);
         if (passed) session.setHearts(session.getHearts() + 1);
         session.setGameOver(gameOver);
@@ -193,8 +193,8 @@ public class GameService {
         log.info("[Game.evaluate] done: userId={}, level={}, round={}, hearts={}, gameOver={}",
                 userId, level, round, session.getHearts(), gameOver);
 
-        return buildResponse(python, adjTotal, adjWordAcc, adjProsody, adjWordRhythm,
-                adjBoundary, adjDynamic, adjSpeed, adjPause,
+        return buildResponse(python, totalScore, wordAccuracy, prosodyAndStress, wordRhythmScore,
+                boundaryToneScore, dynamicStressScore, speedSimilarity, pauseSimilarity,
                 round, session.getHearts(), gameOver, gameResult);
     }
 
@@ -306,14 +306,14 @@ public class GameService {
         double avgBound   = rounds.stream().mapToDouble(GameSessionData.RoundResult::getBoundaryToneScore).average().orElse(0);
         double cumulative = rounds.stream().mapToDouble(GameSessionData.RoundResult::getTotalScore).sum();
         int hearts = session.getHearts();
-        double finalScore = avgTotal * (1 + hearts * WEIGHT_FACTOR);
+        double finalScore = avgTotal * (1 + hearts * WEIGHT_FACTOR) * levelMultiplier(level);
 
         gameWriter.saveGameResult(userId, level, today, hearts,
                 avgTotal, avgSpeed, avgDynamic, avgBound, finalScore, cumulative);
 
         return new GameEvaluationResponse.GameResult(
                 round(avgTotal), round(avgSpeed), round(avgDynamic), round(avgBound),
-                round(finalScore), round(cumulative), hearts);
+                round(finalScore), hearts);
     }
 
     private GameEvaluationResponse buildResponse(PythonEvaluateAudioResponse python,
@@ -372,7 +372,11 @@ public class GameService {
         return Math.round(value * 10.0) / 10.0;
     }
 
-    private double adjust(double score) {
-        return Math.min(score + 15.0, 100.0);
+    private double levelMultiplier(int level) {
+        return switch (level) {
+            case 2 -> 1.5;
+            case 3 -> 2.0;
+            default -> 1.0;
+        };
     }
 }

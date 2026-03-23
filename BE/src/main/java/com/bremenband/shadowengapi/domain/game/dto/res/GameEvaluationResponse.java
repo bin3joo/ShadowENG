@@ -38,7 +38,6 @@ public record GameEvaluationResponse(
             double avgDynamicStressScore,
             double avgBoundaryToneScore,
             double finalScore,
-            double cumulativeScore,
             int hearts
     ) {}
 }

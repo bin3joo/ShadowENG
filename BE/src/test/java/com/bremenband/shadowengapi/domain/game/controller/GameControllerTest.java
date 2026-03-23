@@ -165,7 +165,7 @@ class GameControllerTest {
     @DisplayName("POST evaluate: 불합격(gameOver=true)이면 GameResult를 포함해 200 반환")
     void evaluate_불합격_게임종료_200() throws Exception {
         GameEvaluationResponse.GameResult result = new GameEvaluationResponse.GameResult(
-                65.0, 80.0, 60.0, 70.0, 65.0, 65.0, 0);
+                65.0, 80.0, 60.0, 70.0, 65.0, 0);
 
         GameEvaluationResponse response = new GameEvaluationResponse(
                 "I got it bad",
