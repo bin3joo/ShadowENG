@@ -17,6 +17,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -50,6 +51,7 @@ class ReportControllerTest {
         ReportResponse response = new ReportResponse(
                 100L,
                 sessionId,
+                LocalDateTime.of(2025, 3, 23, 14, 30, 0),
                 new ReportResponse.Scores(72.5, 90.0, 80.0, 75.0, 85.0, 70.0, 88.0, 95.0),
                 List.of(new ReportResponse.DifficultSentence(10L, "I got it bad.", 55.0, "weak", "monotone", List.of()))
         );
