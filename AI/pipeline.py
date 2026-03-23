@@ -730,9 +730,9 @@ class StyleEchoPipeline:
             score = (
                 100.0
                 if max_mag == 0
-                else 100.0 * ((min(r_mag, u_mag) / max_mag) ** 0.8)
+                else 100.0 * ((min(r_mag, u_mag) / max_mag) ** config.BOUNDARY_K)
             )
-            status = "good" if score > 80 else "weak"
+            status = "good" if score > config.BOUNDARY_GOOD_THRESHOLD else "weak"
 
         return round(float(score), 1), {
             "ref_slope": round(float(r_m), 1),
@@ -771,10 +771,10 @@ class StyleEchoPipeline:
         score = (
             100.0
             if max_cv == 0
-            else 100.0 * ((min(r_cv, u_cv) / max_cv) ** 1.2)
+            else 100.0 * ((min(r_cv, u_cv) / max_cv) ** config.DYNAMIC_K)
         )
 
-        GOOD_SCORE_THRESHOLD = 80.0
+        GOOD_SCORE_THRESHOLD = config.DYNAMIC_GOOD_THRESHOLD
         if score >= GOOD_SCORE_THRESHOLD:
             status = "good"
         elif u_cv < r_cv:
@@ -1024,7 +1024,7 @@ class StyleEchoPipeline:
                 first_half = float(valid[0])
                 second_half = float(valid[-1])
                 diff = second_half - first_half
-                if abs(diff) < 5.0:
+                if abs(diff) < config.PITCH_FLAT_THRESHOLD_HZ:
                     return "flat", first_half, second_half
                 return (
                     ("rising" if diff > 0 else "falling"),
@@ -1036,7 +1036,7 @@ class StyleEchoPipeline:
             first_half = float(np.mean(valid[:mid]))
             second_half = float(np.mean(valid[mid:]))
             diff = second_half - first_half
-            if abs(diff) < 5.0:
+            if abs(diff) < config.PITCH_FLAT_THRESHOLD_HZ:
                 return "flat", first_half, second_half
             return (
                 ("rising" if diff > 0 else "falling"),
@@ -1246,7 +1246,7 @@ class StyleEchoPipeline:
             _REMOVE_PUNCT(ref_text.lower()),
             _REMOVE_PUNCT(user_text.lower()),
         )
-        word_score = 100.0 * np.exp(-2.5 * wer)
+        word_score = 100.0 * np.exp(-config.WER_PENALTY * wer)
 
         # 4. 속도 점수
         ref_active_time = _sum_word_durations(ref_word_timestamps)

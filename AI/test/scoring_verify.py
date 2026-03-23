@@ -14,7 +14,7 @@ def _run() -> None:
     print("=" * 70)
     test_wers = [0.0, 0.1, 0.5, 1.0, 1.5, 2.0]
     for wer in test_wers:
-        score = 100.0 * np.exp(-2.5 * wer)
+        score = 100.0 * np.exp(-config.WER_PENALTY * wer)
         print(f"  WER={wer:.1f} -> score={score:.1f}")
 
     print("\n" + "=" * 70)
@@ -98,9 +98,9 @@ def _run() -> None:
             score = (
                 100.0
                 if max_mag == 0
-                else 100.0 * ((min(ref_mag, user_mag) / max_mag) ** 0.8)
+                else 100.0 * ((min(ref_mag, user_mag) / max_mag) ** config.BOUNDARY_K)
             )
-            status = "good" if score > 80 else "weak"
+            status = "good" if score > config.BOUNDARY_GOOD_THRESHOLD else "weak"
         print(
             f"  ref={ref_slope:>8.1f}, user={user_slope:>8.1f} ({description:>20s}) -> score={score:.1f} [{status}]"
         )
@@ -121,9 +121,9 @@ def _run() -> None:
         score = (
             100.0
             if max_cv == 0
-            else 100.0 * ((min(ref_cv, user_cv) / max_cv) ** 1.2)
+            else 100.0 * ((min(ref_cv, user_cv) / max_cv) ** config.DYNAMIC_K)
         )
-        if score >= 80.0:
+        if score >= config.DYNAMIC_GOOD_THRESHOLD:
             status = "good"
         elif user_cv < ref_cv:
             status = "monotone"
