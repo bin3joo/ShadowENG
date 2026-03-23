@@ -51,6 +51,9 @@ public record StudySessionCreateResponse(
             @Schema(description = "문장 고유 ID", example = "1234")
             Long sentenceId,
 
+            @Schema(description = "세션 내 문장 순서 (1부터 시작)", example = "1")
+            int sentenceIndex,
+
             @Schema(description = "문장 내용")
             String sentence,
 
