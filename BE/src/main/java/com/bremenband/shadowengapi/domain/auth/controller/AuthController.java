@@ -1,9 +1,11 @@
 package com.bremenband.shadowengapi.domain.auth.controller;
 
+import com.bremenband.shadowengapi.domain.auth.dto.req.GuestLoginRequest;
 import com.bremenband.shadowengapi.domain.auth.dto.req.KakaoLoginRequest;
 import com.bremenband.shadowengapi.domain.auth.dto.req.TokenRefreshRequest;
 import com.bremenband.shadowengapi.domain.auth.dto.res.TokenResponse;
 import com.bremenband.shadowengapi.domain.auth.service.AuthService;
+import com.bremenband.shadowengapi.domain.auth.service.GuestAuthService;
 import com.bremenband.shadowengapi.global.common.ApiResponse;
 import com.bremenband.shadowengapi.global.exception.CustomException;
 import com.bremenband.shadowengapi.global.exception.ErrorCode;
@@ -25,7 +27,18 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "소셜 로그인 API", description = "소셜 로그인 & 로그아웃을 위한 REST API")
 public class AuthController {
 
-    private final AuthService authService;
+    private final AuthService      authService;
+    private final GuestAuthService guestAuthService;
+
+    @PostMapping(value = "/login/guest", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(
+            summary = "게스트 로그인",
+            description = "디바이스 ID(UUID)로 게스트 계정을 생성하거나 기존 게스트 계정으로 로그인합니다. " +
+                    "최초 요청 시 게스트 계정이 자동 생성됩니다."
+    )
+    public ApiResponse<TokenResponse> guestLogin(@Valid @RequestBody GuestLoginRequest request) {
+        return ApiResponse.success(guestAuthService.guestLogin(request.deviceId()));
+    }
 
     @PostMapping(value = "/login/kakao", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(

@@ -2,6 +2,7 @@ package com.bremenband.shadowengapi.domain.auth.controller;
 
 import com.bremenband.shadowengapi.domain.auth.dto.res.TokenResponse;
 import com.bremenband.shadowengapi.domain.auth.service.AuthService;
+import com.bremenband.shadowengapi.domain.auth.service.GuestAuthService;
 import com.bremenband.shadowengapi.global.config.SecurityConfig;
 import com.bremenband.shadowengapi.global.exception.CustomException;
 import com.bremenband.shadowengapi.global.exception.ErrorCode;
@@ -33,7 +34,8 @@ class AuthControllerTest {
 
     @Autowired private MockMvc mockMvc;
 
-    @MockitoBean private AuthService authService;
+    @MockitoBean private AuthService      authService;
+    @MockitoBean private GuestAuthService guestAuthService;
 
     @Test
     @DisplayName("유효한 리프레시 토큰으로 요청하면 새 토큰과 200을 반환한다")
@@ -81,6 +83,51 @@ class AuthControllerTest {
         mockMvc.perform(post("/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andDo(print())
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("유효한 deviceId로 게스트 로그인하면 토큰과 200을 반환한다")
+    void guestLogin_성공_200() throws Exception {
+        // given
+        String deviceId = "550e8400-e29b-41d4-a716-446655440000";
+        TokenResponse response = new TokenResponse("access.token", "refresh.token");
+        given(guestAuthService.guestLogin(deviceId)).willReturn(response);
+
+        // when & then
+        mockMvc.perform(post("/auth/login/guest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"deviceId\": \"" + deviceId + "\"}")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isSuccess").value(true))
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.accessToken").value("access.token"))
+                .andExpect(jsonPath("$.data.refreshToken").value("refresh.token"));
+
+        then(guestAuthService).should(times(1)).guestLogin(deviceId);
+    }
+
+    @Test
+    @DisplayName("deviceId가 없으면 400을 반환한다")
+    void guestLogin_deviceId누락_400() throws Exception {
+        mockMvc.perform(post("/auth/login/guest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andDo(print())
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("deviceId가 빈 문자열이면 400을 반환한다")
+    void guestLogin_deviceId빈문자열_400() throws Exception {
+        mockMvc.perform(post("/auth/login/guest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"deviceId\": \"\"}")
                         .accept(MediaType.APPLICATION_JSON))
                 .andDo(print())
                 .andExpect(status().isBadRequest());
