@@ -1,8 +1,10 @@
-"""Thread-safe local file cache for S3 / remote audio downloads.
+"""S3 / 원격 오디오 다운로드용 스레드 안전 로컬 파일 캐시.
 
-Provides LRU (size-based) and TTL (time-based) eviction strategies
-to avoid redundant downloads for the same audio source.
+LRU(용량 기반) 및 TTL(시간 기반) 제거 전략을 제공하여
+동일 오디오 소스의 중복 다운로드를 방지합니다.
 """
+
+from __future__ import annotations
 
 import hashlib
 import logging
@@ -11,23 +13,22 @@ import shutil
 import threading
 import time
 from pathlib import Path
-from typing import Optional
 
 import config
 
 logger = logging.getLogger(__name__)
 
-_cache_instance: Optional["AudioCache"] = None
+_cache_instance: AudioCache | None = None
 _cache_lock = threading.Lock()
 
 
 class AudioCache:
-    """Thread-safe local file cache with LRU + TTL eviction.
+    """LRU + TTL 제거 전략을 적용한 스레드 안전 로컬 파일 캐시.
 
     Args:
-        cache_dir: Root directory for cached audio files.
-        max_size_mb: Maximum total cache size in megabytes.
-        ttl_hours: Maximum hours a file can remain unused before eviction.
+        cache_dir: 캐시 오디오 파일 루트 디렉터리.
+        max_size_mb: 최대 캐시 용량(MB).
+        ttl_hours: 제거 전 최대 미사용 시간(시간).
     """
 
     def __init__(
@@ -50,40 +51,40 @@ class AudioCache:
 
     @staticmethod
     def _make_cache_key(source: str) -> str:
-        """Generate a deterministic cache key from the source string.
+        """소스 문자열로부터 결정적 캐시 키를 생성합니다.
 
         Args:
-            source: Remote audio URL or S3 object key.
+            source: 원격 오디오 URL 또는 S3 오브젝트 키.
 
         Returns:
-            SHA-256 hex digest of the source string.
+            소스 문자열의 SHA-256 헥스 다이제스트.
         """
         return hashlib.sha256(source.strip().encode("utf-8")).hexdigest()
 
     def _cache_path(self, cache_key: str) -> Path:
-        """Return the full filesystem path for a cache key.
+        """캐시 키에 대한 전체 파일 시스템 경로를 반환합니다.
 
         Args:
-            cache_key: SHA-256 hex digest.
+            cache_key: SHA-256 헥스 다이제스트.
 
         Returns:
-            Path object for the cached file.
+            캐시된 파일의 ``Path`` 객체.
         """
         return self._cache_dir / cache_key
 
     def get(self, source: str, target_path: str) -> bool:
-        """Try to serve a cached copy of the source audio.
+        """캐시된 소스 오디오 복사본 제공을 시도합니다.
 
-        If the file exists in cache and has not expired, it is copied
-        to ``target_path`` and ``True`` is returned. Otherwise
-        ``False`` is returned.
+        캐시에 파일이 존재하고 만료되지 않았으면 ``target_path`` 로
+        복사하고 ``True`` 를 반환합니다. 그렇지 않으면
+        ``False`` 를 반환합니다.
 
         Args:
-            source: Remote audio URL or S3 object key.
-            target_path: Destination path expected by the caller.
+            source: 원격 오디오 URL 또는 S3 오브젝트 키.
+            target_path: 호출자가 기대하는 대상 경로.
 
         Returns:
-            ``True`` on cache hit, ``False`` on miss or expiry.
+            캐시 히트 시 ``True``, 미스 또는 만료 시 ``False``.
         """
         cache_key = self._make_cache_key(source)
         cached = self._cache_path(cache_key)
@@ -112,14 +113,14 @@ class AudioCache:
                 return False
 
     def put(self, source: str, downloaded_path: str) -> None:
-        """Store a downloaded file in the cache.
+        """다운로드된 파일을 캐시에 저장합니다.
 
-        Copies ``downloaded_path`` into the cache directory and runs
-        LRU eviction if the total size exceeds the limit.
+        ``downloaded_path`` 를 캐시 디렉터리에 복사하고 총 용량이
+        한도를 초과하면 LRU 제거를 실행합니다.
 
         Args:
-            source: Remote audio URL or S3 object key.
-            downloaded_path: Path to the freshly downloaded file.
+            source: 원격 오디오 URL 또는 S3 오브젝트 키.
+            downloaded_path: 새로 다운로드된 파일 경로.
         """
         cache_key = self._make_cache_key(source)
         cached = self._cache_path(cache_key)
@@ -135,9 +136,9 @@ class AudioCache:
             self._evict_if_needed()
 
     def _evict_if_needed(self) -> None:
-        """Remove oldest-accessed files until total size is within limit.
+        """총 용량이 한도 이내가 될 때까지 가장 오래된 파일을 제거합니다.
 
-        Must be called while holding ``self._lock``.
+        ``self._lock`` 을 보유한 상태에서 호출해야 합니다.
         """
         entries = []
         total_size = 0
@@ -175,10 +176,10 @@ class AudioCache:
             )
 
     def cleanup_expired(self) -> int:
-        """Remove all files that have exceeded TTL.
+        """TTL을 초과한 모든 파일을 제거합니다.
 
         Returns:
-            Number of expired files removed.
+            제거된 만료 파일 수.
         """
         removed = 0
         now = time.time()
@@ -202,11 +203,11 @@ class AudioCache:
         return removed
 
 
-def get_audio_cache() -> Optional[AudioCache]:
-    """Return the singleton AudioCache instance if caching is enabled.
+def get_audio_cache() -> AudioCache | None:
+    """캐시가 활성화된 경우 싱글턴 AudioCache 인스턴스를 반환합니다.
 
     Returns:
-        ``AudioCache`` instance or ``None`` if caching is disabled.
+        ``AudioCache`` 인스턴스 또는 캐시 비활성화 시 ``None``.
     """
     if not config.AUDIO_CACHE_ENABLED:
         return None

@@ -1,4 +1,4 @@
-"""Gemini-based translation service for reference payloads."""
+"""레퍼런스 페이로드용 Gemini 기반 번역 서비스."""
 
 import json
 import logging
@@ -23,7 +23,7 @@ _gemini_client_lock = threading.Lock()
 
 
 class LearningExpression(BaseModel):
-    """A useful learning expression extracted from the reference."""
+    """레퍼런스에서 추출된 유용한 학습 표현."""
 
     expression: str
     meaning: str
@@ -35,7 +35,7 @@ class LearningExpression(BaseModel):
 
 
 class PartVocabulary(BaseModel):
-    """A vocabulary item extracted for a merged part."""
+    """병합된 파트에서 추출된 어휘 항목."""
 
     word: str = Field(min_length=1)
     meaning_ko: str = Field(min_length=1)
@@ -46,7 +46,7 @@ class PartVocabulary(BaseModel):
 
 
 class GeminiMergedPart(BaseModel):
-    """A merged part returned by Gemini."""
+    """Gemini가 반환한 병합된 파트."""
 
     source_part_ids: list[str] = Field(min_length=1)
     translated_text: str = Field(min_length=1)
@@ -54,7 +54,7 @@ class GeminiMergedPart(BaseModel):
 
 
 class GeminiTranslationResponse(BaseModel):
-    """Structured Gemini response for reference translation."""
+    """레퍼런스 번역용 구조화된 Gemini 응답."""
 
     full_text_translation: str = Field(min_length=1)
     merged_parts: list[GeminiMergedPart] = Field(min_length=1)
@@ -64,7 +64,7 @@ class GeminiTranslationResponse(BaseModel):
 
 
 class TranslationMetadata(BaseModel):
-    """Translation metadata attached to the response payload."""
+    """응답 페이로드에 첨부된 번역 메타데이터."""
 
     final_script_ko: str | None
     parts: list[dict[str, Any]]
@@ -75,11 +75,11 @@ class TranslationMetadata(BaseModel):
 
 
 class GeminiRetryableError(RuntimeError):
-    """Retryable Gemini request error."""
+    """재시도 가능한 Gemini 요청 오류."""
 
 
 def _parse_vocabulary_items(raw_items: Any) -> list[PartVocabulary]:
-    """Parse valid vocabulary items and drop malformed entries."""
+    """유효한 어휘 항목을 파싱하고 잘못된 항목을 제거합니다."""
     parsed_items: list[PartVocabulary] = []
     if not isinstance(raw_items, list):
         return parsed_items
@@ -97,7 +97,7 @@ def _parse_vocabulary_items(raw_items: Any) -> list[PartVocabulary]:
 
 
 def _parse_merged_parts(raw_parts: Any) -> list[GeminiMergedPart]:
-    """Parse merged parts while tolerating malformed vocabulary items."""
+    """잘못된 어휘 항목을 허용하며 병합된 파트를 파싱합니다."""
     if not isinstance(raw_parts, list) or not raw_parts:
         raise ValueError("Gemini merged_parts must be a non-empty list.")
 
@@ -130,7 +130,7 @@ def _parse_merged_parts(raw_parts: Any) -> list[GeminiMergedPart]:
 
 
 def _parse_learning_expressions(raw_items: Any) -> list[LearningExpression]:
-    """Parse valid learning expressions and drop malformed entries."""
+    """유효한 학습 표현을 파싱하고 잘못된 항목을 제거합니다."""
     parsed_items: list[LearningExpression] = []
     if not isinstance(raw_items, list):
         return parsed_items
@@ -150,7 +150,7 @@ def _parse_learning_expressions(raw_items: Any) -> list[LearningExpression]:
 def _parse_translation_response(
     raw_response: dict[str, Any],
 ) -> tuple[str, list[GeminiMergedPart], list[LearningExpression]]:
-    """Parse a Gemini translation response while salvaging valid optional items."""
+    """유효한 선택 항목을 보존하며 Gemini 번역 응답을 파싱합니다."""
     full_text_translation = str(
         raw_response.get("full_text_translation", "")
     ).strip()
@@ -165,7 +165,7 @@ def _parse_translation_response(
 
 
 def _strip_code_fence(text: str) -> str:
-    """Remove optional Markdown code fences from model output."""
+    """모델 출력에서 선택적 Markdown 코드 펜스를 제거합니다."""
     cleaned = text.strip()
     if cleaned.startswith("```"):
         lines = cleaned.splitlines()
@@ -178,7 +178,7 @@ def _strip_code_fence(text: str) -> str:
 
 
 def _get_gemini_api_key() -> str:
-    """Return the configured Gemini API key from environment variables."""
+    """환경 변수에서 설정된 Gemini API 키를 반환합니다."""
     return (
         os.getenv("GMS_API_KEY", "").strip()
         or os.getenv("GEMINI_API_KEY", "").strip()
@@ -186,7 +186,7 @@ def _get_gemini_api_key() -> str:
 
 
 def _get_gemini_client() -> Any:
-    """Create and cache the Gemini SDK client."""
+    """Gemini SDK 클라이언트를 생성하고 캐시합니다."""
     global _gemini_client
     if _gemini_client is not None:
         return _gemini_client
@@ -204,13 +204,13 @@ def _get_gemini_client() -> Any:
 
 
 def _get_part_speaker_hint(part: dict[str, Any]) -> str | None:
-    """Return the dominant speaker label for a part if available.
+    """파트의 대표 화자 라벨을 반환합니다.
 
     Args:
-        part: Reference part payload.
+        part: 레퍼런스 파트 페이로드.
 
     Returns:
-        Dominant speaker label if available, otherwise ``None``.
+        대표 화자 라벨 또는 ``None``.
     """
     return _dominant_speaker_label(part.get("word_timestamps", []))
 
@@ -218,13 +218,13 @@ def _get_part_speaker_hint(part: dict[str, Any]) -> str | None:
 def _build_llm_input_parts(
     sentence_data: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Build a compact preprocessed part list for Gemini.
+    """Gemini용 콤팩트 전처리 파트 리스트를 생성합니다.
 
     Args:
-        sentence_data: Reference part payload list.
+        sentence_data: 레퍼런스 파트 페이로드 리스트.
 
     Returns:
-        Preprocessed part list used to build the Gemini prompt.
+        Gemini 프롬프트 생성에 사용되는 전처리 파트 리스트.
     """
     payload_parts: list[dict[str, Any]] = []
     for index, part in enumerate(sentence_data, start=1):
@@ -252,14 +252,14 @@ def _build_prompt(
     full_text: str,
     sentence_data: list[dict[str, Any]],
 ) -> str:
-    """Build the Gemini prompt for translation and contextual merging.
+    """번역 및 문맥 병합용 Gemini 프롬프트를 생성합니다.
 
     Args:
-        full_text: Full reference transcript.
-        sentence_data: Reference part payload list.
+        full_text: 전체 레퍼런스 트랜스크립트.
+        sentence_data: 레퍼런스 파트 페이로드 리스트.
 
     Returns:
-        Prompt string for Gemini.
+        Gemini용 프롬프트 문자열.
     """
     preprocessed_parts = _build_llm_input_parts(sentence_data)
     payload = {
@@ -303,10 +303,10 @@ def _build_prompt(
 
 
 def _build_generate_config() -> types.GenerateContentConfig:
-    """Build Gemini generation config for strict JSON output.
+    """엄격한 JSON 출력을 위한 Gemini 생성 설정을 생성합니다.
 
     Returns:
-        Gemini SDK generation config.
+        Gemini SDK 생성 설정.
     """
     return types.GenerateContentConfig(
         system_instruction=config.LLM_GEMINI_SYSTEM_INSTRUCTION,
@@ -323,7 +323,7 @@ def _build_generate_config() -> types.GenerateContentConfig:
 
 
 def _get_response_finish_reason(response: Any) -> str | None:
-    """Extract the first-candidate finish reason from a Gemini response."""
+    """Gemini 응답에서 첫 번째 후보의 종료 사유를 추출합니다."""
     candidates = getattr(response, "candidates", None)
     if not candidates:
         return None
@@ -342,18 +342,18 @@ def _get_response_finish_reason(response: Any) -> str | None:
 
 
 def _request_gemini(prompt: str) -> dict[str, Any]:
-    """Send a single prompt to Gemini and return the parsed JSON.
+    """Gemini에 프롬프트를 전송하고 파싱된 JSON을 반환합니다.
 
     Args:
-        prompt: Prompt string for Gemini.
+        prompt: Gemini용 프롬프트 문자열.
 
     Returns:
-        Parsed JSON response payload.
+        파싱된 JSON 응답 페이로드.
 
     Raises:
-        RuntimeError: If Gemini returns an empty text response.
-        GeminiRetryableError: If the response is truncated due to token limits.
-        json.JSONDecodeError: If the response is not valid JSON.
+        RuntimeError: Gemini가 빈 텍스트 응답을 반환할 때.
+        GeminiRetryableError: 토큰 한도로 응답이 잘림 때.
+        json.JSONDecodeError: 응답이 유효한 JSON이 아닐 때.
     """
     client = _get_gemini_client()
     response = client.models.generate_content(
@@ -382,7 +382,7 @@ def _request_gemini(prompt: str) -> dict[str, Any]:
 
 
 def _is_retryable_exception(exc: Exception) -> bool:
-    """Return whether a Gemini error should be retried."""
+    """Gemini 오류가 재시도 대상인지 판단합니다."""
     if isinstance(exc, GeminiRetryableError):
         return True
 
@@ -411,15 +411,15 @@ def _validate_merged_part_ids(
     sentence_data: list[dict[str, Any]],
     merged_parts: list[GeminiMergedPart],
 ) -> None:
-    """Validate that Gemini merged parts cover all source parts in order.
+    """Gemini 병합 파트가 모든 소스 파트를 순서대로 커버하는지 검증합니다.
 
     Args:
-        sentence_data: Original reference part payload list.
-        merged_parts: Gemini merged-part response.
+        sentence_data: 원본 레퍼런스 파트 페이로드 리스트.
+        merged_parts: Gemini 병합 파트 응답.
 
     Raises:
-        ValueError: If merged parts do not cover the source parts exactly once
-            in order.
+        ValueError: 병합 파트가 소스 파트를 순서대로 정확히 1회 커버하지
+            않을 때.
     """
     expected_ids = [
         f"part{index}" for index in range(1, len(sentence_data) + 1)
@@ -438,17 +438,17 @@ def _merge_source_parts(
     sentence_data: list[dict[str, Any]],
     merged_parts: list[GeminiMergedPart],
 ) -> list[dict[str, Any]]:
-    """Merge source parts according to the Gemini result.
+    """Gemini 결과에 따라 소스 파트를 병합합니다.
 
     Args:
-        sentence_data: Original reference part payload list.
-        merged_parts: Gemini merged-part response.
+        sentence_data: 원본 레퍼런스 파트 페이로드 리스트.
+        merged_parts: Gemini 병합 파트 응답.
 
     Returns:
-        Rebuilt merged reference parts.
+        재구성된 병합 레퍼런스 파트.
 
     Raises:
-        ValueError: If a merged part cannot be rebuilt.
+        ValueError: 병합 파트 재구성 실패 시.
     """
     merged_payload_parts: list[dict[str, Any]] = []
     for merged_part in merged_parts:
@@ -513,15 +513,14 @@ def translate_reference_parts_with_gemini(
     final_script: str,
     sentence_data: list[dict[str, Any]],
 ) -> TranslationMetadata:
-    """Translate and merge reference parts with Gemini.
+    """Gemini로 레퍼런스 파트를 번역하고 병합합니다.
 
     Args:
-        final_script: Full reference transcript.
-        sentence_data: Reference part payload list.
+        final_script: 전체 레퍼런스 트랜스크립트.
+        sentence_data: 레퍼런스 파트 페이로드 리스트.
 
     Returns:
-        Translation metadata containing translated text, merged parts, and
-        retry information.
+        번역 텍스트, 병합 파트, 재시도 정보를 포함한 번역 메타데이터.
     """
     provider = f"gemini:{config.LLM_GEMINI_MODEL}"
     base_parts = [dict(part) for part in sentence_data]

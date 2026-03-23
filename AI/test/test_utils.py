@@ -1,4 +1,4 @@
-"""Test helper utilities for pipe.test."""
+"""테스트 헬퍼 유틸리티."""
 
 from contextlib import redirect_stdout
 from io import StringIO
@@ -11,7 +11,7 @@ RESULT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def run_and_save_output(output_name: str, runner: Callable[[], None]) -> Path:
-    """Run a test function, echo its output, and save it under result/."""
+    """테스트 함수를 실행하고, 출력을 표시한 후 result/ 하위에 저장합니다."""
     buffer = StringIO()
     with redirect_stdout(buffer):
         runner()

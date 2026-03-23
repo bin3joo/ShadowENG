@@ -1,1 +1,1 @@
-"""StyleEcho service package."""
+"""StyleEcho 서비스 패키지."""

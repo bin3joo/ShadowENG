@@ -14,10 +14,11 @@ AI 서버 내 `pipeline.py` 가 산출하는 7대 지표 수식과 채점 알고
 
 ## 2. 속도 유사도 (Speed)
 *   **지표 설명**: 실제 말을 입 밖으로 내뱉은 유효 발화 시간(`active_speech_sec`)의 속도가 일치하는지 봅니다.
-*   **수식**: `ratio = 유효 발화 시간(user) / 유효 발화 시간(ref)` (상수 `k=1.2`, `penalty=1.3`)
-    *   느릴 경우 (`ratio > 1`): `score = 100.0 * (1.0 / ratio) ** k`
-    *   빠를 경우 (`ratio < 1`): `score = 100.0 * ratio ** (k * penalty)`
-*   **특징**: 기준치 대비 너무 빠르게 랩을 하듯이 말하는 것을 더 가혹하게 감점(`rushing_penalty`)하도록 설계되었습니다.
+*   **수식**: `ratio = 유효 발화 시간(user) / 유효 발화 시간(ref)` (상수 `k=config.SPEED_K`, `penalty=config.SPEED_RUSHING_PENALTY`)
+    *   **불감대(Deadband)**: `|ratio − 1.0| ≤ config.SPEED_DEADBAND` (default ±10%) 이내이면 **100점** (미세한 속도 차이는 무시)
+    *   느릴 경우 (`ratio > 1 + deadband`): `score = 100.0 * (1.0 / effective_ratio) ** k`
+    *   빠를 경우 (`ratio < 1 - deadband`): `score = 100.0 * effective_ratio ** (k * penalty)`
+*   **특징**: 기준치 대비 ±10% 이내의 자연스러운 속도 변동은 감점하지 않습니다. 그 범위를 초과할 때부터 거듭제곱 감점이 시작됩니다.
 
 ## 3. 멈춤 유사도 (Pause)
 *   **지표 설명**: '몇 번 쉬었는가(횟수)'뿐 아니라, '**어디서 쉬었는가(위치)**'까지 평가합니다. 횟수 기반 점수와 위치 정합(F1) 점수를 블렌딩합니다.
@@ -59,11 +60,13 @@ AI 서버 내 `pipeline.py` 가 산출하는 7대 지표 수식과 채점 알고
 
 ## 6. 종결 억양 (Boundary Tone)
 *   **지표 설명**: 영어 문장 끝을 말아 올리는지, 평음으로 내리는지에 대한 특징 여부 판단입니다.
-*   **수식**: 문장이 끝나기 직전 발화의 **마지막 15% 구간** F0 배열 데이터를 가져옵니다.
-    1.  F0의 물리 단위를 음악의 세미톤 단위(`12 * log2(hz / 55.0)`)로 변환합니다. 변동 폭을 균일화하기 위함입니다.
-    2.  시간 축 0~1(x)에 대한 세미톤 배열값(y)을 넣고 1차 다항식 회귀(`numpy.polyfit`)를 돌려 **Slope (기울기)**를 구합니다.
-    3.  레퍼런스와 유저의 기울기 **부호**가 일치하고 크기가 유사하면 `score = 100.0 * (min / max) ** k` (상수 `k=config.BOUNDARY_K`, default 0.8) 점수를 부여합니다. 서로 방향이 다르면(`r_m * u_m < 0`) 가혹한 페널티(Opposite, 40점)를 부여합니다.
-    4.  최종 점수가 `config.BOUNDARY_GOOD_THRESHOLD` (default 80.0) 이상이거나 둘 다 평음(Threshold 미만 파형)이면 피드백은 Good 입니다.
+*   **수식**: 문장이 끝나기 직전 발화의 **마지막 15% 구간 또는 최소 `config.BOUNDARY_TAIL_MIN_MS`ms (default 300ms)** 중 긴 쪽의 F0 배열 데이터를 가져옵니다.
+    1.  F0에 이동평균(window=3) 평활화를 적용하여 노이즈 왜곡을 방지합니다.
+    2.  F0의 물리 단위를 음악의 세미톤 단위(`12 * log2(hz / 55.0)`)로 변환합니다.
+    3.  시간 축 0~1(x)에 대한 세미톤 배열값(y)을 넣고 1차 다항식 회귀(`numpy.polyfit`)를 돌려 **Slope (기울기)**를 구합니다.
+    4.  같은 방향: **Soft Ratio** — `score = 100.0 * ((min + bias) / (max + bias)) ** k` (상수 `k=config.BOUNDARY_K` default 0.5, `bias=config.BOUNDARY_SLOPE_BIAS` default 0.3). bias가 평음 근처에서 점수 폭락을 방지합니다.
+    5.  반대 방향: 양쪽 모두 평음에 가까우면(`SLOPE_THRESHOLD * 2` 미만) `config.BOUNDARY_OPPOSITE_SOFT_SCORE` (default 80점), 한쪽이 뚜렷하면 `config.BOUNDARY_OPPOSITE_SCORE` (default 40점).
+    6.  양쪽 모두 Dead Zone (`config.BOUNDARY_SLOPE_THRESHOLD` 미만)이면 100점.
 
 ## 7. 역동성 (Dynamic Stress)
 *   **지표 설명**: 로봇처럼 일정하게 책을 읽는지, 원어민처럼 단어마다 강세에 악센트를 주면서 크게 말했다 작게 말했다를 적절히 조절하는지 판단합니다.
@@ -75,4 +78,4 @@ AI 서버 내 `pipeline.py` 가 산출하는 7대 지표 수식과 채점 알고
 
 ## 8. 단어 피치 컨투어 (Word Pitch Contour)
 *   **지표 설명**: 각 단어별 억양 단위(F0 주파수 변화량)를 검사하여 구체적인 피드백(예: 올려치기, 내려치기 등)을 산출합니다.
-*   **특징**: 단어의 처음과 끝 주파수(Hz) 차이가 `config.PITCH_FLAT_THRESHOLD_HZ` (default 5.0 Hz) 미만이라면 유의미한 억양 변화가 없는 평음(`flat`)으로 판정합니다.
+*   **특징**: 단어 구간의 피치 차이(diff)를 평균 F0로 나눈 **비율(%)** 이 `config.PITCH_FLAT_THRESHOLD_RATIO` (default 4%) 미만이면 평음(`flat`)으로 판정합니다. Hz 절대값 대신 비율을 사용하여 남성/여성/아동 등 화자의 기본 피치 대역에 관계없이 일관된 피드백을 줍니다.

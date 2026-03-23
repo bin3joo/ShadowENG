@@ -66,14 +66,16 @@ def _run() -> None:
     print("5. BOUNDARY TONE (slope)")
     print("=" * 70)
     slope_threshold = config.BOUNDARY_SLOPE_THRESHOLD
+    bias = config.BOUNDARY_SLOPE_BIAS
     test_slopes = [
         (100.0, 120.0, "similar rise"),
-        (100.0, -50.0, "opposite"),
+        (100.0, -50.0, "opposite (loud)"),
         (-100.0, -120.0, "similar fall"),
         (100.0, 10.0, "user weak rise"),
         (0.0, 0.0, "both flat"),
         (100.0, 100.0, "perfect"),
         (0.001, 100.0, "ref almost flat"),
+        (0.3, -0.2, "opposite (both near flat)"),
     ]
     for ref_slope, user_slope, description in test_slopes:
         if (
@@ -89,7 +91,13 @@ def _run() -> None:
             )
             status = "weak"
         elif (ref_slope * user_slope) < 0:
-            score = 40.0
+            if (
+                abs(ref_slope) < slope_threshold * 2
+                and abs(user_slope) < slope_threshold * 2
+            ):
+                score = config.BOUNDARY_OPPOSITE_SOFT_SCORE
+            else:
+                score = config.BOUNDARY_OPPOSITE_SCORE
             status = "opposite"
         else:
             ref_mag = abs(ref_slope)
@@ -98,11 +106,20 @@ def _run() -> None:
             score = (
                 100.0
                 if max_mag == 0
-                else 100.0 * ((min(ref_mag, user_mag) / max_mag) ** config.BOUNDARY_K)
+                else 100.0
+                * (
+                    (min(ref_mag, user_mag) + bias)
+                    / (max_mag + bias)
+                )
+                ** config.BOUNDARY_K
             )
-            status = "good" if score > config.BOUNDARY_GOOD_THRESHOLD else "weak"
+            status = (
+                "good"
+                if score > config.BOUNDARY_GOOD_THRESHOLD
+                else "weak"
+            )
         print(
-            f"  ref={ref_slope:>8.1f}, user={user_slope:>8.1f} ({description:>20s}) -> score={score:.1f} [{status}]"
+            f"  ref={ref_slope:>8.1f}, user={user_slope:>8.1f} ({description:>25s}) -> score={score:.1f} [{status}]"
         )
 
     print("\n" + "=" * 70)

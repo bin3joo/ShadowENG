@@ -1,6 +1,6 @@
 """
-StyleEcho 설정 로더 (OmegaConf 적용 버전)
-====================
+StyleEcho 설정 로더 (OmegaConf 적용 버전).
+
 config_default.yaml 을 기본으로 로드하고,
 config.yaml 이 존재하면 해당 값으로 덮어씁니다.
 """
@@ -28,7 +28,17 @@ load_dotenv(_PIPE_DIR / ".env")
 # 로드 및 자동 딥 머지 (Deep Merge)
 # ---------------------------------------------------------------------------
 def _ensure_dict_config(config_obj: DictConfig | ListConfig) -> DictConfig:
-    """루트 설정 객체가 매핑 형태인지 검증합니다."""
+    """루트 설정 객체가 매핑 형태인지 검증합니다.
+
+    Args:
+        config_obj: OmegaConf 로드 결과 객체.
+
+    Returns:
+        검증된 ``DictConfig`` 객체.
+
+    Raises:
+        TypeError: 루트 설정이 매핑 형태가 아닐 때.
+    """
     if isinstance(config_obj, DictConfig):
         return config_obj
 
@@ -36,7 +46,14 @@ def _ensure_dict_config(config_obj: DictConfig | ListConfig) -> DictConfig:
 
 
 def _load_config() -> DictConfig:
-    """config_default.yaml 과 config.yaml 을 로드하여 병합합니다."""
+    """config_default.yaml 과 config.yaml 을 로드하여 병합합니다.
+
+    Returns:
+        딥 머지된 전역 설정 ``DictConfig``.
+
+    Raises:
+        FileNotFoundError: 기본 설정 파일이 없을 때.
+    """
     if not _DEFAULT_PATH.exists():
         raise FileNotFoundError(f"기본 설정 파일이 없습니다: {_DEFAULT_PATH}")
 
@@ -58,11 +75,18 @@ cfg: DictConfig = _load_config()
 
 
 def get(dotted_key: str, default: Any = None) -> Any:
-    """
-    기존 코드와의 하위 호환성을 위한 get 래퍼 함수.
+    """기존 코드와의 하위 호환성을 위한 get 래퍼 함수.
 
-    예:
-        get("whisper.model") -> cfg.whisper.model
+    Example::
+
+        get("whisper.model")  # -> cfg.whisper.model
+
+    Args:
+        dotted_key: 점 표기법 설정 경로.
+        default: 키가 없을 때 반환할 기본값.
+
+    Returns:
+        설정값 또는 ``default``.
     """
     return OmegaConf.select(cfg, dotted_key, default=default)
 
@@ -237,11 +261,20 @@ PROSODY_DTW_RADIUS: int = get("scoring.prosody_dtw_radius", 10)
 RHYTHM_K: float = get("scoring.rhythm_k", 1.2)
 RHYTHM_DIFF_THRESHOLD: float = get("scoring.rhythm_diff_threshold", 0.4)
 BOUNDARY_SLOPE_THRESHOLD: float = get("scoring.boundary_slope_threshold", 0.55)
-BOUNDARY_K: float = get("scoring.boundary_k", 0.8)
+BOUNDARY_K: float = get("scoring.boundary_k", 0.5)
 BOUNDARY_GOOD_THRESHOLD: float = get("scoring.boundary_good_threshold", 80.0)
+BOUNDARY_SLOPE_BIAS: float = get("scoring.boundary_slope_bias", 0.3)
+BOUNDARY_OPPOSITE_SCORE: float = get("scoring.boundary_opposite_score", 40.0)
+BOUNDARY_OPPOSITE_SOFT_SCORE: float = get(
+    "scoring.boundary_opposite_soft_score", 80.0
+)
+BOUNDARY_TAIL_MIN_MS: float = get("scoring.boundary_tail_min_ms", 300)
+SPEED_DEADBAND: float = get("scoring.speed_deadband", 0.1)
 DYNAMIC_K: float = get("scoring.dynamic_k", 1.2)
 DYNAMIC_GOOD_THRESHOLD: float = get("scoring.dynamic_good_threshold", 80.0)
-PITCH_FLAT_THRESHOLD_HZ: float = get("scoring.pitch_flat_threshold_hz", 5.0)
+PITCH_FLAT_THRESHOLD_RATIO: float = get(
+    "scoring.pitch_flat_threshold_ratio", 0.04
+)
 PASS_THRESHOLD: float = get("scoring.pass_threshold", 60.0)
 
 SCORE_WEIGHTS: dict = get(

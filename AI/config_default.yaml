@@ -255,17 +255,31 @@ scoring:
   # 문장 끝 억양 dead zone (semitone / unit)
   # 이 값 이하의 boundary tone 차이는 무시하는 dead zone
   boundary_slope_threshold: 0.55
-  # 종결 억양(Boundary Tone) 평가 
-  boundary_k: 0.8
+  # 종결 억양(Boundary Tone) 평가
+  # score = 100 * ((min + bias) / (max + bias))^k
+  boundary_k: 0.5
   boundary_good_threshold: 80.0
+  # Soft Ratio bias: 분모/분자에 더해 평음 근처에서 점수 폭락 방지
+  boundary_slope_bias: 0.3
+  # 부호 반대(Opposite)일 때 기본 점수
+  boundary_opposite_score: 40.0
+  # 부호 반대지만 양쪽 모두 평음에 가까울 때 완화 점수
+  boundary_opposite_soft_score: 80.0
+  # 분석 꼬리 최소 길이(ms). 마지막 15%가 이보다 짧으면 이 값으로 보장.
+  boundary_tail_min_ms: 300
+
+  # 속도 유사도: 불감대(Deadband)
+  # |ratio - 1.0| 이 이 값 이내이면 100점 (±10%)
+  speed_deadband: 0.1
 
   # 역동성(Dynamic Stress) 평가 
   dynamic_k: 1.2
   dynamic_good_threshold: 80.0
   
   # 피치 컨투어 (단어 단위 F0 분석)
-  # 이 값(Hz) 미만의 피치 변화는 'flat'(평음)으로 간주합니다.
-  pitch_flat_threshold_hz: 5.0
+  # 피치 변화량이 평균 F0 대비 이 비율(%) 미만이면 'flat'(평음)으로 간주.
+  # Hz 절대값 대신 비율을 사용해 남/여/아동 화자 모두에게 공평하게 적용.
+  pitch_flat_threshold_ratio: 0.04
 
   # AI 서버 pass/fail 기준점
   # 종합 점수가 이 값 이상이면 pass 로 해석 가능

@@ -1,17 +1,17 @@
-"""StyleEcho FastAPI app factory."""
+"""StyleEcho FastAPI 앱 팩토리."""
 
 import logging
 from contextlib import asynccontextmanager
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
-from fastapi import FastAPI, APIRouter
-
 import config
 from api.evaluation import router as evaluation_router
 from api.reference import router as reference_router
 from api.system import router as system_router
+from fastapi import APIRouter, FastAPI
 from pipeline import get_pipeline
+
 router = APIRouter()
 
 _LOG_DIR = Path(__file__).resolve().parents[1] / "log"
@@ -42,7 +42,14 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Preload the WhisperX pipeline during app startup."""
+    """WhisperX 파이프라인을 앱 시작 시 미리 로드합니다.
+
+    Args:
+        app: FastAPI 애플리케이션 인스턴스.
+
+    Yields:
+        시작 완료 후 애플리케이션으로 제어를 반환합니다.
+    """
     logger.info(
         "Pre-loading WhisperX pipeline (model=%s, device=%s, compute=%s) ...",
         config.WHISPER_MODEL,
@@ -60,7 +67,11 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    """Create and configure the FastAPI application."""
+    """FastAPI 애플리케이션을 생성하고 설정합니다.
+
+    Returns:
+        설정된 ``FastAPI`` 인스턴스.
+    """
     app = FastAPI(
         title="StyleEcho AI Worker",
         description="유튜브 레퍼런스 자동 생성 및 유저 억양/발음 평가 API",
@@ -71,5 +82,6 @@ def create_app() -> FastAPI:
     app.include_router(evaluation_router)
     app.include_router(system_router)
     return app
+
 
 app = create_app()

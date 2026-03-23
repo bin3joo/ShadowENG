@@ -1,1 +1,1 @@
-"""StyleEcho API package."""
+"""StyleEcho API 패키지."""

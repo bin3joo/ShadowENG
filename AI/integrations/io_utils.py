@@ -1,4 +1,4 @@
-"""StyleEcho I/O integration functions."""
+"""StyleEcho I/O 통합 함수."""
 
 import logging
 import os
@@ -19,13 +19,13 @@ _PROJECT_TEMP_DIR = Path(__file__).resolve().parents[1] / "temp"
 
 
 def _is_likely_s3_object_key(source: str) -> bool:
-    """Return whether the input string looks like a raw S3 object key.
+    """입력 문자열이 S3 오브젝트 키인지 판단합니다.
 
     Args:
-        source: Raw ``user_audio`` input.
+        source: ``user_audio`` 원본 입력값.
 
     Returns:
-        ``True`` if the input appears to be an S3 object key.
+        S3 오브젝트 키로 보이면 ``True``.
     """
     stripped = source.strip()
     if not stripped:
@@ -42,10 +42,10 @@ def _is_likely_s3_object_key(source: str) -> bool:
 
 
 def remove_file(path: str) -> None:
-    """Remove a temporary file if it exists.
+    """임시 파일이 존재하면 삭제합니다.
 
     Args:
-        path: File path to remove.
+        path: 삭제할 파일 경로.
     """
     try:
         if os.path.exists(path):
@@ -56,10 +56,10 @@ def remove_file(path: str) -> None:
 
 
 def remove_dir(path: str) -> None:
-    """Remove a temporary directory if it exists.
+    """임시 디렉터리가 존재하면 삭제합니다.
 
     Args:
-        path: Directory path to remove.
+        path: 삭제할 디렉터리 경로.
     """
     try:
         if os.path.exists(path):
@@ -70,20 +70,18 @@ def remove_dir(path: str) -> None:
 
 
 def download_audio_from_url(url: str, target_path: str) -> None:
-    """Download a remote audio file or S3 object to a local path.
+    """원격 오디오 파일 또는 S3 오브젝트를 로컬 경로로 다운로드합니다.
 
-    If audio caching is enabled, the file is looked up in cache first.
-    On a cache miss the file is downloaded normally and then stored
-    in the cache for future reuse.
+    오디오 캐시가 활성화된 경우 캐시를 먼저 조회합니다.
+    캐시 미스 시 정상 다운로드 후 캐시에 저장합니다.
 
     Args:
-        url: Remote audio source. Supports ``http``, ``https``, ``s3``, and
-            direct S3 object keys.
-        target_path: Local filesystem path to write.
+        url: 원격 오디오 소스. ``http``, ``https``, ``s3``,
+            S3 오브젝트 키 형식을 지원합니다.
+        target_path: 로컬 파일 시스템 경로.
 
     Raises:
-        HTTPException: If the source format is unsupported or the download
-            fails.
+        HTTPException: 지원하지 않는 포맷이거나 다운로드 실패 시.
     """
     from integrations.audio_cache import get_audio_cache
 
@@ -167,16 +165,16 @@ def prepare_reference_audio_dir(
     end_sec: float,
     save_dir: str | None = None,
 ) -> str:
-    """Create a persistent directory for saved reference audio artifacts.
+    """저장용 레퍼런스 오디오 아티팩트 디렉터리를 생성합니다.
 
     Args:
-        video_id: YouTube video identifier.
-        start_sec: Request start time in seconds.
-        end_sec: Request end time in seconds.
-        save_dir: Optional explicit output directory.
+        video_id: YouTube 비디오 식별자.
+        start_sec: 요청 시작 시간(초).
+        end_sec: 요청 종료 시간(초).
+        save_dir: 명시적 출력 디렉터리 (선택).
 
     Returns:
-        Created directory path.
+        생성된 디렉터리 경로.
     """
     if save_dir:
         target_dir = Path(save_dir)
@@ -196,15 +194,15 @@ def persist_reference_audio(
     sample_rate: int,
     target_dir: str,
 ) -> str:
-    """Persist the full request-local reference audio clip.
+    """요청 구간 전체 레퍼런스 오디오를 저장합니다.
 
     Args:
-        audio_array: Request-local audio array.
-        sample_rate: Sample rate of ``audio_array``.
-        target_dir: Output directory for saved artifacts.
+        audio_array: 요청 구간 오디오 배열.
+        sample_rate: ``audio_array`` 의 샘플레이트.
+        target_dir: 아티팩트 저장 디렉터리.
 
     Returns:
-        Saved full-audio path.
+        저장된 전체 오디오 경로.
     """
     target_path = os.path.join(target_dir, "full_audio.wav")
     segment = np.asarray(audio_array, dtype=np.float32)
@@ -220,17 +218,17 @@ def export_part_audio(
     end_sec: float,
     target_path: str,
 ) -> str:
-    """Export a part-level WAV clip from the loaded reference audio array.
+    """레퍼런스 오디오 배열에서 파트 단위 WAV 클립을 추출합니다.
 
     Args:
-        audio_array: Source reference audio array.
-        sample_rate: Sample rate of ``audio_array``.
-        start_sec: Clip start time in seconds.
-        end_sec: Clip end time in seconds.
-        target_path: Output WAV path.
+        audio_array: 소스 레퍼런스 오디오 배열.
+        sample_rate: ``audio_array`` 의 샘플레이트.
+        start_sec: 클립 시작 시간(초).
+        end_sec: 클립 종료 시간(초).
+        target_path: 출력 WAV 경로.
 
     Returns:
-        Saved part-audio path.
+        저장된 파트 오디오 경로.
     """
     start_idx = max(0, int(start_sec * sample_rate))
     end_idx = max(start_idx, int(end_sec * sample_rate))

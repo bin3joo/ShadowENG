@@ -1,4 +1,4 @@
-"""StyleEcho API schemas."""
+"""StyleEcho API 스키마 정의."""
 
 import re
 
@@ -17,7 +17,7 @@ _ALLOWED_AUDIO_FORMATS = {
 
 
 class GenerateReferenceRequest(BaseModel):
-    """Request model for generate-reference."""
+    """generate-reference 요청 모델."""
 
     video_id: str
     start_sec: float
@@ -27,7 +27,7 @@ class GenerateReferenceRequest(BaseModel):
     @field_validator("video_id")
     @classmethod
     def validate_video_id(cls, value: str) -> str:
-        """Validate YouTube video ID format."""
+        """YouTube 비디오 ID 형식을 검증합니다."""
         video_id = value.strip()
         if not _VIDEO_ID_RE.fullmatch(video_id):
             raise ValueError(
@@ -37,7 +37,7 @@ class GenerateReferenceRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_time_range(self) -> "GenerateReferenceRequest":
-        """Validate reference time range."""
+        """레퍼런스 시간 범위를 검증합니다."""
         if self.start_sec < 0:
             raise ValueError("start_sec 는 0 이상이어야 합니다.")
         if self.end_sec <= self.start_sec:
@@ -48,7 +48,7 @@ class GenerateReferenceRequest(BaseModel):
 
 
 class WordTimestamp(BaseModel):
-    """Word-level timestamp data."""
+    """단어 레벨 타임스탬프 데이터."""
 
     word: str
     start: float
@@ -58,21 +58,21 @@ class WordTimestamp(BaseModel):
 
     @model_validator(mode="after")
     def validate_time_range(self) -> "WordTimestamp":
-        """Validate word timestamp range."""
+        """단어 타임스탬프 범위를 검증합니다."""
         if self.end < self.start:
             raise ValueError("word timestamp end 는 start 이상이어야 합니다.")
         return self
 
 
 class ProsodyFeatures(BaseModel):
-    """Prosody feature arrays."""
+    """억양 특징 배열."""
 
     f0_array: list[float]
     rms_array: list[float]
 
 
 class ReferenceWordTimestamp(BaseModel):
-    """Public word timestamp data for generated references."""
+    """생성된 레퍼런스의 공개용 단어 타임스탬프 데이터."""
 
     word: str
     start: float
@@ -80,14 +80,14 @@ class ReferenceWordTimestamp(BaseModel):
 
     @model_validator(mode="after")
     def validate_time_range(self) -> "ReferenceWordTimestamp":
-        """Validate word timestamp range."""
+        """단어 타임스탬프 범위를 검증합니다."""
         if self.end < self.start:
             raise ValueError("word timestamp end 는 start 이상이어야 합니다.")
         return self
 
 
 class PartVocabularyData(BaseModel):
-    """Per-part vocabulary item for learning support."""
+    """파트별 학습 지원용 어휘 항목."""
 
     word: str
     meaning_ko: str
@@ -98,7 +98,7 @@ class PartVocabularyData(BaseModel):
 
 
 class ReferencePartData(BaseModel):
-    """Public sentence-level reference data."""
+    """공개용 문장 단위 레퍼런스 데이터."""
 
     sentence: str
     start_sec: float
@@ -116,7 +116,7 @@ class ReferencePartData(BaseModel):
 
 
 class LearningExpressionData(BaseModel):
-    """Learning expression extracted from the reference text."""
+    """레퍼런스 텍스트에서 추출된 학습 표현."""
 
     expression: str
     meaning: str
@@ -128,7 +128,7 @@ class LearningExpressionData(BaseModel):
 
 
 class GenerateReferenceResponse(BaseModel):
-    """Response model for generate-reference."""
+    """generate-reference 응답 모델."""
 
     status: str
     video_id: str
@@ -154,7 +154,7 @@ class GenerateReferenceResponse(BaseModel):
 
 
 class EvaluateAudioRequest(BaseModel):
-    """Request model for evaluate-audio."""
+    """evaluate-audio 요청 모델."""
 
     user_audio: str
     user_audio_format: str = "wav"
@@ -166,7 +166,7 @@ class EvaluateAudioRequest(BaseModel):
     @field_validator("user_audio_format")
     @classmethod
     def validate_user_audio_format(cls, value: str) -> str:
-        """Validate user audio format."""
+        """유저 오디오 포맷을 검증합니다."""
         audio_format = value.strip().lower()
         if audio_format not in _ALLOWED_AUDIO_FORMATS:
             raise ValueError(
@@ -177,7 +177,7 @@ class EvaluateAudioRequest(BaseModel):
     @field_validator("final_script")
     @classmethod
     def validate_final_script(cls, value: str) -> str:
-        """Validate non-empty final script."""
+        """final_script 가 비어있지 않은지 검증합니다."""
         script = value.strip()
         if not script:
             raise ValueError("final_script 가 비어있습니다.")
@@ -185,7 +185,7 @@ class EvaluateAudioRequest(BaseModel):
 
 
 class WordFeedbackItem(BaseModel):
-    """Word-level rhythm feedback item."""
+    """단어 레벨 리듬 피드백 항목."""
 
     word: str
     status: str
@@ -196,7 +196,7 @@ class WordFeedbackItem(BaseModel):
 
 
 class BoundaryToneDetail(BaseModel):
-    """Boundary tone analysis details."""
+    """종결 억양 분석 상세."""
 
     ref_slope: float
     user_slope: float
@@ -204,7 +204,7 @@ class BoundaryToneDetail(BaseModel):
 
 
 class DynamicStressDetail(BaseModel):
-    """Dynamic stress analysis details."""
+    """동적 강세 분석 상세."""
 
     ref_dynamic_ratio: float
     user_dynamic_ratio: float
@@ -212,7 +212,7 @@ class DynamicStressDetail(BaseModel):
 
 
 class EvaluateScores(BaseModel):
-    """Aggregated evaluation scores."""
+    """집계된 평가 점수."""
 
     total_score: float
     word_accuracy: float
@@ -225,7 +225,7 @@ class EvaluateScores(BaseModel):
 
 
 class PitchContourFeedback(BaseModel):
-    """Word-level pitch contour feedback item."""
+    """단어 레벨 피치 컨투어 피드백 항목."""
 
     word: str
     ref_direction: str
@@ -238,7 +238,7 @@ class PitchContourFeedback(BaseModel):
 
 
 class EvaluateDetails(BaseModel):
-    """Detailed evaluation feedback payload."""
+    """상세 평가 피드백 페이로드."""
 
     word_level_feedback: list[WordFeedbackItem]
     boundary_tone_feedback: BoundaryToneDetail
@@ -249,7 +249,7 @@ class EvaluateDetails(BaseModel):
 
 
 class EvaluateAudioResponse(BaseModel):
-    """Response model for evaluate-audio."""
+    """evaluate-audio 응답 모델."""
 
     status: str
     pass_fail: str | None = None

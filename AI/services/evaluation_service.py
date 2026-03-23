@@ -1,4 +1,4 @@
-"""Use-case service for user audio evaluation."""
+"""유저 오디오 평가 유스케이스 서비스."""
 
 import base64
 import binascii
@@ -19,17 +19,17 @@ def evaluate_audio_request(
     req: EvaluateAudioRequest,
     background_tasks: BackgroundTasks,
 ) -> dict[str, Any]:
-    """Evaluate a user audio sample against a reference payload.
+    """유저 오디오를 레퍼런스 페이로드 기준으로 평가합니다.
 
     Args:
-        req: User-audio evaluation request.
-        background_tasks: FastAPI background task registry.
+        req: 유저 오디오 평가 요청.
+        background_tasks: FastAPI 백그라운드 태스크 레지스트리.
 
     Returns:
-        Serialized evaluation response payload.
+        직렬화된 평가 응답 페이로드.
 
     Raises:
-        HTTPException: If the request payload is invalid or evaluation fails.
+        HTTPException: 요청 페이로드가 유효하지 않거나 평가 실패 시.
     """
     tmp_user_path: str | None = None
 

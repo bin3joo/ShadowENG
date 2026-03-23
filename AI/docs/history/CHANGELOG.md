@@ -1,5 +1,44 @@
 # Pipe Change Log
+
+## 2026-03-24
+
+### 코드 컨벤션 전면 정비 (Google Style Docstring)
+- `AI/` 디렉터리 내 **모든 Python 파일**의 docstring 을 Google Style 로 통일했습니다.
+  - 모듈 docstring: `"""제목.\n\n설명."""` 형식으로 정규화.
+  - 함수/메서드 docstring: `Args`, `Returns`, `Raises`, `Yields` 섹션 추가.
+  - NumPy Style (`Parameters` / `Returns` + `-------`) → Google Style 전환.
+- `pipeline.py` 의 `StyleEchoPipeline` 클래스 전체 메서드(15개+)에 Google Style docstring 적용.
+- `domain/processing/` 전 모듈(`constants.py`, `engine_utils.py`, `quality.py`, `speaker_analysis.py`, `text_processing.py`, `audio_processing.py`)에 `Args`/`Returns` 섹션 추가.
+- `api/` 라우터(`system.py`, `app.py`, `evaluation.py`, `reference.py`)에 타입 힌트 보강 및 docstring 통일.
+- `integrations/youtube_service.py` 의 `download_reference_audio`, `fetch_youtube_captions` 에 `Args`/`Returns`/`Raises` 추가.
+- `config.py` 의 내부 함수(`_ensure_dict_config`, `_load_config`, `get`) docstring 보강.
+- `integrations/audio_cache.py` 의 `typing.Optional` → `| None` 현대 문법 전환 및 `from __future__ import annotations` 적용.
  
+## 2026-03-23
+
+### 스코어링 하이퍼파라미터 설정화
+- `pipeline.py` 내 하드코딩된 점수 산출 상수들을 `config_default.yaml` / `config.py` 에서 튜닝 가능하도록 추출했습니다.
+  - `wer_penalty`, `boundary_k`, `boundary_good_threshold`, `dynamic_k`, `dynamic_good_threshold`, `pitch_flat_threshold_hz` 등 추가
+- `test/scoring_verify.py` 도 config 참조로 통일했습니다.
+
+### 종결 억양(Boundary Tone) 알고리즘 개선
+- **F0 이동평균 평활화(window=3)** 적용으로 노이즈 왜곡 방지.
+- **절대 시간 하한(300ms)** 도입: 짧은 발화에서 마지막 15% 구간이 너무 짧아지는 문제 해결.
+- **Soft Ratio bias(0.3)** 도입: `(min + bias) / (max + bias)` 형태로 평음 근처에서 점수 폭락(1~2점) 방지.
+- **Opposite Flat Zone 예외**: 부호가 반대여도 양쪽 모두 평음에 가깝다면 80점(기존 40점)으로 완화.
+- `boundary_k` 기본값을 `0.8` → `0.5`로 조정하여 기울기 크기 차이에 대해 관대하게 변경.
+
+### 속도 유사도(Speed) 불감대(Deadband) 도입
+- `|ratio - 1.0| ≤ 0.1` (±10%) 구간은 100점 처리.
+- 불감대 경계 밖에서부터 기존 거듭제곱 감점을 적용하여 미세한 속도 차이로 인한 불필요한 감점 제거.
+
+### 피치 컨투어 임계값 단위 통일 (Hz → 비율)
+- 단어별 피치 변화 판정을 절대값(5Hz)에서 **평균 F0 대비 비율(4%)** 기반으로 변경.
+- 남성/여성/아동 등 화자의 기본 피치 대역에 무관하게 일관된 flat 판정 제공.
+
+### 문서 업데이트
+- `docs/internals/04_scoring_logic.md` 를 변경된 수식 및 config 참조에 맞게 전면 갱신.
+
 ## 2026-03-16
 
 - 전역 설정 로더를 `OmegaConf` 기반의 딥 머지(Deep Merge) 방식으로 전환하여 `config.yaml` 의 부분 오버라이드가 완벽히 동작하도록 개선했습니다.
