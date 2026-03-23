@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 
 @Slf4j
@@ -105,15 +106,19 @@ public class StudySessionService {
         Video video = session.getVideo();
         List<Sentence> sentences = sentenceRepository.findByStudySession_Id(sessionId);
 
-        List<StudySessionCreateResponse.SentenceData> sentencesData = sentences.stream()
-                .map(s -> new StudySessionCreateResponse.SentenceData(
-                        s.getId(),
-                        s.getContent(),
-                        s.getStartSec(),
-                        s.getEndSec(),
-                        s.getDurationSec(),
-                        s.getStudyCount()
-                ))
+        List<StudySessionCreateResponse.SentenceData> sentencesData = IntStream.range(0, sentences.size())
+                .mapToObj(i -> {
+                    Sentence s = sentences.get(i);
+                    return new StudySessionCreateResponse.SentenceData(
+                            s.getId(),
+                            i + 1,
+                            s.getContent(),
+                            s.getStartSec(),
+                            s.getEndSec(),
+                            s.getDurationSec(),
+                            s.getStudyCount()
+                    );
+                })
                 .toList();
 
         return new StudySessionCreateResponse(
