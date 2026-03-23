@@ -98,6 +98,20 @@ public class StudySessionController {
         return ApiResponse.success(studySessionService.getStudySession(sessionId, userId));
     }
 
+    @DeleteMapping("/{sessionId}")
+    @Operation(
+            summary = "학습 세션 삭제 (soft delete)",
+            description = "학습 세션의 상태를 DELETED로 변경합니다. 실제 데이터는 삭제되지 않습니다."
+    )
+    public ApiResponse<Void> deleteStudySession(
+            @Parameter(description = "삭제할 학습 세션 ID", example = "12345")
+            @PathVariable Long sessionId,
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId
+    ) {
+        studySessionService.deleteStudySession(sessionId, userId);
+        return ApiResponse.success(null);
+    }
+
     @PatchMapping("/{sessionId}/review")
     @Operation(
             summary = "복습 모드 시작",

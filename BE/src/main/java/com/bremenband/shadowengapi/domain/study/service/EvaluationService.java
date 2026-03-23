@@ -7,6 +7,7 @@ import com.bremenband.shadowengapi.domain.study.dto.redis.PendingEvaluation;
 import com.bremenband.shadowengapi.domain.study.dto.res.EvaluationResponse;
 import com.bremenband.shadowengapi.domain.study.entity.Evaluation;
 import com.bremenband.shadowengapi.domain.study.entity.Sentence;
+import com.bremenband.shadowengapi.domain.study.entity.SessionStatus;
 import com.bremenband.shadowengapi.domain.study.entity.StudySession;
 import com.bremenband.shadowengapi.domain.study.repository.EvaluationRepository;
 import com.bremenband.shadowengapi.domain.study.repository.SentenceRepository;
@@ -48,6 +49,11 @@ public class EvaluationService {
                     log.warn("[evaluate] session not found: sessionId={}", sessionId);
                     return new CustomException(ErrorCode.SESSION_NOT_FOUND);
                 });
+
+        if (session.getStatus() == SessionStatus.DELETED) {
+            log.warn("[evaluate] session is deleted: sessionId={}", sessionId);
+            throw new CustomException(ErrorCode.SESSION_NOT_FOUND);
+        }
 
         if (!session.getUser().getId().equals(userId)) {
             log.warn("[evaluate] forbidden: sessionId={}, userId={}", sessionId, userId);

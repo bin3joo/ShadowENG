@@ -47,6 +47,10 @@ public class StudySession extends BaseTimeEntity {
         this.status = SessionStatus.COMPLETED;
     }
 
+    public void delete() {
+        this.status = SessionStatus.DELETED;
+    }
+
     public void startReview() {
         this.isReviewing = true;
     }
