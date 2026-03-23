@@ -82,9 +82,9 @@ class SentenceLearningServiceTest {
     private void givenValidSessionAndSentence(int studyCount) {
         StudySession session = buildSession();
         Sentence sentence = buildSentence(session);
+        ReflectionTestUtils.setField(sentence, "studyCount", studyCount);
         given(studySessionRepository.findById(SESSION_ID)).willReturn(Optional.of(session));
         given(sentenceRepository.findById(SENTENCE_ID)).willReturn(Optional.of(sentence));
-        given(evaluationRepository.countBySentence_Id(SENTENCE_ID)).willReturn((long) studyCount);
     }
 
     private Evaluation buildEvaluation(StudySession session, Sentence sentence, String wordLevelFeedback) {
@@ -267,7 +267,6 @@ class SentenceLearningServiceTest {
 
         given(studySessionRepository.findById(SESSION_ID)).willReturn(Optional.of(session));
         given(sentenceRepository.findById(SENTENCE_ID)).willReturn(Optional.of(sentence));
-        given(evaluationRepository.countBySentence_Id(SENTENCE_ID)).willReturn(2L);
         given(evaluationRepository.findTopBySentence_IdOrderByCreatedAtDesc(SENTENCE_ID))
                 .willReturn(Optional.of(evaluation));
 
@@ -292,7 +291,6 @@ class SentenceLearningServiceTest {
 
         given(studySessionRepository.findById(SESSION_ID)).willReturn(Optional.of(session));
         given(sentenceRepository.findById(SENTENCE_ID)).willReturn(Optional.of(sentence));
-        given(evaluationRepository.countBySentence_Id(SENTENCE_ID)).willReturn(1L);
         given(evaluationRepository.findTopBySentence_IdOrderByCreatedAtDesc(SENTENCE_ID))
                 .willReturn(Optional.of(evaluation));
 
@@ -317,7 +315,6 @@ class SentenceLearningServiceTest {
 
         given(studySessionRepository.findById(SESSION_ID)).willReturn(Optional.of(session));
         given(sentenceRepository.findById(SENTENCE_ID)).willReturn(Optional.of(sentence));
-        given(evaluationRepository.countBySentence_Id(SENTENCE_ID)).willReturn(1L);
         given(evaluationRepository.findTopBySentence_IdOrderByCreatedAtDesc(SENTENCE_ID))
                 .willReturn(Optional.of(evaluation));
 
@@ -355,7 +352,6 @@ class SentenceLearningServiceTest {
 
         given(studySessionRepository.findById(SESSION_ID)).willReturn(Optional.of(session));
         given(sentenceRepository.findById(SENTENCE_ID)).willReturn(Optional.of(sentence));
-        given(evaluationRepository.countBySentence_Id(SENTENCE_ID)).willReturn(0L);
         given(pendingEvaluationStore.findStep(SESSION_ID, SENTENCE_ID, 2))
                 .willReturn(Optional.of(buildPendingStep2(feedback)));
 

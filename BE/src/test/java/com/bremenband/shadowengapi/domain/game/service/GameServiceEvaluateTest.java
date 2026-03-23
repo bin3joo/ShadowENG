@@ -223,16 +223,16 @@ class GameServiceEvaluateTest {
     }
 
     @Test
-    @DisplayName("round 1은 보정 후 점수(최소 15)가 HEART_THRESHOLD(10) 이상이므로 항상 합격하고 gameOver가 발생하지 않는다")
-    void evaluate_round1_보정후항상합격_gameOver없음() {
+    @DisplayName("round 1에서 보정 후 점수(65.0)가 HEART_THRESHOLD(60.0) 이상이면 합격하고 gameOver가 발생하지 않는다")
+    void evaluate_round1_보정후합격_gameOver없음() {
         given(dailyGameSentenceRepository.findByLevelAndAssignedDate(eq(LEVEL), any(LocalDate.class)))
                 .willReturn(Optional.of(buildDailySentence(LEVEL)));
         given(s3Uploader.fetchJson(any())).willReturn(FEATURES_JSON);
-        given(pythonApiClient.evaluateAudio(any())).willReturn(buildPythonResponse(0.0)); // 최저 raw 점수
+        given(pythonApiClient.evaluateAudio(any())).willReturn(buildPythonResponse(50.0)); // 50.0 + 15.0 = 65.0
 
         GameEvaluationResponse response = gameService.evaluate(USER_ID, LEVEL, 1, audioFile());
 
-        // 0.0 + 15.0 = 15.0 >= HEART_THRESHOLD(10.0) → 항상 합격
+        // 50.0 + 15.0 = 65.0 >= HEART_THRESHOLD(60.0) → 합격
         assertThat(response.hearts()).isEqualTo(1);
         assertThat(response.gameOver()).isFalse();
         assertThat(response.result()).isNull();

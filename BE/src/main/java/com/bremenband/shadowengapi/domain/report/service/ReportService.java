@@ -179,6 +179,21 @@ public class ReportService {
     }
 
     @Transactional(readOnly = true)
+    public List<ReportResponse> getUserReports(Long userId) {
+        List<Report> reports = reportRepository.findByStudySession_User_IdOrderByCreatedAtDesc(userId);
+
+        return reports.stream()
+                .map(report -> {
+                    Long sessionId = report.getStudySession().getId();
+                    List<Evaluation> allEvaluations = evaluationRepository.findByStudySession_IdAndStep(sessionId, 4);
+                    Map<Long, List<Evaluation>> evalsBySentence = allEvaluations.stream()
+                            .collect(Collectors.groupingBy(e -> e.getSentence().getId()));
+                    return buildReportResponse(report, sessionId, evalsBySentence);
+                })
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public DailyReportResponse getDailyReport(Long userId) {
         List<Evaluation> evaluations =
                 evaluationRepository.findByStudySession_User_IdAndStepOrderByCreatedAtAsc(userId, 4);

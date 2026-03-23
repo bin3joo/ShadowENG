@@ -71,8 +71,8 @@ class EvaluationControllerTest {
         // when & then
         mockMvc.perform(multipart("/study-sessions/{sessionId}/evaluations", sessionId)
                         .file(audio)
-                        .file(REQUEST_PART)
                         .param("sentenceId", sentenceId.toString())
+                        .param("step", "3")
                         .with(authentication(
                                 new UsernamePasswordAuthenticationToken(userId, null, List.of())
                         )))
@@ -112,8 +112,8 @@ class EvaluationControllerTest {
         // when & then
         mockMvc.perform(multipart("/study-sessions/{sessionId}/evaluations", sessionId)
                         .file(audio)
-                        .file(REQUEST_PART)
                         .param("sentenceId", sentenceId.toString())
+                        .param("step", "3")
                         .with(authentication(
                                 new UsernamePasswordAuthenticationToken(1L, null, List.of())
                         )))
@@ -139,8 +139,8 @@ class EvaluationControllerTest {
         // when & then
         mockMvc.perform(multipart("/study-sessions/{sessionId}/evaluations", sessionId)
                         .file(audio)
-                        .file(REQUEST_PART)
                         .param("sentenceId", sentenceId.toString())
+                        .param("step", "3")
                         .with(authentication(
                                 new UsernamePasswordAuthenticationToken(1L, null, List.of())
                         )))
