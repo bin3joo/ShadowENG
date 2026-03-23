@@ -217,6 +217,10 @@ trimming:
 # 스코어링 하이퍼파라미터
 # ─────────────────────────────────────────────────
 scoring:
+  # 단어 정확도(WER) 감점 강도
+  # 값이 클수록 단어를 틀렸을 때 점수가 더 급격히 감소
+  wer_penalty: 2.5
+
   # 속도 유사도: speed_score = 100 * (min/max)^k
   # 값이 클수록 속도 차이에 더 민감
   speed_k: 1.2
@@ -251,6 +255,17 @@ scoring:
   # 문장 끝 억양 dead zone (semitone / unit)
   # 이 값 이하의 boundary tone 차이는 무시하는 dead zone
   boundary_slope_threshold: 0.55
+  # 종결 억양(Boundary Tone) 평가 
+  boundary_k: 0.8
+  boundary_good_threshold: 80.0
+
+  # 역동성(Dynamic Stress) 평가 
+  dynamic_k: 1.2
+  dynamic_good_threshold: 80.0
+  
+  # 피치 컨투어 (단어 단위 F0 분석)
+  # 이 값(Hz) 미만의 피치 변화는 'flat'(평음)으로 간주합니다.
+  pitch_flat_threshold_hz: 5.0
 
   # AI 서버 pass/fail 기준점
   # 종합 점수가 이 값 이상이면 pass 로 해석 가능

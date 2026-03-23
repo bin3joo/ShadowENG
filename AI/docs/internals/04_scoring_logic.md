@@ -9,7 +9,7 @@ AI 서버 내 `pipeline.py` 가 산출하는 7대 지표 수식과 채점 알고
 *   **수식**: 
     1.  양측 문장의 구두점을 모두 제거 후 소문자로 변환합니다.
     2.  `jiwer` 패키지를 통해 WER (Word Error Rate; 단어 오류율)을 도출합니다.
-    3.  `score = 100.0 * exp(-2.5 * WER)`
+    3.  `score = 100.0 * exp(-k * WER)` (상수 `k=config.WER_PENALTY`, default 2.5)
 *   **특징**: 에러율이 조금 오를 때 점수가 부드럽게 깎기며, 절반 이상 틀리면 0점에 폭넓게 수렴하는 지수 함수 형태입니다.
 
 ## 2. 속도 유사도 (Speed)
@@ -62,12 +62,17 @@ AI 서버 내 `pipeline.py` 가 산출하는 7대 지표 수식과 채점 알고
 *   **수식**: 문장이 끝나기 직전 발화의 **마지막 15% 구간** F0 배열 데이터를 가져옵니다.
     1.  F0의 물리 단위를 음악의 세미톤 단위(`12 * log2(hz / 55.0)`)로 변환합니다. 변동 폭을 균일화하기 위함입니다.
     2.  시간 축 0~1(x)에 대한 세미톤 배열값(y)을 넣고 1차 다항식 회귀(`numpy.polyfit`)를 돌려 **Slope (기울기)**를 구합니다.
-    3.  레퍼런스와 유저의 기울기 **부호**가 일치하고 크기가 유사하면 Good, 서로 방향이 다르면(`r_m * u_m < 0`) 가혹한 페널티(Opposite, 40점)를 부여합니다. 둘 다 평음(Threshold 미만 파형)이어도 Good 입니다.
+    3.  레퍼런스와 유저의 기울기 **부호**가 일치하고 크기가 유사하면 `score = 100.0 * (min / max) ** k` (상수 `k=config.BOUNDARY_K`, default 0.8) 점수를 부여합니다. 서로 방향이 다르면(`r_m * u_m < 0`) 가혹한 페널티(Opposite, 40점)를 부여합니다.
+    4.  최종 점수가 `config.BOUNDARY_GOOD_THRESHOLD` (default 80.0) 이상이거나 둘 다 평음(Threshold 미만 파형)이면 피드백은 Good 입니다.
 
 ## 7. 역동성 (Dynamic Stress)
 *   **지표 설명**: 로봇처럼 일정하게 책을 읽는지, 원어민처럼 단어마다 강세에 악센트를 주면서 크게 말했다 작게 말했다를 적절히 조절하는지 판단합니다.
 *   **수식**: 통계학의 변동 계수(Coefficient of Variation, CV) 값 산출.
     1.  해당 유성음 구간 내의 볼륨 파형(RMS)에 대한 평균(mean)과 표준편차(std)를 구합니다.
     2.  `cv_ratio = std / mean`
-    3.  `score = 100.0 * (min(r_cv, u_cv) / max(r_cv, u_cv)) ** 0.5`
-*   **특징**: 볼륨의 역동성이 낮을수록 로봇 같은 발화에 가깝습니다. 비율 편차가 작을 때만 만점에 수렴합니다.
+    3.  `score = 100.0 * (min(r_cv, u_cv) / max(r_cv, u_cv)) ** k` (상수 `k=config.DYNAMIC_K`, default 1.2)
+*   **특징**: 볼륨의 역동성이 낮을수록 로봇 같은 발화에 가깝습니다. 점수가 `config.DYNAMIC_GOOD_THRESHOLD` (default 80.0) 이상이면 Good으로 판정합니다.
+
+## 8. 단어 피치 컨투어 (Word Pitch Contour)
+*   **지표 설명**: 각 단어별 억양 단위(F0 주파수 변화량)를 검사하여 구체적인 피드백(예: 올려치기, 내려치기 등)을 산출합니다.
+*   **특징**: 단어의 처음과 끝 주파수(Hz) 차이가 `config.PITCH_FLAT_THRESHOLD_HZ` (default 5.0 Hz) 미만이라면 유의미한 억양 변화가 없는 평음(`flat`)으로 판정합니다.
