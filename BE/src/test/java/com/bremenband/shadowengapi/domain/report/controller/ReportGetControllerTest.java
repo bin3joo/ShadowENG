@@ -16,6 +16,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -48,10 +49,11 @@ class ReportGetControllerTest {
         // given
         Long sessionId = 1L;
 
+        LocalDateTime now = LocalDateTime.of(2025, 3, 23, 14, 30, 0);
         List<ReportResponse> response = List.of(
-                new ReportResponse(2L, sessionId, SCORES,
+                new ReportResponse(2L, sessionId, now, SCORES,
                         List.of(new ReportResponse.DifficultSentence(10L, "I got it bad.", 55.0, "weak", "monotone", List.of()))),
-                new ReportResponse(1L, sessionId, SCORES, List.of())
+                new ReportResponse(1L, sessionId, now, SCORES, List.of())
         );
 
         given(reportService.getReports(eq(sessionId), any())).willReturn(response);
@@ -98,7 +100,7 @@ class ReportGetControllerTest {
         Long reportId  = 100L;
 
         ReportResponse response = new ReportResponse(
-                reportId, sessionId, SCORES,
+                reportId, sessionId, LocalDateTime.of(2025, 3, 23, 14, 30, 0), SCORES,
                 List.of(new ReportResponse.DifficultSentence(10L, "I got it bad.", 55.0, "weak", "monotone", List.of()))
         );
 

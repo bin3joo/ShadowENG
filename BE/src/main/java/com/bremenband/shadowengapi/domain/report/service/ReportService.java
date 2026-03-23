@@ -109,6 +109,7 @@ public class ReportService {
         return new ReportResponse(
                 report.getId(),
                 sessionId,
+                report.getCreatedAt(),
                 new ReportResponse.Scores(
                         round(avgTotal), round(avgAccuracy), round(avgProsody),
                         round(avgRhythm), round(avgBoundary), round(avgDynamic),
@@ -166,6 +167,7 @@ public class ReportService {
         return new ReportResponse(
                 report.getId(),
                 sessionId,
+                report.getCreatedAt(),
                 new ReportResponse.Scores(
                         report.getTotalScore().doubleValue(),
                         report.getWordAccuracy().doubleValue(),
@@ -235,6 +237,7 @@ public class ReportService {
         return new ReportResponse(
                 report.getId(),
                 sessionId,
+                report.getCreatedAt(),
                 new ReportResponse.Scores(
                         report.getTotalScore().doubleValue(),
                         report.getWordAccuracy().doubleValue(),
