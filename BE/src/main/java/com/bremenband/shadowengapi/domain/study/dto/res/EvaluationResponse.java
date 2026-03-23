@@ -7,6 +7,9 @@ import java.util.List;
 @Schema(description = "음성 평가 응답 DTO")
 public record EvaluationResponse(
 
+        @Schema(description = "현재 학습 단계 (1~4)", example = "2")
+        int step,
+
         @Schema(description = "문장 고유 ID", example = "1234")
         Long sentenceId,
 

@@ -52,7 +52,7 @@ class EvaluationControllerTest {
         Long userId     = 1L;
 
         EvaluationResponse response = new EvaluationResponse(
-                sentenceId, 5.61, 10.78, 5.17,
+                3, sentenceId, 5.61, 10.78, 5.17,
                 "I got it bad",
                 new EvaluationResponse.Details(
                         List.of(new EvaluationResponse.WordLevelFeedback("I", "good")),
@@ -79,6 +79,7 @@ class EvaluationControllerTest {
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isSuccess").value(true))
+                .andExpect(jsonPath("$.data.step").value(3))
                 .andExpect(jsonPath("$.data.sentenceId").value(sentenceId))
                 .andExpect(jsonPath("$.data.startSec").value(5.61))
                 .andExpect(jsonPath("$.data.endSec").value(10.78))
