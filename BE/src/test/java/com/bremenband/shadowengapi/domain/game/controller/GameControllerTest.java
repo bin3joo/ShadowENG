@@ -226,7 +226,7 @@ class GameControllerTest {
     @DisplayName("GET /game/leaderboard: 정상 조회 시 200과 리더보드 정보를 반환한다")
     void getLeaderboard_200() throws Exception {
         GameLeaderboardResponse response = new GameLeaderboardResponse(
-                "GOLD", 2,
+                "GOLD", 20, 2,
                 new GameLeaderboardResponse.TimeUntilReset(3, 12, 30),
                 List.of(
                         new GameLeaderboardResponse.RankerInfo(1, "first", 1000.0, false),
