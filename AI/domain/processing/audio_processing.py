@@ -6,6 +6,7 @@
 import logging
 import os
 import re
+import threading
 from typing import Any
 
 import config
@@ -13,6 +14,50 @@ import noisereduce as nr
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+_separator_instance = None
+_separator_lock = threading.Lock()
+
+
+def _get_separator_instance(output_dir: str) -> Any:
+    """audio-separator 인스턴스를 하나만 생성하고 모델을 미리 로드하여 재사용합니다."""
+    global _separator_instance
+    if _separator_instance is not None:
+        _separator_instance.output_dir = output_dir
+        return _separator_instance
+
+    with _separator_lock:
+        if _separator_instance is None:
+            try:
+                from audio_separator.separator import Separator
+            except ImportError as e:
+                raise ImportError(
+                    "audio-separator 패키지 미설치. "
+                    "pip install audio-separator[gpu] 로 설치하세요."
+                ) from e
+
+            device = config.VR_DEVICE
+            if device == "auto":
+                import torch
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+
+            separator_kwargs = {
+                "model_file_dir": os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                    "models",
+                    "vr",
+                ),
+                "output_dir": output_dir,
+            }
+
+            logger.info("VR 분리 모델 초기 로드 (이 작업은 한 번만 실행됩니다): %s", config.VR_MODEL)
+            separator = Separator(**separator_kwargs)
+            separator.load_model(model_filename=config.VR_MODEL)
+            _separator_instance = separator
+            logger.info("VR 분리 모델 로드 완료")
+            
+        _separator_instance.output_dir = output_dir
+        return _separator_instance
 
 
 def denoise_for_analysis(
@@ -84,7 +129,7 @@ def separate_vocals(
         return audio_path
 
     try:
-        from audio_separator.separator import Separator
+        separator = _get_separator_instance(output_dir)
     except ImportError:
         logger.warning(
             "audio-separator 패키지 미설치. "
@@ -93,25 +138,7 @@ def separate_vocals(
         )
         return audio_path
 
-    # 디바이스 결정
-    device = config.VR_DEVICE
-    if device == "auto":
-        import torch
-
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-
     try:
-        separator_kwargs = {
-            "model_file_dir": os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-                "models",
-                "vr",
-            ),
-            "output_dir": output_dir,
-        }
-
-        separator = Separator(**separator_kwargs)
-        separator.load_model(model_filename=config.VR_MODEL)
 
         output_files = separator.separate(audio_path)
 
