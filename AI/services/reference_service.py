@@ -197,7 +197,8 @@ def generate_reference(
     _succeeded = False
     try:
         pipeline = get_pipeline()
-        use_vr = config.VR_ENABLED
+        vr_source_mode = config.VR_SOURCE_MODE.lower()
+        use_vr = config.VR_ENABLED and vr_source_mode in ("vr", "both")
         tmp_dir = tempfile.mkdtemp(prefix="styleecho_")
         audio_filename = f"{uuid.uuid4().hex}.wav"
         audio_path = os.path.join(tmp_dir, audio_filename)
@@ -361,16 +362,18 @@ def generate_reference(
                 else feature_request_audio
             )
 
-            original_prosody_future = executor.submit(
-                pipeline.extract_prosody_features,
-                cropped_original_feature_audio,
-                target_sr,
-                denoise_mode != "off",
-                denoise_mode,
-            )
+            original_prosody_future = None
+            if vr_source_mode in ("original", "both"):
+                original_prosody_future = executor.submit(
+                    pipeline.extract_prosody_features,
+                    cropped_original_feature_audio,
+                    target_sr,
+                    denoise_mode != "off",
+                    denoise_mode,
+                )
 
-            original_f0, original_rms, _ = original_prosody_future.result()
-            if use_vr:
+            vr_prosody_future = None
+            if use_vr and vr_source_mode in ("vr", "both"):
                 vr_prosody_future = executor.submit(
                     pipeline.extract_prosody_features,
                     cropped_feature_audio,
@@ -378,6 +381,23 @@ def generate_reference(
                     denoise_mode != "off",
                     denoise_mode,
                 )
+
+            f0, rms = None, None
+
+            if vr_source_mode == "original":
+                f0, rms, _ = original_prosody_future.result()
+                logger.info(
+                    "Reference prosody source selected: f0=original "
+                    "rms=original (Original only mode)"
+                )
+            elif vr_source_mode == "vr" and use_vr:
+                f0, rms, _ = vr_prosody_future.result()
+                logger.info(
+                    "Reference prosody source selected: f0=vr "
+                    "rms=vr (VR only mode)"
+                )
+            elif vr_source_mode == "both" and use_vr:
+                original_f0, original_rms, _ = original_prosody_future.result()
                 vr_f0, vr_rms, _ = vr_prosody_future.result()
                 selected_prosody = select_reference_prosody_sources(
                     original_f0,
@@ -398,11 +418,20 @@ def generate_reference(
                     selected_prosody["vr_rms_metrics"],
                 )
             else:
-                f0 = original_f0
-                rms = original_rms
+                # 안전장치(예: vr 모드인데 VR이 실패했거나 비활성화된 경우)
+                if original_prosody_future:
+                    f0, rms, _ = original_prosody_future.result()
+                else:
+                    original_f0, original_rms, _ = pipeline.extract_prosody_features(
+                        cropped_original_feature_audio,
+                        target_sr,
+                        denoise_mode != "off",
+                        denoise_mode,
+                    )
+                    f0, rms = original_f0, original_rms
                 logger.info(
                     "Reference prosody source selected: f0=original "
-                    "rms=original (VR disabled)"
+                    "rms=original (Fallback mode)"
                 )
 
             sentence_data = split_into_sentences_with_timestamps(

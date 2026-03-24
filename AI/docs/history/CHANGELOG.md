@@ -13,6 +13,29 @@
 - `integrations/youtube_service.py` 의 `download_reference_audio`, `fetch_youtube_captions` 에 `Args`/`Returns`/`Raises` 추가.
 - `config.py` 의 내부 함수(`_ensure_dict_config`, `_load_config`, `get`) docstring 보강.
 - `integrations/audio_cache.py` 의 `typing.Optional` → `| None` 현대 문법 전환 및 `from __future__ import annotations` 적용.
+
+### 기획발표용 상세 아키텍처 및 워크플로우 문서 추가
+- `AI/docs/presentation/` 경로에 기획 발표용 상세 명세 문서 3종 신설.
+  - `01_service_overview.md`: 전체 기능 개요, 기술 스택, 6대 AI 특화 기능.
+  - `02_reference_generation_workflow.md`: YouTube 레퍼런스 생성 파이프라인 12단계.
+  - `03_evaluation_scoring_workflow.md`: 유저 오디오 7대 채점 지표 산출 10단계 및 가중치 수식.
+
+### VR Source Mode(오디오 소스 라우팅) 설정 추가
+- 유튜브 영상 처리 시 오리지널 음원과 VR(보컬 분리) 음원의 활용 방식을 설정 다이얼로 선택하도록 분기 구현.
+- `config_default.yaml` 및 `config.py`에 `vocal_remover.source_mode`(`VR_SOURCE_MODE`) 추가.
+  - `original`: 가장 빠름 (VR 연산 자체 생략, 보컬 분리 없이 추출됨).
+  - `vr`: 깨끗한 목소리 우선 (원본 피처 추출 생략).
+  - `both`: 두 음원의 프로소디 추출 이후 품질 게이팅(`select_reference_prosody_sources`) 적용.
+
+### ONNX 기반 VR 전용 테스트 도구 및 인프라 개선
+- ONNX 추론 지원을 위해 `setup.sh`에 `onnxruntime-gpu` (CUDA 12 지원) 부분 추가.
+- 유튜브 URL 또는 ID와 시간(start/end_sec)을 입력받아 원본과 VR 분리 버전을 추출·비교할 수 있는 `test/test_vr_onnx.py` 신설.
+- `.gitignore` 갱신을 통해 테스트 결과 및 아티팩트 무시 처리 적용.
+
+### 오디오 아티팩트 저장 로직 최적화 및 디버그 로깅 정리
+- `test/result/`에 무분별하게 쌓이던 테스트 데이터 및 파트별 오디오 생성을 `config.SAVE_REFERENCE_AUDIO` (`reference.save_audio_artifacts`) 플래그로 제어하도록 변경하여 디스크 I/O 최적화.
+- 불필요한 `print` 문(`audio_processing.py`)을 `logger.debug`로 정비하여 로그 출력 정제.
+- `select_reference_prosody_sources` 메서드 호출 부분의 `AttributeError` 버그 해결 (모듈 직접 참조로 수정).
  
 ## 2026-03-23
 

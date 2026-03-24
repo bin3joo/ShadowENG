@@ -322,6 +322,7 @@ VR_MODEL: str = get("vocal_remover.model", "htdemucs")
 VR_DEVICE: str = get("vocal_remover.device", "auto")
 VR_SEGMENT: int | None = get("vocal_remover.segment", None)
 VR_SAVE_DEBUG_STEMS: bool = get("vocal_remover.save_debug_stems", False)
+VR_SOURCE_MODE: str = get("vocal_remover.source_mode", "both")
 REFERENCE_F0_GATE_MIN_VOICED_RATIO: float = get(
     "reference_feature_gate.f0_min_voiced_ratio", 0.5
 )

@@ -222,6 +222,7 @@ whisper:
 
 vocal_remover:
   enabled: true
+  source_mode: "both"
 ```
 
 ```yaml
@@ -235,13 +236,14 @@ vocal_remover:
   enabled: false
 ```
 
-`vocal_remover.enabled: false` 이면 레퍼런스 생성에서 다음 경로를 모두 스킵합니다.
+`vocal_remover.enabled: false` 또는 `source_mode: "original"` 이면 레퍼런스 생성에서 다음 경로를 모두 스킵합니다.
 
 - 보컬 분리 (`separate_vocals`)
 - VR 오디오 기반 prosody 추출
 - 원본 / VR source gating 비교
 
 이 경우 prosody는 원본 오디오만 사용합니다.
+반대로 `source_mode: "vr"` 로 설정할 경우, 원본 오디오 대신 VR 분리 버전을 통해 F0/RMS를 추출합니다.
 
 #### 채점 하이퍼파라미터 커스터마이징
 
@@ -307,6 +309,7 @@ cd S14P21A306/AI
 python -m test.sentence_verify    # 문장 분리 검증
 python -m test.trim_verify        # trim 로직 검증
 python -m test.fix_verify         # 보정 로직 검증
+python -m test.test_vr_onnx "VIDEO_URL" 0.0 60.0  # ONNX 기반 VR 보컬 분리 단독 테스트
 ```
 
 검증 결과는 `test/result/` 아래에 텍스트 파일로 저장됩니다.
@@ -349,6 +352,7 @@ python -m test.fix_verify         # 보정 로직 검증
     * `reference.short_part_terminal_protection_enabled`
     * `alignment.caption_fallback_enabled`
     * `vocal_remover.enabled`
+    * `vocal_remover.source_mode` — 오리지널/VR 소스 선택 (original, vr, both)
     * `scoring.*` — 채점 하이퍼파라미터 (WER 감점 강도, 속도 불감대, 종결 억양 민감도 등)
     * `audio.cache.*` — 오디오 캐시 설정 (활성화, 크기 제한, TTL)
 
@@ -487,11 +491,16 @@ AI/
 │   ├── scoring_verify.py          # 채점 로직 검증 스크립트
 │   ├── trim_verify.py             # trim 로직 검증 스크립트
 │   ├── fix_verify.py              # 보정 로직 검증 스크립트
+│   ├── test_vr_onnx.py            # ONNX 기반 VR 분리 테스트 도구
 │   ├── test_utils.py              # 테스트 출력 저장 유틸리티
 │   └── result/
 │       └── .gitkeep               # 테스트 결과 저장 디렉터리
 ├── docs/
 │   ├── README.md                  # active 기록성 문서 운영 정책
+│   ├── presentation/              # 기획 발표/아키텍처 스펙용 상세 문서
+│   │   ├── 01_service_overview.md
+│   │   ├── 02_reference_generation_workflow.md
+│   │   └── 03_evaluation_scoring_workflow.md
 │   ├── review/
 │   │   ├── README.md              # 코드 리뷰 문서 배치 기준
 │   │   ├── ...                    # 날짜 기반 코드 리뷰 문서
