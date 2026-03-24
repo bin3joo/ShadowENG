@@ -117,10 +117,21 @@ def separate_vocals(
 
         # audio-separator는 [vocals, accompaniment] 순서로 반환
         if output_files:
-            print(output_files)
+            logger.debug("VR output files: %s", output_files)
             vocal_path = os.path.join(output_dir, output_files[-1])
             if os.path.exists(vocal_path):
                 logger.info("Vocal separation 완료: %s", vocal_path)
+                
+                # 비보컬 트랙(디버그 스템) 정리
+                if not getattr(config, "VR_SAVE_DEBUG_STEMS", False):
+                    for stem_file in output_files[:-1]:
+                        stem_path = os.path.join(output_dir, stem_file)
+                        try:
+                            if os.path.exists(stem_path):
+                                os.remove(stem_path)
+                        except OSError as e:
+                            logger.debug("Failed to remove stem %s: %s", stem_file, e)
+
                 return vocal_path
 
         logger.warning(

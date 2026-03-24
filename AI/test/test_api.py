@@ -9,6 +9,8 @@ from pathlib import Path
 
 import requests
 
+import config
+
 # BASE_URL = "http://localhost:8000"
 BASE_URL = "https://exertive-overlogically-carl.ngrok-free.dev"
 TEST_DIR = Path(__file__).resolve().parent
@@ -187,8 +189,9 @@ def test_generate_reference(
         "video_id": video_id,
         "start_sec": start_sec,
         "end_sec": end_sec,
-        "save_dir": str(reference_audio_dir),
     }
+    if config.SAVE_REFERENCE_AUDIO:
+        payload["save_dir"] = str(reference_audio_dir)
 
     print("=" * 60)
     print("📡 POST /api/v1/generate-reference")
@@ -272,14 +275,15 @@ def test_generate_reference(
             if nuance:
                 print(f"     뉘앙스: {nuance}")
 
-    with open(reference_result_path, "w", encoding="utf-8") as file_obj:
-        json.dump(data, file_obj, ensure_ascii=False, indent=2)
-    print(f"\n💾 레퍼런스 JSON 저장 완료: {reference_result_path}")
+    if config.SAVE_REFERENCE_AUDIO:
+        with open(reference_result_path, "w", encoding="utf-8") as file_obj:
+            json.dump(data, file_obj, ensure_ascii=False, indent=2)
+        print(f"\n💾 레퍼런스 JSON 저장 완료: {reference_result_path}")
 
-    script_summary = build_script_summary(data)
-    with open(reference_script_path, "w", encoding="utf-8") as file_obj:
-        json.dump(script_summary, file_obj, ensure_ascii=False, indent=2)
-    print(f"💾 검증용 스크립트 JSON 저장 완료: {reference_script_path}")
+        script_summary = build_script_summary(data)
+        with open(reference_script_path, "w", encoding="utf-8") as file_obj:
+            json.dump(script_summary, file_obj, ensure_ascii=False, indent=2)
+        print(f"💾 검증용 스크립트 JSON 저장 완료: {reference_script_path}")
 
     return str(reference_result_path)
 
@@ -425,11 +429,12 @@ def test_evaluate_audio(
             f"\n📋 단어 피드백: good={good}, rushed={rushed}, dragged={dragged}, missed={missed}"
         )
 
-    evaluate_result_path = get_evaluate_result_path(reference_path)
-    evaluate_result_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(evaluate_result_path, "w", encoding="utf-8") as file_obj:
-        json.dump(data, file_obj, ensure_ascii=False, indent=2)
-    print(f"\n💾 평가 결과 JSON 저장: {evaluate_result_path}")
+    if config.SAVE_REFERENCE_AUDIO:
+        evaluate_result_path = get_evaluate_result_path(reference_path)
+        evaluate_result_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(evaluate_result_path, "w", encoding="utf-8") as file_obj:
+            json.dump(data, file_obj, ensure_ascii=False, indent=2)
+        print(f"\n💾 평가 결과 JSON 저장: {evaluate_result_path}")
 
 
 def main() -> None:

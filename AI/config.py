@@ -140,6 +140,7 @@ REFERENCE_DIARIZATION_MIN_SPEAKERS: int | None = get(
 REFERENCE_DIARIZATION_MAX_SPEAKERS: int | None = get(
     "reference.diarization_max_speakers", 3
 )
+SAVE_REFERENCE_AUDIO: bool = get("reference.save_audio_artifacts", True)
 REFERENCE_ALLOW_RISKY: bool = get("reference.allow_risky", True)
 REFERENCE_REJECT_ON_HIGH_OVERLAP: bool = get(
     "reference.reject_on_high_overlap", True
@@ -320,6 +321,7 @@ VR_ENABLED: bool = get("vocal_remover.enabled", True)
 VR_MODEL: str = get("vocal_remover.model", "htdemucs")
 VR_DEVICE: str = get("vocal_remover.device", "auto")
 VR_SEGMENT: int | None = get("vocal_remover.segment", None)
+VR_SAVE_DEBUG_STEMS: bool = get("vocal_remover.save_debug_stems", False)
 REFERENCE_F0_GATE_MIN_VOICED_RATIO: float = get(
     "reference_feature_gate.f0_min_voiced_ratio", 0.5
 )
