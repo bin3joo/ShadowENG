@@ -20,3 +20,4 @@ test/result/*
 config.yaml
 *.iml
 models/
+test/test_vr_onnx.py
