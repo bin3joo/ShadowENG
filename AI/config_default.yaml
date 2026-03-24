@@ -114,6 +114,8 @@ reference:
   diarization_min_speakers: 1
   # diarization 자동 추정 시 최대 화자 수
   diarization_max_speakers: 3
+  # 레퍼런스 및 파트 오디오 아티팩트 저장 여부 (테스트/디버그 또는 S3 백업용)
+  save_audio_artifacts: false
   # risky 품질도 응답으로 허용할지 여부
   allow_risky: true
   # overlap 비율이 높을 때 reject 로 승격할지 여부
@@ -340,6 +342,9 @@ vocal_remover:
   # 메모리 제한 시 세그먼트 길이(초). null 이면 모델 기본값 사용
   # GPU 메모리 부족 시 이 값을 줄이면 VRAM 사용량 감소
   segment: null
+  # 보컬 외 분리된 디버그 스템(Bass, Drums 등)을 보존할지 여부
+  # false 이면 분리 직후 비보컬 트랙을 삭제하여 디스크 용량을 확보합니다
+  save_debug_stems: false
 
 # ─────────────────────────────────────────────────
 # 레퍼런스 feature source gating

@@ -33,7 +33,7 @@ from integrations.youtube_service import (
     download_reference_audio,
     fetch_youtube_captions,
 )
-from pipeline import get_pipeline
+from pipeline import get_pipeline, select_reference_prosody_sources
 from schemas import GenerateReferenceRequest
 from services.reference_payload import (
     attach_part_analysis,
@@ -379,7 +379,7 @@ def generate_reference(
                     denoise_mode,
                 )
                 vr_f0, vr_rms, _ = vr_prosody_future.result()
-                selected_prosody = pipeline.select_reference_prosody_sources(
+                selected_prosody = select_reference_prosody_sources(
                     original_f0,
                     original_rms,
                     vr_f0,
@@ -468,28 +468,29 @@ def generate_reference(
         _apply_speaker_risk_policy(sentence_data, quality_metadata)
 
         # 저장용 오디오만 Peak 정규화 (플레이백 품질 향상)
-        save_audio = audio_processing_module.peak_normalize_audio(
-            request_audio
-        )
+        if config.SAVE_REFERENCE_AUDIO:
+            save_audio = audio_processing_module.peak_normalize_audio(
+                request_audio
+            )
 
-        prepared_save_dir: str = prepare_reference_audio_dir(
-            req.video_id,
-            req.start_sec,
-            req.end_sec,
-            req.save_dir,
-        )
-        save_dir = prepared_save_dir
-        persist_reference_audio(
-            save_audio,
-            target_sr,
-            prepared_save_dir,
-        )
-        _export_part_audio_files(
-            save_audio,
-            target_sr,
-            prepared_save_dir,
-            sentence_data,
-        )
+            prepared_save_dir: str = prepare_reference_audio_dir(
+                req.video_id,
+                req.start_sec,
+                req.end_sec,
+                req.save_dir,
+            )
+            save_dir = prepared_save_dir
+            persist_reference_audio(
+                save_audio,
+                target_sr,
+                prepared_save_dir,
+            )
+            _export_part_audio_files(
+                save_audio,
+                target_sr,
+                prepared_save_dir,
+                sentence_data,
+            )
 
         background_tasks.add_task(remove_file, actual_audio)
         background_tasks.add_task(remove_dir, tmp_dir)
