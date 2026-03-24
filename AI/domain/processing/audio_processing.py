@@ -19,11 +19,45 @@ _separator_instance = None
 _separator_lock = threading.Lock()
 
 
+def _update_separator_output_dir(
+    separator: Any,
+    output_dir: str,
+) -> None:
+    """Separator 및 내부 model_instance의 output_dir을 동기화합니다.
+
+    audio-separator는 ``load_model()`` 시점에 ``model_instance``에
+    ``output_dir`` 복사본을 전달하므로, 외부에서 ``separator.output_dir``
+    만 바꾸면 실제 파일 저장 경로가 반영되지 않습니다.
+    이 함수는 두 곳을 모두 갱신합니다.
+
+    Args:
+        separator: audio-separator ``Separator`` 인스턴스.
+        output_dir: 새 출력 디렉터리 경로.
+    """
+    separator.output_dir = output_dir
+    model_inst = getattr(separator, "model_instance", None)
+    if model_inst is not None:
+        model_inst.output_dir = output_dir
+
+
 def _get_separator_instance(output_dir: str) -> Any:
-    """audio-separator 인스턴스를 하나만 생성하고 모델을 미리 로드하여 재사용합니다."""
+    """audio-separator 인스턴스를 하나만 생성하고 모델을 미리 로드하여 재사용합니다.
+
+    첫 호출 시 모델을 GPU/CPU에 올린 뒤 전역 변수에 캐싱하고,
+    이후 호출에서는 ``output_dir`` 만 갱신하여 즉시 반환합니다.
+
+    Args:
+        output_dir: 분리된 스템 파일 출력 디렉터리.
+
+    Returns:
+        모델이 로드된 ``Separator`` 인스턴스.
+
+    Raises:
+        ImportError: audio-separator 패키지가 없을 때.
+    """
     global _separator_instance
     if _separator_instance is not None:
-        _separator_instance.output_dir = output_dir
+        _update_separator_output_dir(_separator_instance, output_dir)
         return _separator_instance
 
     with _separator_lock:
@@ -43,20 +77,26 @@ def _get_separator_instance(output_dir: str) -> Any:
 
             separator_kwargs = {
                 "model_file_dir": os.path.join(
-                    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                    os.path.dirname(
+                        os.path.dirname(os.path.dirname(__file__))
+                    ),
                     "models",
                     "vr",
                 ),
                 "output_dir": output_dir,
             }
 
-            logger.info("VR 분리 모델 초기 로드 (이 작업은 한 번만 실행됩니다): %s", config.VR_MODEL)
+            logger.info(
+                "VR 분리 모델 초기 로드 "
+                "(이 작업은 한 번만 실행됩니다): %s",
+                config.VR_MODEL,
+            )
             separator = Separator(**separator_kwargs)
             separator.load_model(model_filename=config.VR_MODEL)
             _separator_instance = separator
             logger.info("VR 분리 모델 로드 완료")
-            
-        _separator_instance.output_dir = output_dir
+
+        _update_separator_output_dir(_separator_instance, output_dir)
         return _separator_instance
 
 
