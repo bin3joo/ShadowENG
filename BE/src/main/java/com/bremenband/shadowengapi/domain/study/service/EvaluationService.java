@@ -97,23 +97,21 @@ public class EvaluationService {
         log.info("[evaluate] calling python API: format={}, script=\"{}\"", audioFormat, sentence.getContent());
 
         PythonEvaluateAudioResponse pythonResponse = pythonApiClient.evaluateAudio(request);
-        log.info("[evaluate] python API response: status={}, userTranscription=\"{}\"",
-                pythonResponse.status(), pythonResponse.userTranscription());
+        log.info("[Study.evaluate] reference sentence={}", sentence.getContent());
+        log.info("[Study.evaluate] user transcription={}", pythonResponse.userTranscription());
 
         if ("FAIL".equals(pythonResponse.status())) {
             log.warn("[evaluate] voice recognition failed: sessionId={}, sentenceId={}, step={}", sessionId, sentenceId, step);
-            log.warn("[evaluate] FAIL response scores: totalScore={}, wordAccuracy={}, prosodyAndStress={}, " +
-                            "wordRhythmScore={}, boundaryToneScore={}, dynamicStressScore={}, speedSimilarity={}, pauseSimilarity={}",
-                    pythonResponse.scores() != null ? pythonResponse.scores().totalScore() : "null",
-                    pythonResponse.scores() != null ? pythonResponse.scores().wordAccuracy() : "null",
-                    pythonResponse.scores() != null ? pythonResponse.scores().prosodyAndStress() : "null",
-                    pythonResponse.scores() != null ? pythonResponse.scores().wordRhythmScore() : "null",
-                    pythonResponse.scores() != null ? pythonResponse.scores().boundaryToneScore() : "null",
-                    pythonResponse.scores() != null ? pythonResponse.scores().dynamicStressScore() : "null",
-                    pythonResponse.scores() != null ? pythonResponse.scores().speedSimilarity() : "null",
-                    pythonResponse.scores() != null ? pythonResponse.scores().pauseSimilarity() : "null");
             throw new CustomException(ErrorCode.VOICE_RECOGNITION_FAILED);
         }
+
+        log.info("[Study.evaluate] raw scores: wordAccuracy={}, prosodyAndStress={}, " +
+                        "wordRhythmScore={}, boundaryToneScore={}, dynamicStressScore={}, " +
+                        "speedSimilarity={}, pauseSimilarity={}",
+                pythonResponse.scores().wordAccuracy(),
+                pythonResponse.scores().prosodyAndStress(), pythonResponse.scores().wordRhythmScore(),
+                pythonResponse.scores().boundaryToneScore(), pythonResponse.scores().dynamicStressScore(),
+                pythonResponse.scores().speedSimilarity(), pythonResponse.scores().pauseSimilarity());
 
         // 6. 평가 결과를 Redis에 임시 저장 (step 1~4 공통)
         PendingEvaluation pending = buildPending(step, pythonResponse);
