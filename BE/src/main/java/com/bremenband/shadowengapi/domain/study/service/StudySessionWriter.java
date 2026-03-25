@@ -11,12 +11,13 @@ import com.bremenband.shadowengapi.global.exception.CustomException;
 import com.bremenband.shadowengapi.global.exception.ErrorCode;
 import com.bremenband.shadowengapi.domain.user.entity.User;
 import com.bremenband.shadowengapi.domain.youtube.entity.Video;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
@@ -30,6 +31,7 @@ public class StudySessionWriter {
     private final StudySessionRepository studySessionRepository;
     private final SentenceRepository sentenceRepository;
     private final EvaluationRepository evaluationRepository;
+    private final ObjectMapper objectMapper;
 
     /**
      * step 4 완료 시 호출.
@@ -82,7 +84,11 @@ public class StudySessionWriter {
                         .durationSec(t.durationSec())
                         .wordTimestamps(t.wordTimestamps())
                         .featuresUrl(t.featuresUrl())
-                        .metadataUrl(t.metadataUrl())
+                        .sentenceKo(t.sentenceKo())
+                        .difficulty(t.difficulty())
+                        .difficultyScore(t.difficultyScore())
+                        .keyExpressionsJson(toJson(t.keyExpressions()))
+                        .vocabularyJson(toJson(t.vocabulary()))
                         .build())
                 .toList();
         List<Sentence> sentences = sentenceRepository.saveAll(sentencesToSave);
@@ -101,6 +107,7 @@ public class StudySessionWriter {
                 IntStream.range(0, sentences.size())
                         .mapToObj(i -> {
                             Sentence s = sentences.get(i);
+                            TranscribedSentence t = transcriptions.get(i);
                             return new StudySessionCreateResponse.SentenceData(
                                     s.getId(),
                                     i + 1,
@@ -108,11 +115,26 @@ public class StudySessionWriter {
                                     s.getStartSec(),
                                     s.getEndSec(),
                                     s.getDurationSec(),
-                                    0
+                                    0,
+                                    t.sentenceKo(),
+                                    t.keyExpressions(),
+                                    t.difficulty(),
+                                    t.difficultyScore(),
+                                    t.vocabulary(),
+                                    t.wordTimestampList()
                             );
                         })
                         .toList(),
                 false
         );
+    }
+
+    private String toJson(Object value) {
+        if (value == null) return null;
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            throw new CustomException(ErrorCode.DATA_CONVERSION_ERROR);
+        }
     }
 }

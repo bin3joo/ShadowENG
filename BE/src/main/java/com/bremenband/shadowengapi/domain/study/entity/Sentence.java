@@ -48,9 +48,22 @@ public class Sentence {
     @Column(name = "features_url")
     private String featuresUrl;
 
-    // S3에 저장된 메타데이터 JSON의 키 (vocabulary, sentenceKo 등) — 향후 사용 예정
-    @Column(name = "metadata_url")
-    private String metadataUrl;
+    @Column(name = "sentence_ko", columnDefinition = "TEXT")
+    private String sentenceKo;
+
+    @Column(name = "difficulty")
+    private String difficulty;
+
+    @Column(name = "difficulty_score")
+    private Double difficultyScore;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "key_expressions", columnDefinition = "json")
+    private String keyExpressionsJson;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "vocabulary_json", columnDefinition = "json")
+    private String vocabularyJson;
 
     @Column(name = "study_count", nullable = false, columnDefinition = "integer default 0")
     private int studyCount = 0;
@@ -66,7 +79,9 @@ public class Sentence {
     @Builder
     private Sentence(StudySession studySession, String content,
                      double startSec, double endSec, double durationSec,
-                     String wordTimestamps, String featuresUrl, String metadataUrl) {
+                     String wordTimestamps, String featuresUrl,
+                     String sentenceKo, String difficulty, Double difficultyScore,
+                     String keyExpressionsJson, String vocabularyJson) {
         this.studySession = studySession;
         this.content = content;
         this.startSec = startSec;
@@ -74,7 +89,11 @@ public class Sentence {
         this.durationSec = durationSec;
         this.wordTimestamps = wordTimestamps;
         this.featuresUrl = featuresUrl;
-        this.metadataUrl = metadataUrl;
+        this.sentenceKo = sentenceKo;
+        this.difficulty = difficulty;
+        this.difficultyScore = difficultyScore;
+        this.keyExpressionsJson = keyExpressionsJson;
+        this.vocabularyJson = vocabularyJson;
         this.studyCount = 0;
     }
 }
