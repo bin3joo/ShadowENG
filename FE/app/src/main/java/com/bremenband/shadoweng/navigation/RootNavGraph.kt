@@ -3,6 +3,7 @@ package com.bremenband.shadoweng.navigation
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
+import androidx.navigation.navigation
 
 @Composable
 fun RootNavGraph(navController: NavHostController) {
@@ -14,7 +15,9 @@ fun RootNavGraph(navController: NavHostController) {
         contentNavGraph(navController)
         studyNavGraph(navController)
         homeNavGraph(navController)
-        //reviewNavGraph(navController)
+        gameNavGraph(navController)
         myPageNavGraph(navController)
+        myInfoNavGraph(navController)
+        statsNavGraph(navController)
     }
 }

@@ -31,6 +31,7 @@ class StudySessionViewModel @Inject constructor(
                             isLoading = false,
                             title = session.title,
                             embedUrl = session.embedUrl,
+                            thumbnailUrl = session.thumbnailUrl ?: "",
                             sentences = session.sentences
                         )
                     }

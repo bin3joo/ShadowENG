@@ -25,7 +25,7 @@ android {
 
     defaultConfig {
         applicationId = "com.bremenband.shadoweng"
-        minSdk = 34
+        minSdk = 31
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -38,6 +38,7 @@ android {
             buildConfigField("String", "BASE_URL", "\"http://52.78.202.199:8080/api/v1/app/\"")
         }
         release {
+            buildConfigField("String", "BASE_URL", "\"http://52.78.202.199:8080/api/v1/app/\"")  // 추가
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -86,6 +87,16 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+
+    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("io.coil-kt:coil-gif:2.6.0")
+    implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:12.1.0")
+    implementation("androidx.compose.ui:ui-viewbinding:...")
+    implementation("com.google.accompanist:accompanist-webview:0.36.0")
+
+    implementation("androidx.media3:media3-exoplayer:1.3.1")
+    implementation("androidx.media3:media3-ui:1.3.1")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

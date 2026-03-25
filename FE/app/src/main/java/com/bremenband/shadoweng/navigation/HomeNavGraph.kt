@@ -5,6 +5,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.navigation
 import com.bremenband.shadoweng.feature.home.presentation.HomeScreen
+import com.bremenband.shadoweng.feature.home.presentation.streak.StreakCalendarScreen
 
 fun NavGraphBuilder.homeNavGraph(navController: NavHostController) {
     navigation(
@@ -14,13 +15,20 @@ fun NavGraphBuilder.homeNavGraph(navController: NavHostController) {
         composable(NavRoutes.HOME) {
             HomeScreen(
                 onNavigateToStudy = { sessionId ->
-                    navController.navigate("study_graph/$sessionId")
+                    navController.navigate(NavRoutes.studySession(sessionId))
                 },
                 onNavigateToGame = {
-                    // TODO: game_graph 연결
+                    navController.navigate("game_graph")
                 },
                 onNavigateToRegister = { navController.navigate("content_graph") },
-                onNavigateToMoreSessions = { navController.navigate("mypage_graph") }
+                onNavigateToMoreSessions = { navController.navigate("mypage_graph") },
+                onNavigateToCalendar = { navController.navigate(NavRoutes.STREAK_CALENDAR) }  // 추가
+            )
+        }
+
+        composable(NavRoutes.STREAK_CALENDAR) {  // 추가
+            StreakCalendarScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

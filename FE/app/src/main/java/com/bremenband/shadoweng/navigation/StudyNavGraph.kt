@@ -11,6 +11,7 @@ import com.bremenband.shadoweng.feature.study.presentation.learning.StudyLearnin
 import com.bremenband.shadoweng.feature.study.presentation.loading.StudyLoadingScreen
 import com.bremenband.shadoweng.feature.study.presentation.report.StudyReportScreen
 import com.bremenband.shadoweng.feature.study.presentation.session.StudySessionScreen
+
 fun NavGraphBuilder.studyNavGraph(navController: NavHostController) {
     navigation(
         startDestination = NavRoutes.STUDY_SESSION,
@@ -24,7 +25,7 @@ fun NavGraphBuilder.studyNavGraph(navController: NavHostController) {
             StudySessionScreen(
                 sessionId = sessionId,
                 onStartStudy = { sid, sentenceId ->
-                    navController.navigate(NavRoutes.studyLearning(sid, sentenceId))
+                    navController.navigate(NavRoutes.studyLearning(sid, sentenceId, step = 1))
                 }
             )
         }
@@ -47,20 +48,36 @@ fun NavGraphBuilder.studyNavGraph(navController: NavHostController) {
             route = NavRoutes.STUDY_LEARNING,
             arguments = listOf(
                 navArgument("sessionId") { type = NavType.LongType },
-                navArgument("sentenceId") { type = NavType.LongType }
+                navArgument("sentenceId") { type = NavType.LongType },
+                navArgument("step") { type = NavType.IntType }
             )
         ) { backStack ->
             val sessionId = backStack.arguments?.getLong("sessionId") ?: return@composable
             val sentenceId = backStack.arguments?.getLong("sentenceId") ?: return@composable
+            val step = backStack.arguments?.getInt("step") ?: 1
             StudyLearningScreen(
                 sessionId = sessionId,
                 sentenceId = sentenceId,
-                onNavigateToHighlight = {
-                    navController.navigate(NavRoutes.studyHighlight(sessionId, sentenceId))
+                step = step,
+                onNavigateToHighlight = { completedStep ->
+                    if (completedStep == 1) {
+                        navController.navigate(NavRoutes.studyLearning(sessionId, sentenceId, 2)) {
+                            popUpTo(NavRoutes.STUDY_LEARNING) { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate(NavRoutes.studyHighlight(sessionId, sentenceId, completedStep)) {
+                            popUpTo(NavRoutes.STUDY_LEARNING) { inclusive = true }
+                        }
+                    }
                 },
                 onSessionEnd = {
-                    navController.navigate(NavRoutes.studyReport(sessionId)) {
-                        popUpTo(NavRoutes.STUDY_SESSION) { inclusive = false }
+                    navController.navigate("home_graph") {
+                        popUpTo(NavRoutes.STUDY_GRAPH) { inclusive = true }
+                    }
+                },
+                onExit = {
+                    navController.navigate("home_graph") {
+                        popUpTo(NavRoutes.STUDY_GRAPH) { inclusive = true }
                     }
                 }
             )
@@ -70,27 +87,55 @@ fun NavGraphBuilder.studyNavGraph(navController: NavHostController) {
             route = NavRoutes.STUDY_HIGHLIGHT,
             arguments = listOf(
                 navArgument("sessionId") { type = NavType.LongType },
-                navArgument("sentenceId") { type = NavType.LongType }
+                navArgument("sentenceId") { type = NavType.LongType },
+                navArgument("step") { type = NavType.IntType }
             )
         ) { backStack ->
             val sessionId = backStack.arguments?.getLong("sessionId") ?: return@composable
             val sentenceId = backStack.arguments?.getLong("sentenceId") ?: return@composable
+            val step = backStack.arguments?.getInt("step") ?: 1
             StudyHighlightScreen(
                 sessionId = sessionId,
                 sentenceId = sentenceId,
+                step = step,
                 onNextMode = {
-                    navController.navigate(NavRoutes.studyLearning(sessionId, sentenceId)) {
+                    val nextStep = step + 1
+                    navController.navigate(NavRoutes.studyLearning(sessionId, sentenceId, nextStep)) {
                         popUpTo(NavRoutes.STUDY_HIGHLIGHT) { inclusive = true }
                     }
                 },
-                onSessionEnd = {
-                    navController.navigate(NavRoutes.studyReport(sessionId)) {
-                        popUpTo(NavRoutes.STUDY_SESSION) { inclusive = false }
+                onSessionEnd = { reportId ->
+                    if (reportId > 0) {
+                        navController.navigate(NavRoutes.studyReport(sessionId, reportId)) {
+                            popUpTo(NavRoutes.STUDY_SESSION) { inclusive = false }
+                        }
+                    } else {
+                        navController.navigate("home_graph") {
+                            popUpTo(NavRoutes.STUDY_GRAPH) { inclusive = true }
+                        }
+                    }
+                },
+                onNextSentence = { nextSentenceId ->
+                    if (nextSentenceId == -1L) {
+                        // 미완료 문장 있음 → 세션으로 돌아가기
+                        navController.navigate(NavRoutes.studySession(sessionId)) {
+                            popUpTo(NavRoutes.STUDY_SESSION) { inclusive = true }
+                        }
+                    } else {
+                        // 다음 문장 → step 1부터 다시 시작
+                        navController.navigate(NavRoutes.studyLearning(sessionId, nextSentenceId, 1)) {
+                            popUpTo(NavRoutes.STUDY_SESSION) { inclusive = false }
+                        }
                     }
                 },
                 onRetryRecording = {
-                    navController.navigate(NavRoutes.studyLearning(sessionId, sentenceId)) {
+                    navController.navigate(NavRoutes.studyLearning(sessionId, sentenceId, step)) {
                         popUpTo(NavRoutes.STUDY_HIGHLIGHT) { inclusive = true }
+                    }
+                },
+                onExit = {
+                    navController.navigate("home_graph") {
+                        popUpTo(NavRoutes.STUDY_GRAPH) { inclusive = true }
                     }
                 }
             )
@@ -98,11 +143,16 @@ fun NavGraphBuilder.studyNavGraph(navController: NavHostController) {
 
         composable(
             route = NavRoutes.STUDY_REPORT,
-            arguments = listOf(navArgument("sessionId") { type = NavType.LongType })
+            arguments = listOf(
+                navArgument("sessionId") { type = NavType.LongType },
+                navArgument("reportId") { type = NavType.LongType }
+            )
         ) { backStack ->
             val sessionId = backStack.arguments?.getLong("sessionId") ?: return@composable
+            val reportId = backStack.arguments?.getLong("reportId") ?: return@composable
             StudyReportScreen(
                 sessionId = sessionId,
+                reportId = reportId,
                 onBackToSession = {
                     navController.navigate("home_graph") {
                         popUpTo(NavRoutes.STUDY_GRAPH) { inclusive = true }

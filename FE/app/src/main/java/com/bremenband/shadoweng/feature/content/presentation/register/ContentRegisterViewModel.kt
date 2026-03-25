@@ -49,7 +49,7 @@ class ContentRegisterViewModel @Inject constructor(
                     .onFailure { e ->
                         val msg = when (e) {
                             is DomainException.NotFound -> "영상을 찾을 수 없어요"
-                            is DomainException.NetworkError  -> "네트워크를 확인해주세요"
+                            is DomainException.NetworkError -> "네트워크를 확인해주세요"
                             is DomainException.InvalidResponse -> "서버 응답이 올바르지 않아요"
                             else -> "알 수 없는 오류가 발생했어요"
                         }

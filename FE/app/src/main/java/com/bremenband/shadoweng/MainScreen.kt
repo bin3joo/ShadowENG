@@ -6,6 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,18 +23,27 @@ sealed class BottomNavItem(
     val label: String,
     val icon: ImageVector
 ) {
-
-    object Home : BottomNavItem("home_graph", "홈", Icons.Default.Home)
-    object Content : BottomNavItem("content_graph", "등록", Icons.Default.Add)
-    object Review : BottomNavItem("review_graph", "복습", Icons.Default.Refresh)
-    object MyPage : BottomNavItem("mypage_graph", "마이페이지", Icons.Default.Person)
+    object Home   : BottomNavItem("home_graph",   "홈",        Icons.Default.Home)
+    object MyPage : BottomNavItem("mypage_graph", "학습", Icons.Default.PlayArrow)
+    object Stats  : BottomNavItem("stats_graph",  "학습 통계",  Icons.Default.Add)
+    object MyInfo : BottomNavItem("myinfo_graph", "내 정보",    Icons.Default.Person)
 }
 
 val bottomNavItems = listOf(
     BottomNavItem.Home,
-    BottomNavItem.Content,
-    //BottomNavItem.Review,
-    BottomNavItem.MyPage
+    BottomNavItem.MyPage,
+    BottomNavItem.Stats,
+    BottomNavItem.MyInfo
+)
+
+// 하단 네비게이션 바를 숨길 route 목록
+private val hideBottomBarRoutes = setOf(
+    "game_home",
+    "game_level_select",
+    "game_play/{level}",
+    "game_play/{level}/{prevBest}",
+    "game_result/{level}/{hearts}/{result}/{prevBest}",
+    "game_leaderboard"
 )
 
 @Composable
@@ -44,7 +54,7 @@ fun MainScreen() {
 
     val showBottomBar = currentDestination?.hierarchy?.none {
         it.route == "auth_graph"
-    } == true
+    } == true && currentDestination?.route !in hideBottomBarRoutes
 
     Scaffold(
         bottomBar = {

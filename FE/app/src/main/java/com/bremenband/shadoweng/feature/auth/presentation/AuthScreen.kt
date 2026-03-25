@@ -25,6 +25,7 @@ fun AuthScreen(
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     LaunchedEffect(uiState) {
         if (uiState is AuthUiState.Success) onLoginSuccess()
@@ -40,36 +41,29 @@ fun AuthScreen(
 
         Text(
             text = "따라 말할수록, 자연스러운 영어",
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Normal,
-            color = Color(0xFFAAAAAA),
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF362000),
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 32.dp)
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
-        Row {
-            Text(
-                text = "Shadow",
-                fontSize = 56.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF2C1A0E)  // 다크브라운
-            )
-            Text(
-                text = "ENG",
-                fontSize = 56.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFE53935)  // 빨간색
-            )
-        }
+        Image(
+            painter = painterResource(id = R.drawable.logo),
+            contentDescription = "로고",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 56.dp)
+        )
 
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         Image(
             painter = painterResource(id = R.drawable.engmu),
-            contentDescription = "캐릭터",
-            modifier = Modifier.size(300.dp)
+            contentDescription = "잉무",
+            modifier = Modifier.size(320.dp)
         )
 
         Spacer(modifier = Modifier.weight(1f))
@@ -77,7 +71,7 @@ fun AuthScreen(
         if (uiState is AuthUiState.Error) {
             Text(
                 text = (uiState as AuthUiState.Error).message,
-                color = Color.Red,
+                color = Color(0xFFFF5D5D),
                 fontSize = 13.sp,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
@@ -89,15 +83,15 @@ fun AuthScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 32.dp)
-                .height(52.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE500))
+                .height(56.dp),
+            shape = RoundedCornerShape(50),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEDF57))
         ) {
             Text(
                 text = if (uiState is AuthUiState.Loading) "로그인 중..." else "💬  카카오 로그인",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1A1A1A)
+                color = Color(0xFF362000)
             )
         }
 

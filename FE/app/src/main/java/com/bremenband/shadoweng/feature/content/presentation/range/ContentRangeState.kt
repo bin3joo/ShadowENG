@@ -2,16 +2,21 @@ package com.bremenband.shadoweng.feature.content.presentation.range
 
 data class ContentRangeUiState(
     val embedUrl: String = "",
-    val startTime: String = "",
-    val endTime: String = "",
-    val isStartValid: Boolean = false,
-    val isEndValid: Boolean = false,
-    val isLoading: Boolean = false,
-    val error: String? = null
+    val thumbnailUrl: String = "",
+    val startTime: String = "00:00",
+    val endTime: String = "02:00",
+    val isStartValid: Boolean = true,
+    val isEndValid: Boolean = true,
+    val sliderStart: Float = 0f,
+    val sliderEnd: Float = 120f,
+    val videoDuration: Float = 600f // TODO: API에서 받아오기
 )
 
 sealed class ContentRangeEvent {
     data class StartTimeChanged(val time: String) : ContentRangeEvent()
     data class EndTimeChanged(val time: String) : ContentRangeEvent()
+    data class SliderStartChanged(val seconds: Float) : ContentRangeEvent()  // 추가
+    data class SliderEndChanged(val seconds: Float) : ContentRangeEvent()    // 추가
     object Submit : ContentRangeEvent()
 }
+

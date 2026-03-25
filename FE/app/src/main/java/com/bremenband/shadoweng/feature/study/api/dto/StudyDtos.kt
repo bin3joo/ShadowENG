@@ -8,6 +8,7 @@ data class SessionResponse(
 data class VideoData(
     val videoId: String,
     val embedUrl: String,
+    val watchUrl: String,
     val title: String,
     val thumbnailUrl: String?,
     val duration: Int,
@@ -15,6 +16,7 @@ data class VideoData(
 )
 data class SentenceData(
     val sentenceId: Long,
+    val sentenceIndex: Int = 0,
     val sentence: String,
     val startSec: Double,
     val endSec: Double,
@@ -54,7 +56,7 @@ data class EvaluationDetails(
     val dynamicStressFeedback: ToneFeedback
 )
 data class WordFeedback(val word: String, val status: String)
-data class ToneFeedback(val status: String, val message: String)
+data class ToneFeedback(val status: String, val message: String? = null)
 data class EvaluationScores(
     val totalScore: Double,
     val wordAccuracy: Double,
@@ -67,12 +69,23 @@ data class EvaluationScores(
 )
 
 data class CreateReportRequest(val sessionId: Long)
+
+// 단건 / 목록 공통 구조
 data class ReportResponse(
+    val reportId: Long,
     val sessionId: Long,
     val scores: EvaluationScores,
-    val difficultSentences: List<DifficultSentence>
+    val difficultSentences: List<DifficultSentenceDto>
 )
-data class DifficultSentence(val sentenceId: Long, val sentence: String)
+
+data class DifficultSentenceDto(
+    val sentenceId: Long,
+    val sentence: String,
+    val averageScore: Double,
+    val boundaryToneStatus: String,
+    val dynamicStressStatus: String,
+    val wordFeedback: List<WordFeedback>
+)
 
 data class RecentSessionResponse(
     val latestActiveSession: LatestActiveSessionDto?
@@ -80,8 +93,10 @@ data class RecentSessionResponse(
 
 data class LatestActiveSessionDto(
     val sessionId: Long,
-    val thumbnails: ThumbnailsDto?,
-    val progressRate: Int
+    val thumbnailUrl: String?,
+    val videoTitle: String?,
+    val totalSentences: Int?,
+    val completedSentences: Int?
 )
 
 data class ThumbnailsDto(

@@ -30,8 +30,8 @@ fun NavGraphBuilder.contentNavGraph(navController: NavHostController) {
             val embedUrl = backStack.arguments?.getString("embedUrl") ?: return@composable
             ContentRangeScreen(
                 embedUrl = embedUrl,
-                onNavigateToStudy = { sid ->
-                    navController.navigate(NavRoutes.contentLoading(sid)) {  // studySession → contentLoading
+                onNavigateToLoading = { (embed, start, end) ->
+                    navController.navigate(NavRoutes.contentLoading(embed, start, end)) {
                         popUpTo(NavRoutes.CONTENT_RANGE) { inclusive = true }
                     }
                 }
@@ -40,11 +40,19 @@ fun NavGraphBuilder.contentNavGraph(navController: NavHostController) {
 
         composable(
             route = NavRoutes.CONTENT_LOADING,
-            arguments = listOf(navArgument("sessionId") { type = NavType.LongType })
+            arguments = listOf(
+                navArgument("embedUrl") { type = NavType.StringType },
+                navArgument("startSec") { type = NavType.FloatType },
+                navArgument("endSec") { type = NavType.FloatType }
+            )
         ) { backStack ->
-            val sessionId = backStack.arguments?.getLong("sessionId") ?: return@composable
+            val embedUrl = backStack.arguments?.getString("embedUrl") ?: return@composable
+            val startSec = backStack.arguments?.getFloat("startSec")?.toDouble() ?: return@composable
+            val endSec = backStack.arguments?.getFloat("endSec")?.toDouble() ?: return@composable
             ContentLoadingScreen(
-                sessionId = sessionId,
+                embedUrl = embedUrl,
+                startSec = startSec,
+                endSec = endSec,
                 onNavigateToStudy = { sid ->
                     navController.navigate(NavRoutes.studySession(sid)) {
                         popUpTo("content_graph") { inclusive = true }
