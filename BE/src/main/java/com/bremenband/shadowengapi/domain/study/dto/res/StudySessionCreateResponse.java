@@ -1,5 +1,6 @@
 package com.bremenband.shadowengapi.domain.study.dto.res;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.List;
@@ -14,7 +15,11 @@ public record StudySessionCreateResponse(
         VideoData videoData,
 
         @Schema(description = "전사된 문장 목록")
-        List<SentenceData> sentencesData
+        List<SentenceData> sentencesData,
+
+        @JsonProperty("isReviewing")
+        @Schema(description = "세션 복습 모드 여부", example = "false")
+        boolean isReviewing
 
 ) {
 

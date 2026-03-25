@@ -132,7 +132,8 @@ public class StudySessionService {
                         video.getDuration(),
                         video.getChannelTitle()
                 ),
-                sentencesData
+                sentencesData,
+                session.isReviewing()
         );
     }
 

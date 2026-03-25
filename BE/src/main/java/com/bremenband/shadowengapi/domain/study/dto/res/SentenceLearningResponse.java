@@ -1,5 +1,6 @@
 package com.bremenband.shadowengapi.domain.study.dto.res;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "문장 학습 데이터 응답 DTO")
@@ -32,6 +33,7 @@ public record SentenceLearningResponse(
         @Schema(description = "문장 학습 횟수 (step 4 완료 기준)", example = "0")
         int studyCount,
 
+        @JsonProperty("isReviewing")
         @Schema(description = "세션 복습 모드 여부 (사용자가 '복습하기' 클릭 시 true)", example = "false")
         boolean isReviewing,
 

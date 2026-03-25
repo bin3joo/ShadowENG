@@ -1,6 +1,7 @@
 package com.bremenband.shadowengapi.domain.study.service;
 
 import com.bremenband.shadowengapi.domain.study.client.PythonApiClient;
+import com.bremenband.shadowengapi.domain.study.facade.StudyReportFacade;
 import com.bremenband.shadowengapi.domain.study.dto.python.PythonEvaluateAudioRequest;
 import com.bremenband.shadowengapi.domain.study.dto.python.PythonEvaluateAudioResponse;
 import com.bremenband.shadowengapi.domain.study.dto.redis.PendingEvaluation;
@@ -36,7 +37,7 @@ public class EvaluationService {
     private final EvaluationRepository    evaluationRepository;
     private final PythonApiClient         pythonApiClient;
     private final ObjectMapper            objectMapper;
-    private final StudySessionWriter      studySessionWriter;
+    private final StudyReportFacade       studyReportFacade;
     private final S3Uploader              s3Uploader;
     private final PendingEvaluationStore  pendingEvaluationStore;
 
@@ -72,7 +73,19 @@ public class EvaluationService {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
 
-        // 3. 음성 파일 Base64 인코딩
+        // 3. 복습 모드 검증 (첫 학습 이후에는 isReviewing=true 여야 진행 가능)
+        if (session.getCycleCount() > 0 && !session.isReviewing()) {
+            log.warn("[evaluate] review not started: sessionId={}, cycleCount={}", sessionId, session.getCycleCount());
+            throw new CustomException(ErrorCode.REVIEW_NOT_STARTED);
+        }
+
+        // 4. 이전 step 완료 여부 검증 (step 2 이상이면 직전 step이 Redis에 존재해야 함)
+        if (step > 1 && pendingEvaluationStore.findStep(sessionId, sentenceId, step - 1).isEmpty()) {
+            log.warn("[evaluate] previous step not completed: sessionId={}, sentenceId={}, step={}", sessionId, sentenceId, step);
+            throw new CustomException(ErrorCode.PREVIOUS_STEP_NOT_COMPLETED);
+        }
+
+        // 4. 음성 파일 Base64 인코딩
         log.info("[evaluate] audio received: name={}, size={}bytes, contentType={}",
                 audioFile.getOriginalFilename(), audioFile.getSize(), audioFile.getContentType());
 
@@ -161,7 +174,7 @@ public class EvaluationService {
         pendingEvaluationStore.deleteAll(sessionId, sentenceId);
         log.info("[commitCycle] redis keys deleted: sessionId={}, sentenceId={}", sessionId, sentenceId);
 
-        studySessionWriter.completeSessionIfAllEvaluated(sessionId, sentenceId);
+        studyReportFacade.completeSessionAndAutoReport(sessionId, sentenceId);
         log.info("[commitCycle] session completion checked: sessionId={}", sessionId);
     }
 
