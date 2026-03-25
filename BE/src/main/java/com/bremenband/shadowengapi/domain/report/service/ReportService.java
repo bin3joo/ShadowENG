@@ -11,6 +11,7 @@ import com.bremenband.shadowengapi.domain.study.entity.Sentence;
 import com.bremenband.shadowengapi.domain.study.entity.SessionStatus;
 import com.bremenband.shadowengapi.domain.study.entity.StudySession;
 import com.bremenband.shadowengapi.domain.study.repository.EvaluationRepository;
+import com.bremenband.shadowengapi.domain.study.repository.SentenceRepository;
 import com.bremenband.shadowengapi.domain.study.repository.StudySessionRepository;
 import com.bremenband.shadowengapi.global.exception.CustomException;
 import com.bremenband.shadowengapi.global.exception.ErrorCode;
@@ -41,6 +42,7 @@ public class ReportService {
     private final EvaluationRepository   evaluationRepository;
     private final ReportRepository       reportRepository;
     private final WeekSentenceRepository weekSentenceRepository;
+    private final SentenceRepository     sentenceRepository;
     private final ObjectMapper           objectMapper;
 
     @Transactional
@@ -111,10 +113,13 @@ public class ReportService {
                         getLatestEvaluation(entry.getValue())))
                 .toList();
 
+        int totalSentenceCount = (int) sentenceRepository.countByStudySession_Id(sessionId);
+
         return new ReportResponse(
                 report.getId(),
                 sessionId,
                 report.getCreatedAt(),
+                totalSentenceCount,
                 new ReportResponse.Scores(
                         round(avgTotal), round(avgAccuracy), round(avgProsody),
                         round(avgRhythm), round(avgBoundary), round(avgDynamic),
@@ -140,8 +145,10 @@ public class ReportService {
         Map<Long, List<Evaluation>> evalsBySentence = allEvaluations.stream()
                 .collect(Collectors.groupingBy(e -> e.getSentence().getId()));
 
+        int totalSentenceCount = (int) sentenceRepository.countByStudySession_Id(sessionId);
+
         return reports.stream()
-                .map(report -> buildReportResponse(report, sessionId, evalsBySentence))
+                .map(report -> buildReportResponse(report, sessionId, totalSentenceCount, evalsBySentence))
                 .toList();
     }
 
@@ -173,10 +180,13 @@ public class ReportService {
                 .limit(DIFFICULT_SENTENCE_LIMIT)
                 .toList();
 
+        int totalSentenceCount = (int) sentenceRepository.countByStudySession_Id(sessionId);
+
         return new ReportResponse(
                 report.getId(),
                 sessionId,
                 report.getCreatedAt(),
+                totalSentenceCount,
                 new ReportResponse.Scores(
                         report.getTotalScore().doubleValue(),
                         report.getWordAccuracy().doubleValue(),
@@ -193,13 +203,19 @@ public class ReportService {
     public List<ReportResponse> getUserReports(Long userId) {
         List<Report> reports = reportRepository.findByStudySession_User_IdOrderByCreatedAtDesc(userId);
 
+        List<Long> sessionIds = reports.stream()
+                .map(r -> r.getStudySession().getId())
+                .distinct().toList();
+        Map<Long, Long> sentenceCountMap = sentenceRepository.countMapBySessionIds(sessionIds);
+
         return reports.stream()
                 .map(report -> {
-                    Long sessionId = report.getStudySession().getId();
-                    List<Evaluation> allEvaluations = evaluationRepository.findByStudySession_IdAndStep(sessionId, 4);
+                    Long sid = report.getStudySession().getId();
+                    List<Evaluation> allEvaluations = evaluationRepository.findByStudySession_IdAndStep(sid, 4);
                     Map<Long, List<Evaluation>> evalsBySentence = allEvaluations.stream()
                             .collect(Collectors.groupingBy(e -> e.getSentence().getId()));
-                    return buildReportResponse(report, sessionId, evalsBySentence);
+                    int count = sentenceCountMap.getOrDefault(sid, 0L).intValue();
+                    return buildReportResponse(report, sid, count, evalsBySentence);
                 })
                 .toList();
     }
@@ -227,7 +243,7 @@ public class ReportService {
 
     // ── 헬퍼 ────────────────────────────────────────────────────────────────────
 
-    private ReportResponse buildReportResponse(Report report, Long sessionId,
+    private ReportResponse buildReportResponse(Report report, Long sessionId, int totalSentenceCount,
                                                Map<Long, List<Evaluation>> evalsBySentence) {
         List<WeekSentence> weekSentences = weekSentenceRepository.findByReport_Id(report.getId());
 
@@ -247,6 +263,7 @@ public class ReportService {
                 report.getId(),
                 sessionId,
                 report.getCreatedAt(),
+                totalSentenceCount,
                 new ReportResponse.Scores(
                         report.getTotalScore().doubleValue(),
                         report.getWordAccuracy().doubleValue(),

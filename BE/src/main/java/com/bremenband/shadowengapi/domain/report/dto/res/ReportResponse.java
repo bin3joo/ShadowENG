@@ -17,6 +17,9 @@ public record ReportResponse(
         @Schema(description = "레포트 생성 일시", example = "2025-03-23T14:30:00")
         LocalDateTime createdAt,
 
+        @Schema(description = "세션 총 문장 수", example = "5")
+        int totalSentenceCount,
+
         @Schema(description = "종합 점수")
         Scores scores,
 
