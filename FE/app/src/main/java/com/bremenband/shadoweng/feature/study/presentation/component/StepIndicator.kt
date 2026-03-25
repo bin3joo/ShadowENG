@@ -3,6 +3,8 @@ package com.bremenband.shadoweng.feature.study.presentation.component
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -15,25 +17,22 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun StepIndicator(currentStep: Int, totalSteps: Int = 4, modifier: Modifier = Modifier) {
-    val activeColor = Color(0xFFE53935)
-    val inactiveColor = Color(0xFFDDDDDD)
-
-    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        repeat(totalSteps) { index ->
-            val isCompleted = index < currentStep
-            val isActive = index == currentStep
-
-            Box(
-                modifier = Modifier.size(24.dp).clip(CircleShape)
-                    .background(if (isCompleted || isActive) activeColor else inactiveColor),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isCompleted) Text("✓", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-
-            if (index < totalSteps - 1) {
-                Box(modifier = Modifier.weight(1f).height(2.dp).background(if (isCompleted) activeColor else inactiveColor))
-            }
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Step $currentStep / $totalSteps",
+                fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000)
+            )
         }
+        LinearProgressIndicator(
+            progress = { currentStep / totalSteps.toFloat() },
+            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(4.dp)),
+            color = Color(0xFFFF5D5D),
+            trackColor = Color(0xFFEEEEEE)
+        )
     }
 }

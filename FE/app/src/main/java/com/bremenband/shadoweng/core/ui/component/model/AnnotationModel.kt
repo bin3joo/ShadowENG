@@ -6,7 +6,8 @@ enum class AnnotationType {
     UNDERLINE,
     ARROW_UP,
     ARROW_DOWN,
-    CURVE,
+    CURVE_LONG,   // dragged - ~ 물결
+    CURVE_SHORT,  // rushed  - ∨
 }
 
 data class Annotation(

@@ -5,6 +5,7 @@ data class GuestLoginResponse(
     val refreshToken: String
 )
 
+data class GuestLoginRequest(val deviceId: String)
 data class RefreshTokenRequest(
     val refreshToken: String
 )

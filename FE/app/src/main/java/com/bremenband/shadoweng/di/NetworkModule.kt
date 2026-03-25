@@ -6,6 +6,9 @@ import com.bremenband.shadoweng.feature.auth.data.TokenStorage
 import com.bremenband.shadoweng.feature.content.api.ContentApi
 import com.bremenband.shadoweng.feature.mypage.api.MyPageApi
 import com.bremenband.shadoweng.feature.study.api.StudyApi
+import com.bremenband.shadoweng.feature.game.api.GameApi
+import com.bremenband.shadoweng.feature.home.api.HomeApi
+
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -72,4 +75,12 @@ object NetworkModule {
     @Provides @Singleton
     fun provideMyPageApi(retrofit: Retrofit): MyPageApi =
         retrofit.create(MyPageApi::class.java)
+
+    @Provides @Singleton
+    fun provideGameApi(retrofit: Retrofit): GameApi =
+        retrofit.create(GameApi::class.java)
+
+    @Provides @Singleton
+    fun provideHomeApi(retrofit: Retrofit): HomeApi =
+        retrofit.create(HomeApi::class.java)
 }

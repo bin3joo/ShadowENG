@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -54,7 +56,10 @@ fun AnnotatedSentenceView(
 
     // Canvas 드로잉용 어노테이션만 필터
     val canvasAnnotations = annotations.filter {
-        it.type in listOf(AnnotationType.ARROW_UP, AnnotationType.ARROW_DOWN, AnnotationType.CURVE)
+        it.type in listOf(
+            AnnotationType.ARROW_UP, AnnotationType.ARROW_DOWN,
+            AnnotationType.CURVE_LONG, AnnotationType.CURVE_SHORT
+        )
     }
 
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
@@ -89,26 +94,60 @@ fun AnnotatedSentenceView(
                     val endRect = textLayoutResult!!.getBoundingBox(end - 1)
 
                     when (ann.type) {
-                        AnnotationType.ARROW_UP -> drawArrow(
-                            start = Offset(startRect.left, startRect.top - 8.dp.toPx()),
-                            end = Offset(endRect.right, startRect.top - 24.dp.toPx()),
-                            color = Color(0xFF1DB954)
-                        )
-                        AnnotationType.ARROW_DOWN -> drawArrow(
-                            start = Offset(startRect.left, startRect.top - 24.dp.toPx()),
-                            end = Offset(endRect.right, startRect.top - 8.dp.toPx()),
-                            color = Color(0xFFE53935)
-                        )
-                        AnnotationType.CURVE -> {
+                        AnnotationType.ARROW_UP -> {
+                            val mid = startRect.top + (startRect.bottom - startRect.top) * 0.5f
+                            val startX = (startRect.left + endRect.right) / 2f
                             val path = Path().apply {
-                                moveTo(startRect.left, startRect.top - 16.dp.toPx())
+                                moveTo(startX, mid + 6.dp.toPx())
                                 cubicTo(
-                                    startRect.left + 20.dp.toPx(), startRect.top - 32.dp.toPx(),
-                                    endRect.right - 20.dp.toPx(), startRect.top - 32.dp.toPx(),
-                                    endRect.right, startRect.top - 16.dp.toPx()
+                                    startX, mid + 6.dp.toPx(),
+                                    startX - 4.dp.toPx(), mid - 8.dp.toPx(),
+                                    startX + 4.dp.toPx(), mid - 10.dp.toPx()
+                                )
+                                moveTo(startX + 4.dp.toPx(), mid - 10.dp.toPx())
+                                lineTo(startX + 8.dp.toPx(), mid - 6.dp.toPx())
+                                moveTo(startX + 4.dp.toPx(), mid - 10.dp.toPx())
+                                lineTo(startX, mid - 5.dp.toPx())
+                            }
+                            drawPath(path, Color(ann.color), style = Stroke(width = 2.5.dp.toPx()))
+                        }
+                        AnnotationType.ARROW_DOWN -> {
+                            val mid = startRect.top + (startRect.bottom - startRect.top) * 0.5f
+                            val centerX = (startRect.left + endRect.right) / 2f
+                            val path = Path().apply {
+                                moveTo(centerX - 6.dp.toPx(), mid - 6.dp.toPx())
+                                lineTo(centerX, mid + 6.dp.toPx())
+                                lineTo(centerX + 6.dp.toPx(), mid - 6.dp.toPx())
+                            }
+                            drawPath(path, Color(ann.color), style = Stroke(
+                                width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round
+                            ))
+                        }
+                        AnnotationType.CURVE_LONG -> {
+                            val mid = startRect.top + (startRect.bottom - startRect.top) * 0.5f
+                            val path = Path().apply {
+                                moveTo(startRect.left, mid)
+                                cubicTo(
+                                    startRect.left + 6.dp.toPx(), mid - 7.dp.toPx(),
+                                    startRect.left + 12.dp.toPx(), mid + 7.dp.toPx(),
+                                    startRect.left + 18.dp.toPx(), mid
                                 )
                             }
-                            drawPath(path, Color(0xFF1565C0), style = Stroke(width = 2.dp.toPx()))
+                            drawPath(path, Color(ann.color), style = Stroke(
+                                width = 2.5.dp.toPx(), cap = StrokeCap.Round
+                            ))
+                        }
+                        AnnotationType.CURVE_SHORT -> {
+                            val mid = startRect.top + (startRect.bottom - startRect.top) * 0.5f
+                            val centerX = (startRect.left + endRect.right) / 2f
+                            val path = Path().apply {
+                                moveTo(centerX - 6.dp.toPx(), mid - 4.dp.toPx())
+                                lineTo(centerX, mid + 4.dp.toPx())
+                                lineTo(centerX + 6.dp.toPx(), mid - 4.dp.toPx())
+                            }
+                            drawPath(path, Color(ann.color), style = Stroke(
+                                width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round
+                            ))
                         }
                         else -> Unit
                     }

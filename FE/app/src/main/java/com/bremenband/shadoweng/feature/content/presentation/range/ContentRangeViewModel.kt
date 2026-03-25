@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bremenband.shadoweng.feature.content.repository.ContentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -23,11 +22,27 @@ class ContentRangeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ContentRangeUiState())
     val uiState: StateFlow<ContentRangeUiState> = _uiState.asStateFlow()
 
-    private val _navigateToStudy = MutableSharedFlow<Long>()
-    val navigateToStudy: SharedFlow<Long> = _navigateToStudy.asSharedFlow()
+    private val _navigateToLoading = MutableSharedFlow<Triple<String, Double, Double>>()
+    val navigateToLoading: SharedFlow<Triple<String, Double, Double>> = _navigateToLoading.asSharedFlow()
 
     fun init(embedUrl: String) {
         _uiState.update { it.copy(embedUrl = embedUrl) }
+        viewModelScope.launch {
+            val youtubeUrl = embedUrl.replace("https://www.youtube.com/embed/", "https://www.youtube.com/watch?v=")
+            repository.getVideo(youtubeUrl)
+                .onSuccess { video ->
+                    val duration = video.duration.toFloat()
+                    val defaultEnd = minOf(120f, duration)
+                    _uiState.update {
+                        it.copy(
+                            thumbnailUrl = video.thumbnailUrl ?: "",
+                            videoDuration = duration,
+                            sliderEnd = defaultEnd,
+                            endTime = formatSeconds(defaultEnd.toInt())
+                        )
+                    }
+                }
+        }
     }
 
     fun onEvent(event: ContentRangeEvent) {
@@ -37,26 +52,41 @@ class ContentRangeViewModel @Inject constructor(
             is ContentRangeEvent.EndTimeChanged ->
                 _uiState.update { it.copy(endTime = event.time, isEndValid = isValidTime(event.time)) }
             is ContentRangeEvent.Submit -> submit()
+            is ContentRangeEvent.SliderStartChanged -> {
+                val seconds = event.seconds.toInt()
+                _uiState.update {
+                    it.copy(
+                        sliderStart = event.seconds,
+                        startTime = formatSeconds(seconds),
+                        isStartValid = true
+                    )
+                }
+            }
+            is ContentRangeEvent.SliderEndChanged -> {
+                val seconds = event.seconds.toInt()
+                _uiState.update {
+                    it.copy(
+                        sliderEnd = event.seconds,
+                        endTime = formatSeconds(seconds),
+                        isEndValid = true
+                    )
+                }
+            }
         }
     }
 
     private fun submit() {
+        val state = _uiState.value
+        if (!state.isStartValid || !state.isEndValid) return
+        if (state.sliderEnd - state.sliderStart < 1f) return
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            // TODO: 백엔드 연동 후 주석 해제
-            // val state = _uiState.value
-            // repository.createSession(
-            //     embedUrl = state.embedUrl,
-            //     startSec = parseTimeToSeconds(state.startTime).toDouble(),
-            //     endSec = parseTimeToSeconds(state.endTime).toDouble()
-            // ).onSuccess { sessionId ->
-            //     _navigateToStudy.emit(sessionId)
-            // }.onFailure { e ->
-            //     _uiState.update { it.copy(error = e.message ?: "세션 생성 실패") }
-            // }
-            delay(300)
-            _navigateToStudy.emit(1L) // TODO: mock - 백엔드 연동 후 실제 sessionId로 교체
-            _uiState.update { it.copy(isLoading = false) }
+            _navigateToLoading.emit(
+                Triple(
+                    state.embedUrl,
+                    parseTimeToSeconds(state.startTime).toDouble(),
+                    parseTimeToSeconds(state.endTime).toDouble()
+                )
+            )
         }
     }
 
@@ -70,5 +100,11 @@ class ContentRangeViewModel @Inject constructor(
             2 -> parts[0] * 60 + parts[1]
             else -> 0
         }
+    }
+
+    private fun formatSeconds(seconds: Int): String {
+        val m = seconds / 60
+        val s = seconds % 60
+        return "%d:%02d".format(m, s)
     }
 }

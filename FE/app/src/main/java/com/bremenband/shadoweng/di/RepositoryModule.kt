@@ -10,6 +10,8 @@ import com.bremenband.shadoweng.feature.mypage.repository.MyPageRepository
 import com.bremenband.shadoweng.feature.mypage.repository.MyPageRepositoryImpl
 import com.bremenband.shadoweng.feature.study.repository.StudyRepository
 import com.bremenband.shadoweng.feature.study.repository.StudyRepositoryImpl
+import com.bremenband.shadoweng.feature.game.repository.GameRepository
+import com.bremenband.shadoweng.feature.game.repository.GameRepositoryImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -35,4 +37,7 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindStudyRepository(impl: StudyRepositoryImpl): StudyRepository
+
+    @Binds @Singleton
+    abstract fun bindGameRepository(impl: GameRepositoryImpl): GameRepository
 }

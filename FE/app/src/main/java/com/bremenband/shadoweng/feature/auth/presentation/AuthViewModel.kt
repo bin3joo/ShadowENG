@@ -20,21 +20,11 @@ class AuthViewModel @Inject constructor(
     fun guestLogin() {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
-            repository.devLogin()
+            repository.guestLogin()
                 .onSuccess { _uiState.value = AuthUiState.Success }
                 .onFailure { e -> _uiState.value = AuthUiState.Error(e.message ?: "네트워크 오류") }
         }
     }
-
-    // TODO: 게스트 로그인 활성화 시 주석 해제
-    // fun guestLogin() {
-    //     viewModelScope.launch {
-    //         _uiState.value = AuthUiState.Loading
-    //         repository.guestLogin()
-    //             .onSuccess { _uiState.value = AuthUiState.Success }
-    //             .onFailure { e -> _uiState.value = AuthUiState.Error(e.message ?: "네트워크 오류") }
-    //     }
-    // }
 
     fun logout() {
         viewModelScope.launch {

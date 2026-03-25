@@ -1,22 +1,31 @@
 package com.bremenband.shadoweng.feature.mypage.mapper
 
-import com.bremenband.shadoweng.feature.study.api.dto.ActiveSession
-import com.bremenband.shadoweng.feature.study.api.dto.SessionResponse
+import com.bremenband.shadoweng.feature.mypage.api.dto.ActiveSessionItemDto
 import com.bremenband.shadoweng.feature.mypage.api.dto.BookmarkItemResponse
 import com.bremenband.shadoweng.feature.mypage.api.dto.DailyReportResponse
-import com.bremenband.shadoweng.feature.mypage.presentation.BookmarkItem
-import com.bremenband.shadoweng.feature.mypage.presentation.LearningContent
+import com.bremenband.shadoweng.feature.mypage.api.dto.UserResponse
+import com.bremenband.shadoweng.feature.mypage.domain.model.BookmarkedSentence
+import com.bremenband.shadoweng.feature.mypage.domain.model.MyPageProfile
+import com.bremenband.shadoweng.feature.mypage.domain.model.SessionSummary
+import com.bremenband.shadoweng.feature.study.api.dto.ActiveSession
 
-fun SessionResponse.toLearningContent() = LearningContent(
-    id = sessionId,
-    title = videoData.title,
-    thumbnailUrl = videoData.thumbnailUrl,
-    totalSentences = sentencesData.size,
-    completedSentences = sentencesData.count { it.studyCount > 0 }
+fun UserResponse.toDomain() = MyPageProfile(
+    userId = userId,
+    nickname = nickname,
+    email = email,
+    visitedCount = visitedCount
 )
 
-fun BookmarkItemResponse.toDomain() = BookmarkItem(
-    id = sentenceId,
+fun ActiveSession.toDomain() = SessionSummary(
+    sessionId = sessionId,
+    title = "",           // TODO: API 필드 추가 후 연결
+    thumbnailUrl = thumbnailUrl,
+    completedSentences = progressRate,
+    totalSentences = 100  // TODO: API 필드 추가 후 연결
+)
+
+fun BookmarkItemResponse.toDomain() = BookmarkedSentence(
+    sentenceId = sentenceId,
     sentence = sentence,
     sessionId = sessionId
 )
@@ -24,10 +33,10 @@ fun BookmarkItemResponse.toDomain() = BookmarkItem(
 fun DailyReportResponse.toDailyCount(): Int =
     studyData.sumOf { it.studiedSentencesCount }
 
-fun ActiveSession.toLearningContent() = LearningContent(
-    id = sessionId,
-    title = "",
-    thumbnailUrl = thumbnailUrl,
-    totalSentences = 100,
-    completedSentences = progressRate
+fun ActiveSessionItemDto.toDomain(isCompleted: Boolean = false): SessionSummary = SessionSummary(
+    sessionId = sessionId,
+    title = videoTitle ?: "",
+    thumbnailUrl = thumbnails?.url,
+    completedSentences = completedSentences,
+    totalSentences = totalSentences
 )

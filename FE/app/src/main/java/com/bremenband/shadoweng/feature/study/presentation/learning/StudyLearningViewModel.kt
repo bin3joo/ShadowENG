@@ -1,7 +1,9 @@
 package com.bremenband.shadoweng.feature.study.presentation.learning
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bremenband.shadoweng.core.audio.AudioRecorder
 import com.bremenband.shadoweng.feature.study.domain.SentenceItem
 import com.bremenband.shadoweng.feature.study.repository.StudyRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -9,78 +11,137 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
 class StudyLearningViewModel @Inject constructor(
-    private val repository: StudyRepository
+    private val repository: StudyRepository,
+    private val audioRecorder: AudioRecorder
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StudyLearningUiState())
     val uiState: StateFlow<StudyLearningUiState> = _uiState.asStateFlow()
-    val navigateToHighlight = MutableSharedFlow<Long>()
-    val navigateToReport = MutableSharedFlow<Unit>()
-    val showAutoAdvanceSnackbar = MutableSharedFlow<Unit>()
+
+    private val _navigateToHighlight = MutableSharedFlow<Int>()
+    val navigateToHighlight: SharedFlow<Int> = _navigateToHighlight.asSharedFlow()
+
+    private val _navigateToReport = MutableSharedFlow<Unit>()
+    val navigateToReport: SharedFlow<Unit> = _navigateToReport.asSharedFlow()
 
     private var countdownJob: Job? = null
     private var autoAdvanceJob: Job? = null
     private var currentSessionId: Long = 0L
+    private var currentStep: Int = 1
+    private var recordingFile: File? = null
 
-    fun init(sessionId: Long, sentence: SentenceItem) {
+    fun init(sessionId: Long, sentence: SentenceItem, step: Int) {
         currentSessionId = sessionId
-        // TODO: 백엔드 연동 후 실제 sentence로 교체
-        _uiState.update {
-            it.copy(
-                sentence = sentence.copy(
-                    content = "I had this meeting with a big studio Hollywood casting director."
-                )
-            )
+        currentStep = step
+        viewModelScope.launch {
+            repository.getSession(sessionId)
+                .onSuccess { session ->
+                    Log.d("StudyLearning", "embedUrl: ${session.embedUrl}")
+                    Log.d("StudyLearning", "watchUrl: ${session.watchUrl}")
+                    val targetSentence = session.sentences.find { it.id == sentence.id } ?: sentence
+                    _uiState.update {
+                        it.copy(
+                            sentence = targetSentence,
+                            embedUrl = session.embedUrl.ifEmpty { session.watchUrl },
+                            thumbnailUrl = session.thumbnailUrl ?: "",
+                            startSec = targetSentence.startSec,
+                            endSec = targetSentence.endSec,
+                            subtitleMode = stepToSubtitleMode(step)
+                        )
+                    }
+                }
         }
+    }
+
+    private fun stepToSubtitleMode(step: Int) = when (step) {
+        1 -> SubtitleMode.NONE
+        2 -> SubtitleMode.FULL
+        3 -> SubtitleMode.PARTIAL
+        4 -> SubtitleMode.NONE_FINAL
+        else -> SubtitleMode.NONE
     }
 
     fun onEvent(event: StudyLearningEvent) {
         when (event) {
-            is StudyLearningEvent.StartCountdown -> startCountdown()
+            is StudyLearningEvent.StartRecording -> startRecording()   // 변경
             is StudyLearningEvent.StopRecording -> stopRecording()
             is StudyLearningEvent.RetryRecording -> {
                 countdownJob?.cancel()
-                _uiState.update { it.copy(countdown = null, isRecording = false) }
+                audioRecorder.release()
+                recordingFile = null
+                _uiState.update { it.copy(isRecording = false) }   // countdown 제거
             }
         }
     }
 
-    private fun startCountdown() {
+    private fun startRecording() {
         countdownJob?.cancel()
         countdownJob = viewModelScope.launch {
-            for (i in 3 downTo 1) {
-                _uiState.update { it.copy(countdown = i) }
-                delay(1000)
+            _uiState.update { it.copy(isRecording = true) }
+            try {
+                recordingFile = audioRecorder.start()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isRecording = false, error = "녹음을 시작할 수 없어요. 마이크 권한을 확인해주세요.") }
             }
-            _uiState.update { it.copy(countdown = null, isRecording = true) }
         }
     }
 
     private fun stopRecording() {
         val sentenceId = _uiState.value.sentence?.id ?: return
-        _uiState.update { it.copy(isRecording = false, isAnalyzing = true) }
-        viewModelScope.launch {
-            delay(300)
-            _uiState.update { it.copy(isAnalyzing = false) }
-            val mode = _uiState.value.subtitleMode
-            if (mode == SubtitleMode.NONE_FINAL) {
-                navigateToReport.emit(Unit) // highlight 건너뛰고 report로
-            } else {
-                showAutoAdvanceSnackbar.emit(Unit)
-                autoAdvanceJob?.cancel()
-                autoAdvanceJob = launch {
-                    delay(3000)
-                    applyNextMode()
-                }
+        val file = audioRecorder.stop()
+        _uiState.update { it.copy(isRecording = false) }
+
+        if (currentStep == 1) {
+            _uiState.update { it.copy(showEncourageModal = true) }
+            viewModelScope.launch {
+                delay(2000)
+                _uiState.update { it.copy(showEncourageModal = false) }
+                handlePostRecording()
             }
+            return
+        }
+
+        recordingFile = file
+        _uiState.update { it.copy(isAnalyzing = true) }
+        viewModelScope.launch {
+            if (file != null) {
+                repository.createEvaluation(
+                    sessionId = currentSessionId,
+                    sentenceId = sentenceId,
+                    step = currentStep,
+                    audioFile = file
+                ).onSuccess {
+                    _uiState.update { it.copy(isAnalyzing = false) }
+                    handlePostRecording()
+                }.onFailure { e ->
+                    _uiState.update { it.copy(isAnalyzing = false, error = e.message) }
+                    handlePostRecording()
+                }
+            } else {
+                _uiState.update { it.copy(isAnalyzing = false) }
+                handlePostRecording()
+            }
+        }
+    }
+
+    private suspend fun handlePostRecording() {
+        _uiState.update { it.copy(isNavigating = true) }  // 로딩 시작
+        if (currentStep == 1) {
+            _navigateToHighlight.emit(currentStep)
+        } else {
+            delay(500)  // 약간의 딜레이 후 이동
+            _navigateToHighlight.emit(currentStep)
         }
     }
 
@@ -89,15 +150,8 @@ class StudyLearningViewModel @Inject constructor(
         autoAdvanceJob = null
     }
 
-    fun nextMode(): SubtitleMode? = when (_uiState.value.subtitleMode) {
-        SubtitleMode.NONE -> SubtitleMode.FULL
-        SubtitleMode.FULL -> SubtitleMode.PARTIAL
-        SubtitleMode.PARTIAL -> SubtitleMode.NONE_FINAL
-        SubtitleMode.NONE_FINAL -> null
-    }
-
-    fun applyNextMode() {
-        val next = nextMode() ?: return
-        _uiState.update { it.copy(subtitleMode = next, countdown = null, isRecording = false, isAnalyzing = false) }
+    override fun onCleared() {
+        super.onCleared()
+        audioRecorder.release()
     }
 }

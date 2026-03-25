@@ -10,7 +10,10 @@ interface MyPageApi {
     suspend fun getMe(): ApiResponse<UserResponse>
 
     @GET("study-sessions")
-    suspend fun getSessions(): ApiResponse<ActiveSessionsResponse>
+    suspend fun getSessions(): ApiResponse<ActiveSessionsDto>
+
+    @DELETE("study-sessions/{sessionId}")
+    suspend fun deleteSession(@Path("sessionId") sessionId: Long): ApiResponse<String>
 
     @GET("bookmarks")
     suspend fun getBookmarks(): ApiResponse<BookmarkListResponse>
@@ -23,4 +26,6 @@ interface MyPageApi {
 
     @GET("reports/daily")
     suspend fun getDailyReport(): ApiResponse<DailyReportResponse>
+
+
 }
