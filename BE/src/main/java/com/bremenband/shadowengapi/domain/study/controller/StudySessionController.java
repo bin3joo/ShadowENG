@@ -112,6 +112,19 @@ public class StudySessionController {
         return ApiResponse.success(null);
     }
 
+    @PostMapping("/{sessionId}/re-learn")
+    @Operation(
+            summary = "재학습 세션 생성",
+            description = "완료된 학습 세션을 복사하여 새 자식 세션을 생성합니다. 동일한 영상·문장 데이터로 처음부터 다시 학습할 수 있습니다."
+    )
+    public ApiResponse<StudySessionCreateResponse> reLearnSession(
+            @Parameter(description = "원본 학습 세션 ID", example = "12345")
+            @PathVariable Long sessionId,
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId
+    ) {
+        return ApiResponse.success(studySessionService.reLearnSession(sessionId, userId));
+    }
+
     @PatchMapping("/{sessionId}/review")
     @Operation(
             summary = "복습 모드 시작",

@@ -174,8 +174,13 @@ public class EvaluationService {
         pendingEvaluationStore.deleteAll(sessionId, sentenceId);
         log.info("[commitCycle] redis keys deleted: sessionId={}, sentenceId={}", sessionId, sentenceId);
 
-        studyReportFacade.completeSessionAndAutoReport(sessionId, sentenceId);
-        log.info("[commitCycle] session completion checked: sessionId={}", sessionId);
+        // 복습(isReviewing=true) 시에는 사이클 완료 및 레포트 생성을 건너뜀
+        if (!session.isReviewing()) {
+            studyReportFacade.completeSessionAndAutoReport(sessionId, sentenceId);
+            log.info("[commitCycle] session completion checked: sessionId={}", sessionId);
+        } else {
+            log.info("[commitCycle] skipped (review mode): sessionId={}", sessionId);
+        }
     }
 
     private PendingEvaluation buildPending(int step, PythonEvaluateAudioResponse python) {

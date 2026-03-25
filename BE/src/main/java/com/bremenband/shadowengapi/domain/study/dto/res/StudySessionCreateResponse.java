@@ -12,6 +12,9 @@ public record StudySessionCreateResponse(
         @Schema(description = "생성된 세션 ID", example = "12345")
         Long sessionId,
 
+        @Schema(description = "조상 세션 ID (최초학습이면 null, 재학습이면 원본 세션 ID)", example = "null")
+        Long parentSessionId,
+
         @Schema(description = "학습 영상 정보")
         VideoData videoData,
 
