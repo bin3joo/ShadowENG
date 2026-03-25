@@ -37,19 +37,15 @@ public class GameRecord extends BaseTimeEntity {
     private BigDecimal avgTotalScore;
 
     @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal avgSpeedSimilarity;
+    private BigDecimal avgWordRhythmScore;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal avgDynamicStressScore;
 
     @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal avgBoundaryToneScore;
+    private BigDecimal avgWordAccuracy;
 
     // 평균 총점 × (1 + 하트 수 × 0.1)
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal finalScore;
-
-    // 모든 회차 total_score 합산
-    @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal cumulativeScore;
 }

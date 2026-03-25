@@ -177,7 +177,7 @@ public class GameService {
         boolean gameOver = !passed || round == MAX_LEVEL;
 
         // 9. 세션 업데이트 (Redis)
-        GameSessionData.RoundResult roundResult = buildRoundResult(round, python, totalScore, speedSimilarity, dynamicStressScore, boundaryToneScore);
+        GameSessionData.RoundResult roundResult = buildRoundResult(round, python, totalScore, wordRhythmScore, wordAccuracy, dynamicStressScore);
         session.addRound(roundResult);
         if (passed) session.setHearts(session.getHearts() + 1);
         session.setGameOver(gameOver);
@@ -282,8 +282,8 @@ public class GameService {
     }
 
     private GameSessionData.RoundResult buildRoundResult(int round, PythonEvaluateAudioResponse python,
-                                                          double totalScore, double speedSimilarity,
-                                                          double dynamicStressScore, double boundaryToneScore) {
+                                                          double totalScore, double wordRhythmScore,
+                                                          double wordAccuracy, double dynamicStressScore) {
         String wlf;
         try {
             wlf = objectMapper.writeValueAsString(python.details().wordLevelFeedback());
@@ -293,26 +293,25 @@ public class GameService {
         }
         return new GameSessionData.RoundResult(
                 round, wlf,
-                totalScore, speedSimilarity, dynamicStressScore, boundaryToneScore);
+                totalScore, wordRhythmScore, wordAccuracy, dynamicStressScore);
     }
 
     private GameEvaluationResponse.GameResult saveAndBuildResult(
             Long userId, int level, LocalDate today, GameSessionData session) {
 
         Collection<GameSessionData.RoundResult> rounds = session.getRounds().values();
-        double avgTotal   = rounds.stream().mapToDouble(GameSessionData.RoundResult::getTotalScore).average().orElse(0);
-        double avgSpeed   = rounds.stream().mapToDouble(GameSessionData.RoundResult::getSpeedSimilarity).average().orElse(0);
-        double avgDynamic = rounds.stream().mapToDouble(GameSessionData.RoundResult::getDynamicStressScore).average().orElse(0);
-        double avgBound   = rounds.stream().mapToDouble(GameSessionData.RoundResult::getBoundaryToneScore).average().orElse(0);
-        double cumulative = rounds.stream().mapToDouble(GameSessionData.RoundResult::getTotalScore).sum();
+        double avgTotal       = rounds.stream().mapToDouble(GameSessionData.RoundResult::getTotalScore).average().orElse(0);
+        double avgWordRhythm  = rounds.stream().mapToDouble(GameSessionData.RoundResult::getWordRhythmScore).average().orElse(0);
+        double avgWordAccuracy = rounds.stream().mapToDouble(GameSessionData.RoundResult::getWordAccuracy).average().orElse(0);
+        double avgDynamic     = rounds.stream().mapToDouble(GameSessionData.RoundResult::getDynamicStressScore).average().orElse(0);
         int hearts = session.getHearts();
         double finalScore = avgTotal * (1 + hearts * WEIGHT_FACTOR) * levelMultiplier(level);
 
         gameWriter.saveGameResult(userId, level, today, hearts,
-                avgTotal, avgSpeed, avgDynamic, avgBound, finalScore, cumulative);
+                avgTotal, avgWordRhythm, avgDynamic, avgWordAccuracy, finalScore);
 
         return new GameEvaluationResponse.GameResult(
-                round(avgTotal), round(avgSpeed), round(avgDynamic), round(avgBound),
+                round(avgTotal), round(avgWordRhythm), round(avgDynamic), round(avgWordAccuracy),
                 round(finalScore), hearts);
     }
 

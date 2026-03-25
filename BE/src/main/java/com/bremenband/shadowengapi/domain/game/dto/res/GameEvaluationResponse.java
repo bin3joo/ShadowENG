@@ -34,9 +34,9 @@ public record GameEvaluationResponse(
 
     public record GameResult(
             double avgTotalScore,
-            double avgSpeedSimilarity,
+            double avgWordRhythmScore,
             double avgDynamicStressScore,
-            double avgBoundaryToneScore,
+            double avgWordAccuracy,
             double finalScore,
             int hearts
     ) {}

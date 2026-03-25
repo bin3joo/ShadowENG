@@ -33,9 +33,9 @@ public class GameWriter {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public GameRecord saveGameResult(Long userId, int level, LocalDate today,
-                                     int hearts, double avgTotal, double avgSpeed,
-                                     double avgDynamic, double avgBoundary,
-                                     double finalScore, double cumulative) {
+                                     int hearts, double avgTotal, double avgWordRhythm,
+                                     double avgDynamic, double avgWordAccuracy,
+                                     double finalScore) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
@@ -46,11 +46,10 @@ public class GameWriter {
                 .playedDate(today)
                 .hearts(hearts)
                 .avgTotalScore(bd(avgTotal))
-                .avgSpeedSimilarity(bd(avgSpeed))
+                .avgWordRhythmScore(bd(avgWordRhythm))
                 .avgDynamicStressScore(bd(avgDynamic))
-                .avgBoundaryToneScore(bd(avgBoundary))
+                .avgWordAccuracy(bd(avgWordAccuracy))
                 .finalScore(bd(finalScore))
-                .cumulativeScore(bd(cumulative))
                 .build());
 
         // 2. DailyBestRecord 갱신 (최고 finalScore만 저장)
