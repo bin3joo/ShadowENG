@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 
 public interface SentenceRepository extends JpaRepository<Sentence, Long> {
 
-    List<Sentence> findByStudySession_Id(Long sessionId);
+    List<Sentence> findByStudySession_IdOrderByIdAsc(Long sessionId);
 
     long countByStudySession_Id(Long sessionId);
 
