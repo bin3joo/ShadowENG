@@ -24,19 +24,19 @@ public class ReportController {
 
     private final ReportService reportService;
 
-    @PostMapping(value = "/study-sessions/{sessionId}/reports", consumes = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(
-            summary = "학습 세션 레포트 생성",
-            description = "특정 학습 세션의 평가 결과를 종합하여 레포트를 생성합니다. 평균 점수 및 취약 문장(평균 totalScore < 90)을 포함합니다."
-    )
-    public ApiResponse<ReportResponse> createSessionReport(
-            @Parameter(description = "레포트를 생성할 학습 세션 ID", example = "12345")
-            @PathVariable Long sessionId,
-            @Valid @RequestBody ReportCreateRequest request,
-            @Parameter(hidden = true) @AuthenticationPrincipal Long userId
-    ) {
-        return ApiResponse.success(reportService.createReport(sessionId, userId));
-    }
+//    @PostMapping(value = "/study-sessions/{sessionId}/reports", consumes = MediaType.APPLICATION_JSON_VALUE)
+//    @Operation(
+//            summary = "학습 세션 레포트 생성",
+//            description = "특정 학습 세션의 평가 결과를 종합하여 레포트를 생성합니다. 평균 점수 및 취약 문장(평균 totalScore < 90)을 포함합니다."
+//    )
+//    public ApiResponse<ReportResponse> createSessionReport(
+//            @Parameter(description = "레포트를 생성할 학습 세션 ID", example = "12345")
+//            @PathVariable Long sessionId,
+//            @Valid @RequestBody ReportCreateRequest request,
+//            @Parameter(hidden = true) @AuthenticationPrincipal Long userId
+//    ) {
+//        return ApiResponse.success(reportService.createReport(sessionId, userId));
+//    }
 
     @GetMapping("/study-sessions/{sessionId}/reports")
     @Operation(
