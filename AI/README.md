@@ -56,7 +56,8 @@
   * `translation_success`, `translation_retry_count`, `translation_provider`
   * `hop_length` (프레임 분석 간격, evaluation 시 필요)
 * **특징:**
-  * 자막 기반 `caption_align` fast path 우선 시도
+  * `alignment.youtube_caption_enabled` 설정으로 자막 조회 자체를 끌 수 있으며, `false`면 항상 Whisper STT Full Path로 진행
+  * 자막이 있으면 `caption_align` Fast Path 우선 시도 (STT 생략으로 처리속도 극대화)
   * 실패 시 Whisper STT fallback
   * boundary trim 적용
   * 원본 오디오는 STT / alignment 및 품질 평가 기준으로 사용
@@ -132,9 +133,11 @@
   * Gemini 번역과 speaker / quality 관련 후처리 병렬 진행
   * 응답 payload 생성
 * `[Evaluate Audio]`
-  * 유저 오디오 로드
+  * 유저 오디오 로드 및 (선택) VR 배경음 분리
   * reference feature / word timestamp 와 정렬
-  * prosody / rhythm / speed / pause 비교
+  * **Smart Cropping** + **Baseline 0 Fixed** 전처리 적용
+  * **Hybrid Prosody Scoring**: Pearson 상관계수 유사도 × DTW 타이밍 보정
+  * rhythm / speed / pause / boundary / dynamic 개별 채점
   * 종합 점수 계산 및 결과 반환
 
 3. **Response:** JSON 형태로 결과를 반환합니다.
@@ -441,7 +444,7 @@ python -m test.test_vr_onnx "VIDEO_URL" 0.0 60.0  # ONNX 기반 VR 보컬 분리
   * 코드 리뷰 문서는 `docs/review/`로 이동되었습니다.
   * 튜닝 문서는 `docs/tuning/`으로 이동되었습니다.
   * 루트 `main.py`는 최소 FastAPI 진입점으로 유지합니다.
-  * 앱 구성은 `api/`, `services/`, `integrations/`로 분리하고, 핵심 처리 로직은 `domain/processing`으로 이동했습니다.
+  * 앱 구성은 `api/`, `services/`, `integrations/`로 분리하고, 핵심 처리 로직은 `domain/` 내 4개 서브패키지(`processing`, `prosody`, `scoring`, `stt`)로 세분화했습니다.
 
 ---
 

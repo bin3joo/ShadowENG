@@ -8,6 +8,7 @@ AI 서버의 진입점이자 클라이언트(혹은 메인 백엔드 서버)의 
 *   **`api/app.py`**: FastAPI 앱 애플리케이션 팩토리입니다. 서버가 시작될 때 `lifespan` 이벤트를 통해 무거운 **WhisperX 모델을 메모리에 Preload(사전 적재)**하여 첫 요청의 지연 시간을 최소화합니다.
 *   **`api/reference.py`**: 레퍼런스 생성 라우터 (`/api/v1/generate-reference`)
 *   **`api/evaluation.py`**: 유저 오디오 평가 라우터 (`/api/v1/evaluate-audio`)
+*   **`api/system.py`**: 헬스체크 및 시스템 상태 라우터
 
 ## 주요 모듈 작동 방식
 

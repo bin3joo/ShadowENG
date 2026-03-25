@@ -17,7 +17,8 @@
 1. **초기화 및 준비 단계**
     - `generator`, `audio/vr` 임시 파일 경로 세팅 및 요청 시간 자르기.
 2. **Phase 1: 자막 및 오디오 병렬 다운로드**
-    - YouTube Transcript API(수동 자막) 병렬 조회 및 YT-DLP 음속 다운로드 돌입.
+    - `config.YOUTUBE_CAPTION_ENABLED`가 `true`(기본값)이면 YouTube Transcript API(수동 자막)를 병렬 조회합니다. `false`면 자막 조회를 건너뛰고 항상 Whisper STT Full Path로만 진행합니다.
+    - YT-DLP로 오디오를 병렬 다운로드합니다.
 3. **Phase 2: 보컬 분리 비동기 배치 (VR Optional)**
     - `vocal_remover.enabled`가 True이면 16kHz 다운로드 종결 즉시 `audio-separator`로 배경음 제거를 백그라운드로 밀어넣습니다.
 4. **Phase 3: 음성 텍스트화 및 리파이닝 (STT & Refine)**

@@ -89,16 +89,30 @@ count_score = 100 × exp(-(diff²) / (2 × sigma²))
 
 #### Step 9. 억양/강세 분석 (Prosody, Boundary Tone, Dynamic Stress)
 
-**9a. 전체 억양 DTW (Prosody & Stress) — 가중치 20%**
-```
-prosody_score = 100 × exp(-beta × normalized_DTW_distance)
-```
+**9a. 전체 억양 유사도 (Prosody & Stress) — 가중치 20% ⭐ Hybrid Mode**
+
+전처리:
 - **Smart Cropping**: 시작 단어~끝 단어 구간 외의 잉여 오디오를 버려 무음으로 인한 왜곡 방지
 - **Baseline 0 고정**:
   - `F0` 곡선에서 pyin `voiced_flag` 기반으로 무성음을 0.0 으로 마스킹 후 메디안 필터(kernel=5) 적용
   - `RMS` 볼륨에서 하위 15% 또는 극소 신호를 0.0 으로 고정 처리
-- **정규화**: 침묵을 0점으로 맞춘 두 개의 2차원 `[F0_norm, RMS_norm]` 벡터를 **Fast DTW**로 비교
-- `beta = 1.2`, `DTW_radius = 10`
+- **정규화**: 침묵을 0점으로 맞춘 2차원 `[F0_norm, RMS_norm]` 벡터를 **Fast DTW**(`radius=10`)로 정렬
+
+Scoring (Hybrid — 유사도 × 타이밍 보정):
+```
+# 1단계: DTW 정렬 후 Pearson 상관계수 유사도
+f0_sim  = Pearson(ref_f0_aligned, user_f0_aligned)
+rms_sim = Pearson(ref_rms_aligned, user_rms_aligned)
+similarity_score = 100 × (f0_sim × 0.7 + rms_sim × 0.3)
+
+# 2단계: DTW 거리 기반 타이밍 벌점
+distance_score = 100 × exp(-1.2 × normalized_DTW_distance)
+timing_penalty = 0.75 + 0.25 × (distance_score / 100)
+
+# 3단계: 최종 합산
+prosody_score = similarity_score × timing_penalty
+```
+- 곡선의 "모양"이 일치(Pearson↑)하더라도 타이밍이 크게 어긋나면(DTW↓) 벌점이 가해집니다.
 
 **9b. 종결 억양 (Boundary Tone) — 가중치 10%**
 - 문장 끝부분(마지막 15% 또는 최소 300ms)의 F0 기울기(slope) 비교
@@ -182,7 +196,7 @@ PASS if total_score >= 60.0 else FAIL
 | 지표 | 가중치 | 수식 핵심 | 설명 |
 |---|---|---|---|
 | 단어 정확도 | **30%** | `exp(-2.5 × WER)` | STT 기반 단어 일치율 |
-| 억양+강세 | **20%** | `exp(-1.2 × DTW)` | F0+RMS 2D 벡터 DTW |
+| 억양+강세 | **20%** | `Pearson_sim × timing_penalty` | Hybrid: 상관계수 유사도 + DTW 타이밍 벌점 |
 | 단어 리듬 | **15%** | 단어별 타이밍 비교 | 단어 길이/간격 비율 편차 |
 | 종결 억양 | **10%** | F0 꼬리 slope 비교 | 문장 끝 억양 방향 |
 | 역동성 | **10%** | RMS dynamic ratio | 강세 변화 정도 |

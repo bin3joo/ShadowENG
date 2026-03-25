@@ -23,7 +23,7 @@ AI 서버가 해당 구간의 **원어민 발화를 분석**하여 학습용 레
 
 | 작업 | 구현 | 설명 |
 |---|---|---|
-| **자막 조회** | `fetch_youtube_captions()` | YouTube Transcript API로 영어 수동 자막 조회. 자동 자막은 접두어 fallback으로만 사용 |
+| **자막 조회** | `fetch_youtube_captions()` | `youtube_caption_enabled`가 `true`(기본값)일 때만 실행. YouTube Transcript API로 영어 수동 자막 조회. `false`이면 자막 조회 단계를 건너뛰고 항상 Whisper STT Full Path로 진행 |
 | **오디오 다운로드** | `download_reference_audio()` | yt-dlp Python API로 구간 오디오를 WAV로 다운로드 (앞뒤 padding 2초 포함) |
 | **보컬 분리 (VR)** | `separate_vocals()` | audio-separator(htdemucs_ft)로 여음/BGM 분리 (config 로 활성/비활성화) |
 
@@ -33,9 +33,12 @@ AI 서버가 해당 구간의 **원어민 발화를 분석**하여 학습용 레
 
 #### Step 3. 경로 분기 — Fast Path vs Full Path (STT)
 ```text
-자막 있음? (manual caption)
-  ├─ Yes → Fast Path: Caption Alignment (STT 생략 처리속도 극대화)
-  └─ No  → Full Path: WhisperX STT + Forced Alignment
+자막 조회 활성화? (youtube_caption_enabled)
+  ├─ false → 무조건 Full Path: WhisperX STT + Forced Alignment
+  └─ true  →
+       자막 있음? (manual caption)
+         ├─ Yes → Fast Path: Caption Alignment (STT 생략 처리속도 극대화)
+         └─ No  → Full Path: WhisperX STT + Forced Alignment
 ```
 - STT 및 단어별 타임스탬프(`word_timestamps`) 정렬은 **항상 원본 오디오**를 기준으로 수행되어, 배경 노이즈 환경에서도 사용자가 듣게 될 실제 음원과 동일한 기준을 유지합니다.
 
@@ -81,8 +84,8 @@ AI 서버가 해당 구간의 **원어민 발화를 분석**하여 학습용 레
 - Reject 시, 뒤에서 돌아가고 있는 Gemini Future 객체에 `cancel()` 신호를 날려 불필요한 비용 낭비를 차단합니다.
 
 #### Step 11. LLM 번역 결과 회수 (Join) 및 데이터 재병합
-- `translation_future.result()`를 대기하여 번역 결과물(한국어 스크립트, 파트별 번역, 주요 어휘 3종, 학습 표현)을 받아옵니다.
-- Gemini가 파트를 합쳤을(Merge) 가능성을 대비해, 프로소디와 타임스탬프를 다시 번역된 병합 구조에 맞게 조립합니다.
+- `translation_future.result()`를 대기하여 번역 결과물(한국어 스크립트, 파트별 번역, 주요 어휘 2~4종, 학습 표현 2~4개)을 받아옵니다.
+- Gemini가 파트를 합쳤을(Merge) 가능성을 대비해, 프로소디와 타임스탬프를 다시 번역된 병합 구조에 맞게 조립합니다. (병합 후 총 지속시간 최대 **10초** 제한)
 
 #### Step 12. 최종 응답 페이로드 조립
 - 종합된 `parts` 배열과 오디오 통계, `reference_quality` 지표를 탑재한 JSON 응답을 만들어 클라이언트에게 전송(HTTP 200)하고 안전하게 임시 파일을 파기합니다.
