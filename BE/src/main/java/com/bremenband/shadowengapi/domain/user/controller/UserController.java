@@ -1,5 +1,6 @@
 package com.bremenband.shadowengapi.domain.user.controller;
 
+import com.bremenband.shadowengapi.domain.user.dto.res.UserDashboardResponse;
 import com.bremenband.shadowengapi.domain.user.dto.res.UserInfoResponse;
 import com.bremenband.shadowengapi.domain.user.service.UserService;
 import com.bremenband.shadowengapi.global.common.ApiResponse;
@@ -20,6 +21,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService userService;
+
+    @GetMapping("/dashboard")
+    @Operation(
+            summary = "사용자 대시보드 조회",
+            description = "최장 연속 출석일, 총 출석일, 총 학습 문장 수, 총 학습 시간, 학습 날짜 목록, 레포트 생성 날짜 목록을 반환합니다."
+    )
+    public ApiResponse<UserDashboardResponse> getDashboard(
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId
+    ) {
+        return ApiResponse.success(userService.getDashboard(userId));
+    }
 
     @GetMapping("/me")
     @Operation(

@@ -25,4 +25,10 @@ public interface SentenceRepository extends JpaRepository<Sentence, Long> {
                         row -> (Long) row[1]
                 ));
     }
+
+    @Query("SELECT COUNT(s) FROM Sentence s WHERE s.studySession.user.id = :userId AND s.studyCount > 0")
+    long countStudiedSentencesByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT COALESCE(SUM(s.durationSec), 0.0) FROM Sentence s WHERE s.studySession.user.id = :userId AND s.studyCount > 0")
+    double sumStudyTimeSecByUserId(@Param("userId") Long userId);
 }

@@ -1,6 +1,10 @@
 package com.bremenband.shadowengapi.domain.user.service;
 
+import com.bremenband.shadowengapi.domain.report.entity.Report;
+import com.bremenband.shadowengapi.domain.report.repository.ReportRepository;
 import com.bremenband.shadowengapi.domain.study.repository.EvaluationRepository;
+import com.bremenband.shadowengapi.domain.study.repository.SentenceRepository;
+import com.bremenband.shadowengapi.domain.user.dto.res.UserDashboardResponse;
 import com.bremenband.shadowengapi.domain.user.dto.res.UserInfoResponse;
 import com.bremenband.shadowengapi.domain.user.entity.AttendanceLog;
 import com.bremenband.shadowengapi.domain.user.entity.User;
@@ -13,16 +17,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserService {
 
-    private final UserRepository        userRepository;
-    private final EvaluationRepository  evaluationRepository;
+    private final UserRepository          userRepository;
+    private final EvaluationRepository   evaluationRepository;
     private final AttendanceLogRepository attendanceLogRepository;
+    private final SentenceRepository     sentenceRepository;
+    private final ReportRepository       reportRepository;
 
     public UserInfoResponse getUserInfo(Long userId) {
         User user = userRepository.findById(userId)
@@ -40,6 +48,51 @@ public class UserService {
                 calculateLongestStreak(attendanceDates),
                 studyDates,
                 user.getCreatedAt()
+        );
+    }
+
+    public UserDashboardResponse getDashboard(Long userId) {
+        // 출석 관련
+        List<LocalDate> attendanceDates = attendanceLogRepository.findVisitDatesByUserId(userId);
+        int totalAttendanceDays = attendanceDates.size();
+        int longestStreak = calculateLongestStreak(attendanceDates);
+
+        // 학습 날짜
+        List<LocalDate> studyDates = evaluationRepository.findDistinctStudyDatesByUserId(userId);
+
+        // 학습 통계
+        long totalStudiedSentences = sentenceRepository.countStudiedSentencesByUserId(userId);
+        double totalStudyTimeSeconds = sentenceRepository.sumStudyTimeSecByUserId(userId);
+
+        // 레포트 날짜별 그룹핑
+        List<Report> reports = reportRepository.findAllByUserIdWithVideoOrderByCreatedAtAsc(userId);
+        List<UserDashboardResponse.ReportDateEntry> reportDates = reports.stream()
+                .collect(Collectors.groupingBy(
+                        r -> r.getCreatedAt().toLocalDate(),
+                        LinkedHashMap::new,
+                        Collectors.toList()
+                ))
+                .entrySet().stream()
+                .map(e -> new UserDashboardResponse.ReportDateEntry(
+                        e.getKey(),
+                        e.getValue().stream()
+                                .map(r -> new UserDashboardResponse.ReportInfo(
+                                        r.getId(),
+                                        r.getStudySession().getId(),
+                                        r.getStudySession().getVideo().getThumbnailUrl(),
+                                        r.getStudySession().getVideo().getTitle()
+                                ))
+                                .toList()
+                ))
+                .toList();
+
+        return new UserDashboardResponse(
+                longestStreak,
+                totalAttendanceDays,
+                totalStudiedSentences,
+                totalStudyTimeSeconds,
+                studyDates,
+                reportDates
         );
     }
 
