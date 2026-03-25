@@ -1,5 +1,6 @@
 package com.bremenband.shadowengapi.domain.study.dto.res;
 
+import com.bremenband.shadowengapi.domain.study.dto.python.PythonGenerateReferenceResponse;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -72,7 +73,25 @@ public record StudySessionCreateResponse(
             double durationSec,
 
             @Schema(description = "문장 학습 횟수", example = "0")
-            int studyCount
+            int studyCount,
+
+            @Schema(description = "한국어 번역")
+            String sentenceKo,
+
+            @Schema(description = "핵심 표현 목록")
+            List<String> keyExpressions,
+
+            @Schema(description = "난이도 (예: easy, medium, hard)")
+            String difficulty,
+
+            @Schema(description = "난이도 점수")
+            Double difficultyScore,
+
+            @Schema(description = "단어 목록 (발음, 예문 포함)")
+            List<PythonGenerateReferenceResponse.Vocabulary> vocabulary,
+
+            @Schema(description = "단어별 타임스탬프 목록")
+            List<PythonGenerateReferenceResponse.WordTimestamp> wordTimestamps
 
     ) {
     }

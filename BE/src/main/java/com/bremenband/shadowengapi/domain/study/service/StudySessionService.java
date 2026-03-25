@@ -8,6 +8,7 @@ import com.bremenband.shadowengapi.domain.study.dto.res.RecentStudySessionRespon
 import com.bremenband.shadowengapi.domain.study.dto.res.SentenceLearningResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.StudySessionCreateResponse;
 import com.bremenband.shadowengapi.domain.study.dto.redis.PendingEvaluation;
+import com.bremenband.shadowengapi.domain.study.dto.python.PythonGenerateReferenceResponse;
 import com.bremenband.shadowengapi.domain.study.util.WordMasker;
 import com.bremenband.shadowengapi.domain.study.dto.transcription.TranscribedSentence;
 import com.bremenband.shadowengapi.domain.study.entity.SessionStatus;
@@ -25,6 +26,7 @@ import com.bremenband.shadowengapi.domain.youtube.repository.VideoRepository;
 import com.bremenband.shadowengapi.domain.youtube.service.YoutubeService;
 import com.bremenband.shadowengapi.global.exception.CustomException;
 import com.bremenband.shadowengapi.global.exception.ErrorCode;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -109,6 +111,7 @@ public class StudySessionService {
         List<StudySessionCreateResponse.SentenceData> sentencesData = IntStream.range(0, sentences.size())
                 .mapToObj(i -> {
                     Sentence s = sentences.get(i);
+                    SentenceMetadata meta = parseSentenceMetadata(s);
                     return new StudySessionCreateResponse.SentenceData(
                             s.getId(),
                             i + 1,
@@ -116,7 +119,13 @@ public class StudySessionService {
                             s.getStartSec(),
                             s.getEndSec(),
                             s.getDurationSec(),
-                            s.getStudyCount()
+                            s.getStudyCount(),
+                            meta.sentenceKo(),
+                            meta.keyExpressions(),
+                            meta.difficulty(),
+                            meta.difficultyScore(),
+                            meta.vocabulary(),
+                            meta.wordTimestamps()
                     );
                 })
                 .toList();
@@ -226,6 +235,7 @@ public class StudySessionService {
 
         boolean isReviewing = session.isReviewing();
         boolean needsReview = sentence.getStudyCount() <= session.getCycleCount();
+        SentenceMetadata meta = parseSentenceMetadata(sentence);
 
         return new SentenceLearningResponse(
                 step,
@@ -238,7 +248,13 @@ public class StudySessionService {
                 sentence.getDurationSec(),
                 sentence.getStudyCount(),
                 isReviewing,
-                needsReview
+                needsReview,
+                meta.sentenceKo(),
+                meta.keyExpressions(),
+                meta.difficulty(),
+                meta.difficultyScore(),
+                meta.vocabulary(),
+                meta.wordTimestamps()
         );
     }
 
@@ -272,6 +288,34 @@ public class StudySessionService {
         }
 
         session.startReview();
+    }
+
+    private record SentenceMetadata(
+            String sentenceKo,
+            List<String> keyExpressions,
+            String difficulty,
+            Double difficultyScore,
+            List<PythonGenerateReferenceResponse.Vocabulary> vocabulary,
+            List<PythonGenerateReferenceResponse.WordTimestamp> wordTimestamps
+    ) {}
+
+    private SentenceMetadata parseSentenceMetadata(Sentence sentence) {
+        try {
+            List<String> keyExpressions = sentence.getKeyExpressionsJson() != null
+                    ? objectMapper.readValue(sentence.getKeyExpressionsJson(), new TypeReference<>() {})
+                    : null;
+            List<PythonGenerateReferenceResponse.Vocabulary> vocabulary = sentence.getVocabularyJson() != null
+                    ? objectMapper.readValue(sentence.getVocabularyJson(), new TypeReference<>() {})
+                    : null;
+            List<PythonGenerateReferenceResponse.WordTimestamp> wordTimestamps = sentence.getWordTimestamps() != null
+                    ? objectMapper.readValue(sentence.getWordTimestamps(), new TypeReference<>() {})
+                    : null;
+            return new SentenceMetadata(sentence.getSentenceKo(), keyExpressions,
+                    sentence.getDifficulty(), sentence.getDifficultyScore(), vocabulary, wordTimestamps);
+        } catch (Exception e) {
+            log.warn("sentence 메타데이터 파싱 실패. sentenceId={}", sentence.getId(), e);
+            return new SentenceMetadata(null, null, null, null, null, null);
+        }
     }
 
     private String buildHiddenSentence(Long sessionId, Long sentenceId, String content) {

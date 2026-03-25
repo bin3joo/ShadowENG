@@ -11,9 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -34,8 +32,7 @@ public class TranscriptionService {
 
         return response.parts().stream()
                 .map(part -> {
-                    String featuresUrl  = s3Uploader.uploadJson(toJson(part.features()),  "features/");
-                    String metadataUrl  = s3Uploader.uploadJson(toJson(buildMetadata(part)), "metadata/");
+                    String featuresUrl = s3Uploader.uploadJson(toJson(part.features()), "features/");
                     return new TranscribedSentence(
                             part.sentence(),
                             part.startSec(),
@@ -43,20 +40,15 @@ public class TranscriptionService {
                             part.durationSec(),
                             toJson(part.wordTimestamps()),
                             featuresUrl,
-                            metadataUrl
+                            part.sentenceKo(),
+                            part.keyExpressions(),
+                            part.difficulty(),
+                            part.difficultyScore(),
+                            part.vocabulary(),
+                            part.wordTimestamps()
                     );
                 })
                 .toList();
-    }
-
-    private Map<String, Object> buildMetadata(PythonGenerateReferenceResponse.Part part) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("sentenceKo",      part.sentenceKo());
-        map.put("keyExpressions",  part.keyExpressions());
-        map.put("difficulty",      part.difficulty());
-        map.put("difficultyScore", part.difficultyScore());
-        map.put("vocabulary",      part.vocabulary());
-        return map;
     }
 
     private String toJson(Object value) {
