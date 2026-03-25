@@ -1,10 +1,12 @@
 package com.bremenband.shadowengapi.domain.user.service;
 
+import com.bremenband.shadowengapi.domain.game.repository.UserGameProfileRepository;
 import com.bremenband.shadowengapi.domain.report.entity.Report;
 import com.bremenband.shadowengapi.domain.report.repository.ReportRepository;
 import com.bremenband.shadowengapi.domain.study.entity.StudySession;
 import com.bremenband.shadowengapi.domain.study.repository.EvaluationRepository;
 import com.bremenband.shadowengapi.domain.study.repository.SentenceRepository;
+import com.bremenband.shadowengapi.domain.study.service.StudySessionService;
 import com.bremenband.shadowengapi.domain.user.dto.res.UserDashboardResponse;
 import com.bremenband.shadowengapi.domain.user.dto.res.UserInfoResponse;
 import com.bremenband.shadowengapi.domain.user.entity.AttendanceLog;
@@ -42,11 +44,13 @@ class UserServiceTest {
     @InjectMocks
     private UserService userService;
 
-    @Mock private UserRepository          userRepository;
-    @Mock private EvaluationRepository    evaluationRepository;
-    @Mock private AttendanceLogRepository attendanceLogRepository;
-    @Mock private SentenceRepository      sentenceRepository;
-    @Mock private ReportRepository        reportRepository;
+    @Mock private UserRepository            userRepository;
+    @Mock private EvaluationRepository      evaluationRepository;
+    @Mock private AttendanceLogRepository   attendanceLogRepository;
+    @Mock private SentenceRepository        sentenceRepository;
+    @Mock private ReportRepository          reportRepository;
+    @Mock private UserGameProfileRepository userGameProfileRepository;
+    @Mock private StudySessionService       studySessionService;
 
     @Test
     @DisplayName("존재하는 userId로 조회하면 사용자 정보를 반환한다")

@@ -1,9 +1,14 @@
 package com.bremenband.shadowengapi.domain.user.service;
 
+import com.bremenband.shadowengapi.domain.game.entity.UserGameProfile;
+import com.bremenband.shadowengapi.domain.game.repository.UserGameProfileRepository;
 import com.bremenband.shadowengapi.domain.report.entity.Report;
 import com.bremenband.shadowengapi.domain.report.repository.ReportRepository;
+import com.bremenband.shadowengapi.domain.study.dto.res.LatestActiveSessionResponse;
 import com.bremenband.shadowengapi.domain.study.repository.EvaluationRepository;
+import com.bremenband.shadowengapi.domain.user.dto.res.MainResponse;
 import com.bremenband.shadowengapi.domain.study.repository.SentenceRepository;
+import com.bremenband.shadowengapi.domain.study.service.StudySessionService;
 import com.bremenband.shadowengapi.domain.user.dto.res.UserDashboardResponse;
 import com.bremenband.shadowengapi.domain.user.dto.res.UserInfoResponse;
 import com.bremenband.shadowengapi.domain.user.entity.AttendanceLog;
@@ -16,21 +21,27 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserService {
 
-    private final UserRepository          userRepository;
-    private final EvaluationRepository   evaluationRepository;
+    private final UserRepository           userRepository;
+    private final EvaluationRepository    evaluationRepository;
     private final AttendanceLogRepository attendanceLogRepository;
-    private final SentenceRepository     sentenceRepository;
-    private final ReportRepository       reportRepository;
+    private final SentenceRepository      sentenceRepository;
+    private final ReportRepository        reportRepository;
+    private final UserGameProfileRepository userGameProfileRepository;
+    private final StudySessionService     studySessionService;
 
     public UserInfoResponse getUserInfo(Long userId) {
         User user = userRepository.findById(userId)
@@ -49,6 +60,51 @@ public class UserService {
                 studyDates,
                 user.getCreatedAt()
         );
+    }
+
+    public MainResponse getMain(Long userId) {
+        // 1. 이번주(일~토) 학습 완료 요일
+        LocalDate today = LocalDate.now();
+        LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
+        LocalDate weekEnd   = weekStart.plusDays(6);
+
+        List<DayOfWeek> weeklyStudyDays = evaluationRepository
+                .findDistinctCompletedDatesInRangeByUserId(userId, weekStart, weekEnd)
+                .stream()
+                .map(LocalDate::getDayOfWeek)
+                .toList();
+
+        // 2. 최근 학습 세션
+        LatestActiveSessionResponse recentSession =
+                studySessionService.getRecentSession(userId).latestActiveSession();
+
+        // 3. 게임 요약 (프로필 없으면 null)
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        MainResponse.GameSummary gameSummary = null;
+        Optional<UserGameProfile> profileOpt = userGameProfileRepository.findByUser_Id(userId);
+        if (profileOpt.isPresent()) {
+            UserGameProfile profile = profileOpt.get();
+            int rank = 0;
+            if (!profile.isFrozen()) {
+                List<UserGameProfile> tierMembers =
+                        userGameProfileRepository.findByTierAndNotFrozenOrderByWeeklyScoreDesc(profile.getTier());
+                rank = IntStream.range(0, tierMembers.size())
+                        .filter(i -> tierMembers.get(i).getUserId().equals(profile.getUserId()))
+                        .map(i -> i + 1)
+                        .findFirst()
+                        .orElse(0);
+            }
+            gameSummary = new MainResponse.GameSummary(
+                    profile.getTier().name(),
+                    user.getNickname(),
+                    rank,
+                    profile.getWeeklyScore().doubleValue()
+            );
+        }
+
+        return new MainResponse(weeklyStudyDays, recentSession, gameSummary);
     }
 
     public UserDashboardResponse getDashboard(Long userId) {

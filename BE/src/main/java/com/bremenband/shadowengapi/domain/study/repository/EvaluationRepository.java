@@ -33,6 +33,15 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, Long> {
             "WHERE e.studySession.user.id = :userId ORDER BY CAST(e.createdAt AS LocalDate)")
     List<LocalDate> findDistinctStudyDatesByUserId(@Param("userId") Long userId);
 
+    @Query("SELECT DISTINCT CAST(e.createdAt AS LocalDate) FROM Evaluation e " +
+            "WHERE e.studySession.user.id = :userId AND e.step = 4 " +
+            "AND CAST(e.createdAt AS LocalDate) >= :from AND CAST(e.createdAt AS LocalDate) <= :to")
+    List<LocalDate> findDistinctCompletedDatesInRangeByUserId(
+            @Param("userId") Long userId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to
+    );
+
     default Map<Long, Long> completedSentencesMapBySessionIds(List<Long> sessionIds) {
         return countDistinctEvaluatedSentencesBySessionIds(sessionIds).stream()
                 .collect(Collectors.toMap(
