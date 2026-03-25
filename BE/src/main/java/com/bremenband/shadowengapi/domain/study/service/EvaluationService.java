@@ -80,7 +80,7 @@ public class EvaluationService {
         }
 
         // 4. 이전 step 완료 여부 검증 (step 2 이상이면 직전 step이 Redis에 존재해야 함)
-        if (step > 1 && pendingEvaluationStore.findStep(sessionId, sentenceId, step - 1).isEmpty()) {
+        if (step > 2 && pendingEvaluationStore.findStep(sessionId, sentenceId, step - 1).isEmpty()) {
             log.warn("[evaluate] previous step not completed: sessionId={}, sentenceId={}, step={}", sessionId, sentenceId, step);
             throw new CustomException(ErrorCode.PREVIOUS_STEP_NOT_COMPLETED);
         }
