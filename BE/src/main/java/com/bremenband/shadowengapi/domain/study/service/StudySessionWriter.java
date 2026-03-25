@@ -41,7 +41,7 @@ public class StudySessionWriter {
         // 2. 세션 및 전체 문장 조회
         StudySession session = studySessionRepository.findById(sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
-        List<Sentence> allSentences = sentenceRepository.findByStudySession_Id(sessionId);
+        List<Sentence> allSentences = sentenceRepository.findByStudySession_IdOrderByIdAsc(sessionId);
 
         if (allSentences.isEmpty()) return;
 

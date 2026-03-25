@@ -113,7 +113,7 @@ class StudySessionDetailServiceTest {
         ReflectionTestUtils.setField(s1, "studyCount", 2);
 
         given(studySessionRepository.findByIdWithVideo(sessionId)).willReturn(Optional.of(session));
-        given(sentenceRepository.findByStudySession_Id(sessionId)).willReturn(List.of(s1, s2));
+        given(sentenceRepository.findByStudySession_IdOrderByIdAsc(sessionId)).willReturn(List.of(s1, s2));
 
         // when
         StudySessionCreateResponse response = studySessionService.getStudySession(sessionId, USER_ID);
@@ -143,7 +143,7 @@ class StudySessionDetailServiceTest {
         assertThat(response.sentencesData().get(1).studyCount()).isEqualTo(0);
 
         then(studySessionRepository).should(times(1)).findByIdWithVideo(sessionId);
-        then(sentenceRepository).should(times(1)).findByStudySession_Id(sessionId);
+        then(sentenceRepository).should(times(1)).findByStudySession_IdOrderByIdAsc(sessionId);
     }
 
     @Test
@@ -154,7 +154,7 @@ class StudySessionDetailServiceTest {
         StudySession session = buildSession(sessionId);
 
         given(studySessionRepository.findByIdWithVideo(sessionId)).willReturn(Optional.of(session));
-        given(sentenceRepository.findByStudySession_Id(sessionId)).willReturn(List.of());
+        given(sentenceRepository.findByStudySession_IdOrderByIdAsc(sessionId)).willReturn(List.of());
 
         // when
         StudySessionCreateResponse response = studySessionService.getStudySession(sessionId, USER_ID);
@@ -177,6 +177,6 @@ class StudySessionDetailServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.SESSION_NOT_FOUND);
 
-        then(sentenceRepository).should(times(0)).findByStudySession_Id(sessionId);
+        then(sentenceRepository).should(times(0)).findByStudySession_IdOrderByIdAsc(sessionId);
     }
 }

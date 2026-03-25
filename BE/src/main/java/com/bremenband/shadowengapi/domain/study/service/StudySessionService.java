@@ -104,7 +104,7 @@ public class StudySessionService {
         }
 
         Video video = session.getVideo();
-        List<Sentence> sentences = sentenceRepository.findByStudySession_Id(sessionId);
+        List<Sentence> sentences = sentenceRepository.findByStudySession_IdOrderByIdAsc(sessionId);
 
         List<StudySessionCreateResponse.SentenceData> sentencesData = IntStream.range(0, sentences.size())
                 .mapToObj(i -> {

@@ -74,7 +74,7 @@ class StudySessionWriterTest {
 
         given(sentenceRepository.findById(sentenceId)).willReturn(Optional.of(target));
         given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(session));
-        given(sentenceRepository.findByStudySession_Id(sessionId)).willReturn(List.of(target, other));
+        given(sentenceRepository.findByStudySession_IdOrderByIdAsc(sessionId)).willReturn(List.of(target, other));
 
         studySessionWriter.completeSessionIfAllEvaluated(sessionId, sentenceId);
 
@@ -94,7 +94,7 @@ class StudySessionWriterTest {
 
         given(sentenceRepository.findById(sentenceId)).willReturn(Optional.of(target));
         given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(session));
-        given(sentenceRepository.findByStudySession_Id(sessionId)).willReturn(List.of(target, other));
+        given(sentenceRepository.findByStudySession_IdOrderByIdAsc(sessionId)).willReturn(List.of(target, other));
 
         studySessionWriter.completeSessionIfAllEvaluated(sessionId, sentenceId);
 
@@ -112,7 +112,7 @@ class StudySessionWriterTest {
 
         given(sentenceRepository.findById(sentenceId)).willReturn(Optional.of(sentence));
         given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(session));
-        given(sentenceRepository.findByStudySession_Id(sessionId)).willReturn(List.of());
+        given(sentenceRepository.findByStudySession_IdOrderByIdAsc(sessionId)).willReturn(List.of());
 
         studySessionWriter.completeSessionIfAllEvaluated(sessionId, sentenceId);
 
