@@ -39,8 +39,8 @@ public class GameSessionData {
         private int round;
         private String wordLevelFeedback; // JSON 문자열
         private double totalScore;
-        private double speedSimilarity;
+        private double wordRhythmScore;
+        private double wordAccuracy;
         private double dynamicStressScore;
-        private double boundaryToneScore;
     }
 }
