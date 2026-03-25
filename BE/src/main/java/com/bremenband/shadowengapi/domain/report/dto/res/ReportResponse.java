@@ -17,6 +17,9 @@ public record ReportResponse(
         @Schema(description = "레포트 생성 일시", example = "2025-03-23T14:30:00")
         LocalDateTime createdAt,
 
+        @Schema(description = "학습 회차 (1: 최초 학습, 2: 첫 번째 복습, ...)", example = "1")
+        int cycleNumber,
+
         @Schema(description = "세션 총 문장 수", example = "5")
         int totalSentenceCount,
 

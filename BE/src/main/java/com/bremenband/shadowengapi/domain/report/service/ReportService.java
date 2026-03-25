@@ -47,7 +47,6 @@ public class ReportService {
 
     @Transactional
     public ReportResponse createReport(Long sessionId, Long userId) {
-        // 1. 세션 조회 및 소유권 검증
         StudySession session = studySessionRepository.findById(sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
 
@@ -59,13 +58,27 @@ public class ReportService {
             throw new CustomException(ErrorCode.FORBIDDEN);
         }
 
-        // 2. 세션 평가 결과 조회 (step 4 = 최종 숙달 확인 단계만 반영)
+        return buildAndSaveReport(session, sessionId, session.getCycleCount());
+    }
+
+    /**
+     * 인증 없이 서버 내부에서 레포트를 자동 생성할 때 사용 (사이클 완료 시 자동 호출).
+     */
+    @Transactional
+    public void createReportInternal(Long sessionId, int cycleNumber) {
+        StudySession session = studySessionRepository.findById(sessionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
+        buildAndSaveReport(session, sessionId, cycleNumber);
+    }
+
+    private ReportResponse buildAndSaveReport(StudySession session, Long sessionId, int cycleNumber) {
+        // 1. 세션 평가 결과 조회 (step 4 = 최종 숙달 확인 단계만 반영)
         List<Evaluation> evaluations = evaluationRepository.findByStudySession_IdAndStep(sessionId, 4);
         if (evaluations.isEmpty()) {
             throw new CustomException(ErrorCode.NO_EVALUATIONS_FOR_REPORT);
         }
 
-        // 3. 평균 점수 계산
+        // 2. 평균 점수 계산
         double avgTotal    = avg(evaluations, e -> e.getTotalScore().doubleValue());
         double avgAccuracy = avg(evaluations, e -> e.getWordAccuracy().doubleValue());
         double avgProsody  = avg(evaluations, e -> e.getProsodyAndStress().doubleValue());
@@ -75,9 +88,10 @@ public class ReportService {
         double avgSpeed    = avg(evaluations, e -> e.getSpeedSimilarity().doubleValue());
         double avgPause    = avg(evaluations, e -> e.getPauseSimilarity().doubleValue());
 
-        // 4. 레포트 저장
+        // 3. 레포트 저장
         Report report = reportRepository.save(Report.builder()
                 .studySession(session)
+                .cycleNumber(cycleNumber)
                 .totalScore(bd(avgTotal))
                 .wordAccuracy(bd(avgAccuracy))
                 .prosodyAndStress(bd(avgProsody))
@@ -88,7 +102,7 @@ public class ReportService {
                 .pauseSimilarity(bd(avgPause))
                 .build());
 
-        // 5. 취약 문장 추출 — avgScore 낮은 순 정렬
+        // 4. 취약 문장 추출 — avgScore 낮은 순 정렬
         Map<Long, List<Evaluation>> bySentence = evaluations.stream()
                 .collect(Collectors.groupingBy(e -> e.getSentence().getId()));
 
@@ -97,14 +111,13 @@ public class ReportService {
                 .sorted(Comparator.comparingDouble(entry -> avgScore(entry.getValue())))
                 .toList();
 
-        // DB에 전체 저장
         difficultEntries.forEach(entry -> {
             Sentence sentence = entry.getValue().get(0).getSentence();
             weekSentenceRepository.save(WeekSentence.builder()
                     .report(report).sentence(sentence).build());
         });
 
-        // 6. 응답 (상위 3개)
+        // 5. 응답 (상위 3개)
         List<ReportResponse.DifficultSentence> difficultSentences = difficultEntries.stream()
                 .limit(DIFFICULT_SENTENCE_LIMIT)
                 .map(entry -> buildDifficultSentence(
@@ -119,6 +132,7 @@ public class ReportService {
                 report.getId(),
                 sessionId,
                 report.getCreatedAt(),
+                report.getCycleNumber(),
                 totalSentenceCount,
                 new ReportResponse.Scores(
                         round(avgTotal), round(avgAccuracy), round(avgProsody),
@@ -186,6 +200,7 @@ public class ReportService {
                 report.getId(),
                 sessionId,
                 report.getCreatedAt(),
+                report.getCycleNumber(),
                 totalSentenceCount,
                 new ReportResponse.Scores(
                         report.getTotalScore().doubleValue(),
@@ -263,6 +278,7 @@ public class ReportService {
                 report.getId(),
                 sessionId,
                 report.getCreatedAt(),
+                report.getCycleNumber(),
                 totalSentenceCount,
                 new ReportResponse.Scores(
                         report.getTotalScore().doubleValue(),

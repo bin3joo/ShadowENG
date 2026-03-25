@@ -31,8 +31,13 @@ public class StudySessionWriter {
     private final SentenceRepository sentenceRepository;
     private final EvaluationRepository evaluationRepository;
 
+    /**
+     * step 4 완료 시 호출.
+     * 모든 문장이 학습 완료되면 사이클을 증가시키고 새 cycleCount를 반환한다.
+     * 미완료 시 0을 반환한다.
+     */
     @Transactional
-    public void completeSessionIfAllEvaluated(Long sessionId, Long sentenceId) {
+    public int completeSessionIfAllEvaluated(Long sessionId, Long sentenceId) {
         // 1. step 4 완료된 문장의 studyCount 증가
         Sentence sentence = sentenceRepository.findById(sentenceId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SENTENCE_NOT_FOUND));
@@ -43,7 +48,7 @@ public class StudySessionWriter {
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
         List<Sentence> allSentences = sentenceRepository.findByStudySession_IdOrderByIdAsc(sessionId);
 
-        if (allSentences.isEmpty()) return;
+        if (allSentences.isEmpty()) return 0;
 
         // 3. 모든 문장의 studyCount > cycleCount 이면 사이클 완료
         boolean allAhead = allSentences.stream()
@@ -51,7 +56,9 @@ public class StudySessionWriter {
         if (allAhead) {
             session.completeCycle();  // cycleCount++, isReviewing=false
             session.complete();       // status=COMPLETED (최초 1회 이후 멱등)
+            return session.getCycleCount();
         }
+        return 0;
     }
 
     @Transactional
@@ -104,7 +111,8 @@ public class StudySessionWriter {
                                     0
                             );
                         })
-                        .toList()
+                        .toList(),
+                false
         );
     }
 }

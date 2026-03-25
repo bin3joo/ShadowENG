@@ -52,7 +52,7 @@ public class Sentence {
     @Column(name = "metadata_url")
     private String metadataUrl;
 
-    @Column(name = "study_count", nullable = false)
+    @Column(name = "study_count", nullable = false, columnDefinition = "integer default 0")
     private int studyCount = 0;
 
     @CreatedDate

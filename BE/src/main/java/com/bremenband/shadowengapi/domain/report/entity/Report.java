@@ -27,6 +27,9 @@ public class Report {
     @JoinColumn(name = "session_id", nullable = false)
     private StudySession studySession;
 
+    @Column(name = "cycle_number", nullable = false, columnDefinition = "integer default 1")
+    private int cycleNumber;
+
     @Column(name = "total_score", nullable = false, precision = 5, scale = 2)
     private BigDecimal totalScore;
 
@@ -56,10 +59,11 @@ public class Report {
     private LocalDateTime createdAt;
 
     @Builder
-    private Report(StudySession studySession, BigDecimal totalScore, BigDecimal wordAccuracy,
+    private Report(StudySession studySession, int cycleNumber, BigDecimal totalScore, BigDecimal wordAccuracy,
                    BigDecimal prosodyAndStress, BigDecimal wordRhythmScore, BigDecimal boundaryToneScore,
                    BigDecimal dynamicStressScore, BigDecimal speedSimilarity, BigDecimal pauseSimilarity) {
         this.studySession = studySession;
+        this.cycleNumber = cycleNumber;
         this.totalScore = totalScore;
         this.wordAccuracy = wordAccuracy;
         this.prosodyAndStress = prosodyAndStress;

@@ -36,6 +36,8 @@ public enum ErrorCode {
     USER_IS_FROZEN(HttpStatus.FORBIDDEN, 4002, "동결(freeze) 상태에서는 리더보드에 접근할 수 없습니다."),
     GAME_LEVEL_LOCKED(HttpStatus.FORBIDDEN, 4003, "잠긴 레벨입니다. 이전 레벨을 먼저 클리어해주세요."),
     GAME_ROUND_INVALID(HttpStatus.BAD_REQUEST, 1005, "유효하지 않은 게임 라운드 요청입니다. 이전 라운드를 먼저 완료해주세요."),
+    PREVIOUS_STEP_NOT_COMPLETED(HttpStatus.BAD_REQUEST, 1006, "이전 학습 단계를 먼저 완료해주세요."),
+    REVIEW_NOT_STARTED(HttpStatus.BAD_REQUEST, 1007, "복습 모드가 활성화되지 않았습니다. 복습하기를 먼저 눌러주세요."),
 
     // [5000 ~] : 미구현 기능
     NOT_IMPLEMENTED(HttpStatus.NOT_IMPLEMENTED, 5000, "아직 구현되지 않은 기능입니다."),
