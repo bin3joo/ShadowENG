@@ -95,6 +95,7 @@ public class StudySessionWriter {
 
         return new StudySessionCreateResponse(
                 session.getId(),
+                null,
                 new StudySessionCreateResponse.VideoData(
                         video.getVideoId(),
                         video.getEmbedUrl(),
@@ -127,6 +128,42 @@ public class StudySessionWriter {
                         .toList(),
                 false
         );
+    }
+
+    /**
+     * 재학습 시 호출. 원본 세션의 모든 정보를 복사하여 새 자식 세션을 생성한다.
+     */
+    @Transactional
+    public record ReLearnResult(StudySession session, List<Sentence> sentences) {}
+
+    @Transactional
+    public ReLearnResult saveReLearnSession(StudySession original, User user, List<Sentence> originalSentences) {
+        StudySession newSession = studySessionRepository.save(StudySession.builder()
+                .video(original.getVideo())
+                .user(user)
+                .startSec(original.getStartSec())
+                .endSec(original.getEndSec())
+                .parentSession(original)
+                .build());
+
+        List<Sentence> copiedSentences = originalSentences.stream()
+                .map(s -> Sentence.builder()
+                        .studySession(newSession)
+                        .content(s.getContent())
+                        .startSec(s.getStartSec())
+                        .endSec(s.getEndSec())
+                        .durationSec(s.getDurationSec())
+                        .wordTimestamps(s.getWordTimestamps())
+                        .featuresUrl(s.getFeaturesUrl())
+                        .sentenceKo(s.getSentenceKo())
+                        .difficulty(s.getDifficulty())
+                        .difficultyScore(s.getDifficultyScore())
+                        .keyExpressionsJson(s.getKeyExpressionsJson())
+                        .vocabularyJson(s.getVocabularyJson())
+                        .build())
+                .toList();
+
+        return new ReLearnResult(newSession, sentenceRepository.saveAll(copiedSentences));
     }
 
     private String toJson(Object value) {

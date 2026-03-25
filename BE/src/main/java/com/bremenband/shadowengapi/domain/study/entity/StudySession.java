@@ -37,6 +37,10 @@ public class StudySession extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private SessionStatus status = SessionStatus.ACTIVE;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_session_id")
+    private StudySession parentSession;
+
     @Column(name = "cycle_count", nullable = false)
     private int cycleCount = 0;
 
@@ -61,11 +65,12 @@ public class StudySession extends BaseTimeEntity {
     }
 
     @Builder
-    private StudySession(Video video, User user, double startSec, double endSec) {
+    private StudySession(Video video, User user, double startSec, double endSec, StudySession parentSession) {
         this.video = video;
         this.user = user;
         this.startSec = startSec;
         this.endSec = endSec;
+        this.parentSession = parentSession;
         this.status = SessionStatus.ACTIVE;
         this.cycleCount = 0;
         this.isReviewing = false;

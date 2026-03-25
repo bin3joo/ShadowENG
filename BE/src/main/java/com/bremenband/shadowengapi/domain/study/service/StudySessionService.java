@@ -130,8 +130,12 @@ public class StudySessionService {
                 })
                 .toList();
 
+        Long parentSessionId = session.getParentSession() != null
+                ? session.getParentSession().getId() : null;
+
         return new StudySessionCreateResponse(
                 session.getId(),
+                parentSessionId,
                 new StudySessionCreateResponse.VideoData(
                         video.getVideoId(),
                         video.getEmbedUrl(),
@@ -255,6 +259,61 @@ public class StudySessionService {
                 meta.difficultyScore(),
                 meta.vocabulary(),
                 meta.wordTimestamps()
+        );
+    }
+
+    @Transactional
+    public StudySessionCreateResponse reLearnSession(Long sessionId, Long userId) {
+        StudySession original = studySessionRepository.findByIdWithVideo(sessionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
+
+        if (original.getStatus() == SessionStatus.DELETED) {
+            throw new CustomException(ErrorCode.SESSION_NOT_FOUND);
+        }
+
+        if (original.getStatus() != SessionStatus.COMPLETED) {
+            throw new CustomException(ErrorCode.SESSION_NOT_COMPLETED);
+        }
+
+        if (!original.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
+
+        User user = original.getUser();
+        List<Sentence> originalSentences = sentenceRepository.findByStudySession_IdOrderByIdAsc(sessionId);
+
+        StudySessionWriter.ReLearnResult result = studySessionWriter.saveReLearnSession(original, user, originalSentences);
+        StudySession newSession = result.session();
+        Video video = original.getVideo();
+
+        List<StudySessionCreateResponse.SentenceData> sentencesData = IntStream.range(0, result.sentences().size())
+                .mapToObj(i -> {
+                    Sentence s = result.sentences().get(i);
+                    SentenceMetadata meta = parseSentenceMetadata(s);
+                    return new StudySessionCreateResponse.SentenceData(
+                            s.getId(), i + 1, s.getContent(),
+                            s.getStartSec(), s.getEndSec(), s.getDurationSec(),
+                            s.getStudyCount(),
+                            meta.sentenceKo(), meta.keyExpressions(), meta.difficulty(),
+                            meta.difficultyScore(), meta.vocabulary(), meta.wordTimestamps()
+                    );
+                })
+                .toList();
+
+        return new StudySessionCreateResponse(
+                newSession.getId(),
+                original.getId(),
+                new StudySessionCreateResponse.VideoData(
+                        video.getVideoId(),
+                        video.getEmbedUrl(),
+                        "https://www.youtube.com/watch?v=" + video.getVideoId(),
+                        video.getTitle(),
+                        video.getThumbnailUrl(),
+                        video.getDuration(),
+                        video.getChannelTitle()
+                ),
+                sentencesData,
+                false
         );
     }
 
