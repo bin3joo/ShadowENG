@@ -5,6 +5,8 @@
 사용자가 YouTube 영상의 `video_id`와 `start_sec ~ end_sec` 구간을 지정하면,  
 AI 서버가 해당 구간의 **원어민 발화를 분석**하여 학습용 레퍼런스 데이터를 생성합니다.
 
+이번 업데이트를 통해 **LLM(Gemini) 번역 프로세스와 오디오 피처(Prosody) 추출 로직을 완벽히 병렬화**하여, 서버의 전체 응답 속도를 혁신적으로 단축했습니다.
+
 ---
 
 ## 상세 워크플로우 (12단계)
@@ -14,7 +16,7 @@ AI 서버가 해당 구간의 **원어민 발화를 분석**하여 학습용 레
 #### Step 1. API 요청 수신
 - 엔드포인트: `POST /api/v1/generate-reference`
 - 입력: `{ video_id, start_sec, end_sec }`
-- Pydantic 스키마(`GenerateReferenceRequest`)로 video_id 형식(11자리), 시간 범위 유효성 검증
+- Pydantic 스키마(`GenerateReferenceRequest`)로 video_id 형식(11자리) 및 시간 범위 유효성 검증
 
 #### Step 2. 병렬 다운로드 (ThreadPoolExecutor, max_workers=4)
 동시에 3가지 작업을 병렬로 시작합니다:
@@ -23,137 +25,84 @@ AI 서버가 해당 구간의 **원어민 발화를 분석**하여 학습용 레
 |---|---|---|
 | **자막 조회** | `fetch_youtube_captions()` | YouTube Transcript API로 영어 수동 자막 조회. 자동 자막은 접두어 fallback으로만 사용 |
 | **오디오 다운로드** | `download_reference_audio()` | yt-dlp Python API로 구간 오디오를 WAV로 다운로드 (앞뒤 padding 2초 포함) |
-| **보컬 분리 (VR)** | `separate_vocals()` | audio-separator(htdemucs_ft)로 보컬만 추출 (config로 활성화/비활성화) |
+| **보컬 분리 (VR)** | `separate_vocals()` | audio-separator(htdemucs_ft)로 여음/BGM 분리 (config 로 활성/비활성화) |
 
 ---
 
-### Phase 2: 음성 인식 및 타임스탬프 생성
+### Phase 2: 음성 인식 및 원본 텍스트 정제
 
-#### Step 3. 경로 분기 — Fast Path vs Full Path
-
-```
+#### Step 3. 경로 분기 — Fast Path vs Full Path (STT)
+```text
 자막 있음? (manual caption)
-  ├─ Yes → Fast Path: Caption Alignment (STT 생략, ~10배 빠름)
+  ├─ Yes → Fast Path: Caption Alignment (STT 생략 처리속도 극대화)
   └─ No  → Full Path: WhisperX STT + Forced Alignment
 ```
+- STT 및 단어별 타임스탬프(`word_timestamps`) 정렬은 **항상 원본 오디오**를 기준으로 수행되어, 배경 노이즈 환경에서도 사용자가 듣게 될 실제 음원과 동일한 기준을 유지합니다.
 
-**Fast Path (Caption Alignment):**
-1. 패딩된 자막 텍스트를 단일 세그먼트로 포장
-2. WhisperX `align()`이 텍스트를 오디오 파형에 강제 매핑
-3. Ghost Word 필터링 (4단계):
-   - timestamp 없는 단어 제거 (오디오에서 찾지 못함)
-   - `score < 0.1` 단어 제거 (억지 매칭)
-4. Caption 건강도 평가(`evaluate_caption_alignment_health`):
-   - `surviving_word_ratio` 확인 (55% 미만이면 fallback 고려)
-   - 앞부분 low-confidence 비율, leading/trailing gap 확인
-   - 복합 신호가 2개 이상이면 → Full Path로 fallback
-
-**Full Path (Whisper STT):**
-1. WhisperX `transcribe()`: 음성 → 텍스트 (large-v3, batch_size=16)
-2. WhisperX `align()`: 텍스트 → 단어별 타임스탬프
-3. pyannote Diarization: 화자 라벨 부여 (선택적)
-
-#### Step 4. 구간 리베이스
+#### Step 4. 텍스트 정제 및 구간 리베이스
 - 다운로드 패딩(2초)을 감안하여 단어 타임스탬프를 요청 구간 `[start_sec, end_sec]` 기준으로 리베이스
-- 요청 구간 밖의 단어는 제거
+- 신뢰도(Confidence)가 낮은 양극단 경계 단어 보수적 트리밍(`trim_boundary_fragments`)
+- 특수문자 제거 및 텍스트 띄어쓰기 정제(`sanitize_reference_text`)
 
 ---
 
-### Phase 3: 텍스트 정제 및 경계 트리밍
+### Phase 3: 문장 분할 및 LLM 병렬 트리거 🚀 (핵심 최적화 구간)
 
-#### Step 5. 경계 단어 트리밍 (`trim_boundary_fragments`)
-- **앞부분**: alignment score < 0.65인 저신뢰 단어를 제거
-- **뒷부분**: alignment score < 0.38이면서 오디오 끝에 0.15초 이내인 단어를 제거
-- 최소 2개 단어는 유지
+#### Step 5. 문장 / 턴 분할 (`split_into_sentences_with_timestamps`)
+- 정제된 최종 스크립트와 타임스탬프 배열을 기반으로 **즉시 문장을 분할**합니다.
+- `.?!` 뒤 공백을 기준으로 1차 분할 후, 턴 분할(대화형 로직) 혹은 짧은 파편 병합을 통해 기본적인 `sentence_data` 뼈대를 만듭니다.
 
-#### Step 6. 텍스트 정제 (`sanitize_reference_text`)
-- 특수 문자 제거 (영문, 숫자, 기본 구두점만 유지)
-- 다중 공백 정규화
-- 구두점 앞 공백 제거
+#### Step 6. Gemini LLM 번역 즉각 실행 (Background Submit)
+- 문장 뼈대가 만들어지자마자, 즉시 ThreadPoolExecutor를 통해 `translate_reference_parts_with_gemini`를 백그라운드로 던집니다.
+- **포인트**: LLM이 네트워크를 타며 번역(전체 번역, 파트 병합, 학습 어휘 추출)을 고민하는 수 초 동안, 서버는 놀지 않고 곧바로 다음의 무거운 음성 추출(Phase 4) 연산에 돌입합니다.
 
 ---
 
-### Phase 4: 프로소디 피처 추출
+### Phase 4: 프로소디 피처 추출 (LLM 연산과 동시 진행)
 
 #### Step 7. 오디오 품질 추정 및 디노이즈 모드 선택
-- `estimate_reference_audio_metrics()`: speech_ratio, SNR(dB), noise_level 계산
-- `select_reference_denoise_mode()`: 노이즈 레벨에 따라 `off` / `mild` / `moderate` 자동 선택
+- `estimate_reference_audio_metrics()`: 오디오의 SNR(dB), 노이즈 레벨 측정
+- 측정된 노이즈 수준에 따라 Prosody 디노이즈 강도를 `off` / `mild` / `moderate` 3단계로 자동 선택합니다.
 
-#### Step 8. F0/RMS 프로소디 피처 추출
-- 원본 오디오에서 `extract_prosody_features()` 실행:
-  - `librosa.pyin()`: C2~C7 대역 F0 추출 (hop_length=256)
-  - `librosa.feature.rms()`: 에너지 추출
-  - F0 화자 정규화 (유성음 기준 Z-score)
-  - RMS Z-score 정규화
+#### Step 8. F0/RMS 프로소디 추출 (Original vs VR 병렬)
+- `extract_prosody_features`: 원음(Original)과 분리음(VR) 양쪽에서 각각 기본 주파수(F0)와 볼륨(RMS) 에너지를 병렬로 추출합니다.
+- 추출 과정 중, Pyin 30Hz 미만 대역을 0으로 깎는 하드 마스킹 및 `Smart Cropping`, 메디안 필터링(Kernel=5)이 가해집니다.
 
-#### Step 9. VR Gating — 소스 선택 (보컬 분리 활성화 시)
-- VR 오디오에서도 별도로 F0/RMS를 추출
-- `select_reference_prosody_sources()`: 4가지 품질 지표로 F0/RMS 각각에 대해 원본 vs VR 중 더 나은 소스를 선택
-  - F0 선택: `voiced_ratio` / `jump_ratio` 기반
-  - RMS 선택: `contrast_db` / `dropout_ratio` 기반
+#### Step 9. VR Gating — 최적 소스 채택
+- `select_reference_prosody_sources()` 알고리즘을 통해, 추출된 두 버전 중 더 깔끔한 Pitch와 RMS를 각 항목별로 크로스 게이팅(채택)합니다.
 
 ---
 
-### Phase 5: 문장 분할 및 파트 구성
+### Phase 5: 품질 판정 및 최종 융합
 
-#### Step 10. 문장/턴 분할 (`split_into_sentences_with_timestamps`)
+#### Step 10. 파트 분석 부착 및 Reference 품질 게이트 평가
+- Step 9에서 확정된 최종 프로소디 데이터와 Speaker 정보를 Step 5의 `sentence_data` 뼈대에 덧붙입니다.
+- **품질 게이트 판정**: `low_alignment_ratio`(정렬 불량율)가 60% 이상이거나, 화자가 심하게 겹치면(`overlap_ratio`) 422 Reject를 발생시킵니다.
+- Reject 시, 뒤에서 돌아가고 있는 Gemini Future 객체에 `cancel()` 신호를 날려 불필요한 비용 낭비를 차단합니다.
 
-1. **문장 분할**: `.?!` 뒤 공백 기준으로 분리
-2. **턴 분할** (대화형 영상): pause gap, 화자 전환, 구두점, 최대 단어 수를 고려한 turn 경계 생성
-3. **분할 방식 자동 선택**: 화자가 2명 이상이거나 턴 수가 더 많으면 → 턴 분할 사용
-4. **짧은 파트 병합** (`merge_short_reference_parts`): 1초 미만의 짧은 파편을 인접 파트와 병합 (화자 호환성 확인)
+#### Step 11. LLM 번역 결과 회수 (Join) 및 데이터 재병합
+- `translation_future.result()`를 대기하여 번역 결과물(한국어 스크립트, 파트별 번역, 주요 어휘 3종, 학습 표현)을 받아옵니다.
+- Gemini가 파트를 합쳤을(Merge) 가능성을 대비해, 프로소디와 타임스탬프를 다시 번역된 병합 구조에 맞게 조립합니다.
 
-각 파트에 부여되는 메타데이터:
-- `sentence`, `start_sec`, `end_sec`, `duration_sec`
-- `difficulty` (Easy/Normal/Hard/Expert), `difficulty_score`
-- `key_expressions` (A1 제외 핵심 어휘)
-- `word_timestamps`, `pause_count`
-- `features` (파트별 F0/RMS 피처 배열)
+#### Step 12. 최종 응답 페이로드 조립
+- 종합된 `parts` 배열과 오디오 통계, `reference_quality` 지표를 탑재한 JSON 응답을 만들어 클라이언트에게 전송(HTTP 200)하고 안전하게 임시 파일을 파기합니다.
 
 ---
 
-### Phase 6: 번역 및 학습 콘텐츠 생성
+## 품질 및 가중치 응답 구조
 
-#### Step 11. Gemini LLM 호출 (`translate_reference_parts_with_gemini`)
-
-Gemini에 파트 데이터를 전송하여 3가지 작업을 동시 수행:
-
-1. **전체 텍스트 한국어 번역** — 자연스러운 구어체(영화 자막 수준) 번역
-2. **파트 병합 및 파트별 번역** — 인접 파트 중 논리적으로 연속된 것을 최대 15초 제한으로 병합, 각 병합 파트에 `sentence_ko` 부여
-3. **어휘 및 학습 표현 추출** — 파트별 3~5개 어휘 + 전체 3~5개 학습 표현 (발음, 뉘앙스, 예문 포함)
-
-- 최대 3회 재시도 (429, timeout, MAX_TOKENS 등 오류 시 지수 백오프)
-- Pydantic 기반 응답 파싱 및 검증 (`source_part_ids` 순서 전수 검사)
-
----
-
-### Phase 7: 품질 판정 및 응답 생성
-
-#### Step 12. 품질 게이트 판정 (`assess_reference_quality`)
-
-| 검사 항목 | reject 조건 | risky 조건 |
-|---|---|---|
-| 정렬 신뢰도 | low_alignment_ratio ≥ 60% | low_alignment_confidence |
-| 겹침 비율 | overlap_ratio ≥ 42% | medium_overlap (26%~42%) |
-| 노이즈 | — | high_noise / medium_noise |
-| 화자 | — | multi_speaker_detected |
-| 대화 양상 | — | dialog_like |
-
-- `reject` → HTTP 422 에러 응답 (레퍼런스 부적합)
-- `risky` → 경고 포함 정상 응답 (주의해서 사용)
-- `good` → 정상 응답
-
-#### 최종 응답 페이로드 구성
 ```json
 {
   "status": "SUCCESS",
-  "video_id": "...",
+  "video_id": "NrO20Jb-hy0",
   "final_script": "...",
-  "final_script_ko": "...",
+  "final_script_ko": "자, 오늘 우리는...",
   "parts": [
     {
-      "sentence": "...", "sentence_ko": "...",
-      "start_sec": 0.0, "end_sec": 5.0,
+      "sentence": "...", 
+      "sentence_ko": "...",
+      "start_sec": 0.0, 
+      "end_sec": 5.0,
       "difficulty": "Easy",
       "word_timestamps": [...],
       "features": { "f0_array": [...], "rms_array": [...] },

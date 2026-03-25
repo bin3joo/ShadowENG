@@ -1,4 +1,4 @@
-# StyleEcho AI Worker Specification
+# 잉무 AI Worker Specification
 
 ## 1. 개요
 
@@ -62,8 +62,8 @@
   * 원본 오디오는 STT / alignment 및 품질 평가 기준으로 사용
   * 선택적으로 VR(보컬 분리) 오디오를 사용해 prosody 후보를 추가 추출
   * 원본 / VR prosody를 gating 규칙으로 비교해 `f0`, `rms` 소스를 독립적으로 선택
-  * Gemini 번역 요청을 prosody / quality 처리와 겹치도록 병렬 실행
-  * part 단위 prosody feature 추출
+  * **LLM Zero-Wait 비동기 파이프라인**: 텍스트 분할되자마자 즉시 수 초 짜리 LLM(Gemini) 번역을 백그라운드로 Submit 하고, 그 긴 I/O 대기시간 동안 메인 서버가 쉴 틈 없이 가장 무거운 `F0/RMS Prosody 연산` 및 `Source Gating`을 동시 수행하여 체감 처리속도를 혁신적으로 감축
+  * part 번역이 병합/수정될 시, 이를 동기화하여 `word_timestamps`와 `features`배열을 LLM 결과에 맞춰 지능적으로 `Remerge(재조립)`
   * quality 분석 결과는 공개 API에 필요한 수준만 노출
 
 ### 4.3. 유저 발화 평가 (`evaluate-audio`)
@@ -81,6 +81,9 @@
   * prosody / rhythm / boundary tone / dynamic stress 점수
   * 속도 유사도, pause 유사도
   * 종합 점수 및 pass/fail 판단
+* **특징:**
+  * `evaluation.user_vr_enabled` 옵션으로 평가 전 배경 소음을 분리해 본연의 목소리만 평가 가능
+  * **Smart Cropping** (발화 구간 외 무음 절단) 및 F0/RMS **Baseline 0 Fixed** 기술로 억울한 감점 방지
 
 ### 4.4. 화자 분석 및 dialog turn 분할
 
@@ -166,8 +169,8 @@ cd S14P21A306/AI
 
 ```bash
 # 1. conda 환경 생성 (Python 3.10)
-conda create -n styleecho python=3.10 -y
-conda activate styleecho
+conda create -n 잉무 python=3.10 -y
+conda activate 잉무
 
 # 2. (GPU 사용 시) PyTorch CUDA 버전 설치
 #    CUDA 11.8 기준 예시 — 본인 CUDA 버전에 맞게 조정
@@ -245,10 +248,13 @@ vocal_remover:
 이 경우 prosody는 원본 오디오만 사용합니다.
 반대로 `source_mode: "vr"` 로 설정할 경우, 원본 오디오 대신 VR 분리 버전을 통해 F0/RMS를 추출합니다.
 
-#### 채점 하이퍼파라미터 커스터마이징
+#### 평가 및 채점 하이퍼파라미터 커스터마이징
 
 ```yaml
-# config.yaml 예시 — 채점 민감도 조절
+# config.yaml 예시 — 평가 및 채점 민감도 조절
+evaluation:
+  user_vr_enabled: false     # 사용자 업로드 오디오에 보컬 분리 채점 적용 여부 (기본 false)
+
 scoring:
   wer_penalty: 2.0           # WER 감점 강도 (낮을수록 관대)
   speed_deadband: 0.15       # 속도 불감대 ±15%
@@ -301,10 +307,15 @@ python -m test.test_api evaluate "./my_recording.wav"
 python -m test.test_api evaluate "./my_recording.wav" --ref "./test/result/VIDEO_ID/meta/reference.json" --part 2
 ```
 
-### 6.8. 검증 스크립트
+### 6.8. 시각화 및 검증 스크립트 (Visualization & Verification)
 
 ```bash
 cd S14P21A306/AI
+
+# 유튜브 VR 음원 프로소디 추출 가시화 (원본 vs VR)
+python -m test.visualize_prosody_vr_mode
+# 유저 평가 데이터 동기화 리포트 프리미엄 시각화 (Native vs Learner)
+python -m test.visualize_prosody_eval_mode
 
 python -m test.sentence_verify    # 문장 분리 검증
 python -m test.trim_verify        # trim 로직 검증
@@ -348,13 +359,14 @@ python -m test.test_vr_onnx "VIDEO_URL" 0.0 60.0  # ONNX 기반 VR 보컬 분리
     * `whisper.model`, `whisper.device`, `whisper.compute_type`
     * `reference.enable_diarization`
     * `reference.denoise_mode`
+    * `reference.save_audio_artifacts` — 테스트용 레퍼런스 및 파트 오디오 파일 디스크 저장 여부 제어 플래그
     * `reference.min_part_duration_sec`
     * `reference.short_part_terminal_protection_enabled`
     * `alignment.caption_fallback_enabled`
     * `vocal_remover.enabled`
     * `vocal_remover.source_mode` — 오리지널/VR 소스 선택 (original, vr, both)
     * `scoring.*` — 채점 하이퍼파라미터 (WER 감점 강도, 속도 불감대, 종결 억양 민감도 등)
-    * `audio.cache.*` — 오디오 캐시 설정 (활성화, 크기 제한, TTL)
+    * `audio.cache.*` — 오디오 다운로드 LRU 설정 (활성화, 크기 제한, TTL)
 
 ### 7.3. 외부 서비스 / 토큰
 
@@ -457,62 +469,55 @@ AI/
 ├── config.yaml                    # 사용자 커스텀 설정
 ├── requirements.txt               # Python 의존성 목록
 ├── README.md                      # 현재 시스템 설명, 실행 방법, 설정, 구조
-├── pipeline.py                    # StyleEchoPipeline 핵심 로직
+├── pipeline.py                    # 잉무Pipeline 헬퍼 및 진입점
 ├── domain/
-│   ├── __init__.py
-│   └── processing/
-│       ├── __init__.py
-│       ├── audio_processing.py    # 실제 오디오 처리 구현
-│       ├── constants.py           # 실제 상수 정의
-│       ├── engine_utils.py        # 실제 공통 유틸리티 구현
-│       ├── quality.py             # 실제 품질 평가 구현
-│       ├── speaker_analysis.py    # 실제 화자 분석 구현
-│       └── text_processing.py     # 실제 문장/turn 처리 구현
-├── api/
-│   ├── __init__.py
+│   ├── processing/                # [기초] 텍스트, 품질, 오디오 기초 처리
+│   │   ├── audio_processing.py    # 실제 오디오 처리 및 VR 적용 구현
+│   │   ├── constants.py           # 상수 풀 정의
+│   │   ├── engine_utils.py        # 공통 유틸리티 (캐노니컬 토큰 등)
+│   │   ├── quality.py             # 참조 품질 평가 및 SNR 계산
+│   │   ├── speaker_analysis.py    # 화자 분석 및 리스크 판정
+│   │   └── text_processing.py     # 문장 분할 및 턴(turn) 경계 인식
+│   ├── prosody/                   # [운율] F0/RMS 피처 추출 엔진
+│   │   ├── feature_extraction.py  # F0/RMS 0점 강제 고정 및 Smart Crop 추출
+│   │   └── source_selection.py    # 원본 vs VR 음원 소스 게이팅 결정 트리
+│   ├── scoring/                   # [상세 평가] 사용자 발화 채점 엔진
+│   │   ├── aggregator.py          # 평가 오케스트레이션 및 점수 통합
+│   │   ├── boundary_scoring.py    # 종결 억양(문장 끝) 채점 로직
+│   │   ├── dynamic_scoring.py     # 강세의 역동성 채점 로직
+│   │   ├── pause_scoring.py       # 문장 내 멈춤(Pause) 타이밍 채점 로직
+│   │   ├── pitch_contour.py       # 단어별 피치 컨투어 채점 로직
+│   │   ├── prosody_scoring.py     # Pitch/RMS DTW 정렬 및 유사도 채점 로직
+│   │   ├── rhythm_scoring.py      # 리듬(박자) 및 발화 속도 채점 로직
+│   │   └── word_alignment.py      # 사용자 발화 타임스탬프 정렬 보정
+│   └── stt/                       # [음성인식] STT 부가 패키지
+│       └── diarization.py         # Pyannote 화자 분리 및 턴 추적
+├── api/                           # [라우터] 엔드포인트
 │   ├── app.py                     # FastAPI app factory 및 router 조립
 │   ├── evaluation.py              # evaluate-audio endpoint
 │   └── reference.py               # generate-reference endpoint
-├── services/
-│   ├── __init__.py
+├── services/                      # [비즈니스 로직] 서비스 계층
 │   ├── evaluation_service.py      # 유저 오디오 평가 orchestration
-│   ├── reference_payload.py       # reference payload/helper 조립
-│   └── reference_service.py       # reference 생성 orchestration
-├── integrations/
-│   ├── __init__.py
-│   ├── io_utils.py                # 파일/오디오 I/O 실제 구현
-│   ├── audio_cache.py             # 오디오 다운로드 LRU+TTL 캐시
-│   └── youtube_service.py         # YouTube 연동 실제 구현
+│   ├── reference_payload.py       # reference 응답 페이로드 조립 팩토리
+│   ├── reference_service.py       # 레퍼런스 생성 orchestration (병렬/분기 관리)
+│   └── reference_translation_service.py # Gemini LLM 번역 및 파트 병합 orchestration
+├── integrations/                  # [외부망] I/O 및 오픈 API 연동
+│   ├── io_utils.py                # 파일/오디오 I/O 버퍼 관리
+│   ├── audio_cache.py             # 오디오 다운로드 LRU+TTL 캐시 모듈
+│   └── youtube_service.py         # YouTube 자막 추출 및 음원 다운로드 연동
 ├── log/                           # 서버 로그 저장 디렉터리 (daily rotation)
-├── test/
-│   ├── __init__.py
-│   ├── test_api.py                # API 수동 테스트 CLI
-│   ├── sentence_verify.py         # 문장 분리 검증 스크립트
-│   ├── scoring_verify.py          # 채점 로직 검증 스크립트
-│   ├── trim_verify.py             # trim 로직 검증 스크립트
-│   ├── fix_verify.py              # 보정 로직 검증 스크립트
-│   ├── test_vr_onnx.py            # ONNX 기반 VR 분리 테스트 도구
-│   ├── test_utils.py              # 테스트 출력 저장 유틸리티
-│   └── result/
-│       └── .gitkeep               # 테스트 결과 저장 디렉터리
-├── docs/
-│   ├── README.md                  # active 기록성 문서 운영 정책
-│   ├── presentation/              # 기획 발표/아키텍처 스펙용 상세 문서
-│   │   ├── 01_service_overview.md
-│   │   ├── 02_reference_generation_workflow.md
-│   │   └── 03_evaluation_scoring_workflow.md
-│   ├── review/
-│   │   ├── README.md              # 코드 리뷰 문서 배치 기준
-│   │   ├── ...                    # 날짜 기반 코드 리뷰 문서
-│   ├── tuning/
-│   │   ├── README.md              # 튜닝 문서 배치 기준
-│   │   └── ...                    # 날짜 기반 튜닝 문서
-│   ├── history/
-│   │   ├── README.md              # 변경 이력 문서 배치 기준
-│   │   └── CHANGELOG.md           # 날짜 기반 변경 이력
-│   ├── legacy/
-│   │   ├── README.md              # 레거시 문서 보관 정책
-│   │   ├── ...                    # 날짜 기반 레거시 문서
-│   └── architecture/
-│       └── ...                    # 날짜 기반 아키텍처 문서
+├── test/                          # [테스트 및 디버그] 검증 및 시각화 도구
+│   ├── test_api.py                # API 전체 기능 수동 테스트 CLI
+│   ├── ..._verify.py              # (sentence, scoring, trim, fix) 단위 검증 스크립트
+│   ├── test_vr_onnx.py            # ONNX 기반 VR 보컬 분리 성능 테스트 측정
+│   ├── visualize_prosody_eval_mode.py # 유저 평가 모드 프리미엄 동기화 시각화 (Total 6 Graphs)
+│   ├── visualize_prosody_vr_mode.py   # 유튜브 VR 분리 모드 성능 비교 시각화 (Total 2 Graphs)
+│   └── result/                    # 생성된 아티팩트 및 JSON 이 저장되는 공간
+├── docs/                          # [설계도 및 지식 관리]
+│   ├── presentation/              # (Active) 발표 및 기획자용 고급 아키텍처 문서
+│   ├── history/CHANGELOG.md       # (Active) 버전 릴리즈 노트
+│   ├── review/                    # (Active) 코드 리뷰 / 최적화 기록
+│   ├── tuning/                    # (Active) 하이퍼파라미터 튜닝 일지
+│   └── legacy/                    # (Archive) 폐기된 레거시 설계 문서 보관소
+
 ```

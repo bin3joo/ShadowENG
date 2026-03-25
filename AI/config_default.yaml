@@ -83,15 +83,8 @@ audio:
 # 디노이징 (Track B: 유저 오디오 분석용)
 # ─────────────────────────────────────────────────
 denoise:
-  # 보컬 분리 모델(VR)을 사용하여 오디오 품질을 높일지 여부
+  # 사용자 음성 분석 전에 디노이징 적용 여부
   enabled: true
-  
-  # 유튜브 영상 처리 시 오디오 소스 선택 모드
-  # 허용값:
-  #   - "both" (기본값): 오리지널과 VR 음원 둘 다 피처(F0, RMS)를 추출한 뒤 4가지 지표(voiced_ratio, jump_ratio 등)를 비교하여 더 나은 값을 자동 게이팅.
-  #   - "original": VR 모델을 사용하지 않고 원본 오디오만 처리. 처리 속도가 가장 빠름.
-  #   - "vr": 추출된 목소리(VR 오디오)만 사용하여 피처를 추출. (노이즈가 매우 심한 영상 전용)
-  source_mode: "both"
   # 정상(stationary) 노이즈 가정 여부
   # true: 에어컨/팬/허밍처럼 지속적인 노이즈에 유리
   # false: 가변적 환경 노이즈에 더 보수적으로 대응
@@ -254,6 +247,21 @@ scoring:
   prosody_beta: 1.2
   # DTW 탐색 반경. 크면 유연하지만 계산량 증가
   prosody_dtw_radius: 10
+  # prosody score mode: distance | similarity | hybrid
+  prosody_scoring_mode: "hybrid"
+  # similarity metric after DTW alignment: pearson | cosine
+  prosody_similarity_metric: "pearson"
+  # feature weights for aligned similarity scoring
+  prosody_f0_weight: 0.7
+  prosody_rms_weight: 0.3
+  # timing penalty ratio applied in hybrid mode (0.0 ~ 1.0)
+  prosody_timing_penalty_weight: 0.25
+  # remove F0 values from unvoiced frames using pyin voiced flags
+  prosody_f0_voiced_mask_enabled: true
+  # smooth single-frame F0 spikes inside voiced regions only
+  prosody_f0_median_filter_enabled: true
+  # odd kernel size for F0 median filtering
+  prosody_f0_median_filter_kernel: 5
 
   # 단어 리듬 민감도
   # 값이 클수록 리듬 차이에 더 민감
@@ -315,6 +323,9 @@ scoring:
 # 캡션 정렬 (align_text_to_audio) 고스트 워드 필터
 # ─────────────────────────────────────────────────
 alignment:
+  # true면 YouTube 공식/자동 자막을 조회해 caption-align fast path를 사용합니다.
+  # false면 자막 조회를 건너뛰고 reference 생성 시 항상 Whisper STT로만 진행합니다.
+  youtube_caption_enabled: true
   # forced alignment 후 이 값 미만 confidence 단어는 ghost 로 보고 제거
   # 범위 예시: 0.0 ~ 1.0
   ghost_word_confidence: 0.1
@@ -340,6 +351,12 @@ vocal_remover:
   # false이면 레퍼런스 생성에서 vocal separation 및
   # VR 기반 prosody 추출 경로를 모두 스킵
   enabled: true
+  # 유튜브 영상 처리 시 오디오 소스 선택 모드
+  # 허용값:
+  #   - "both" (기본값): 오리지널과 VR 음원 둘 다 피처(F0, RMS)를 추출한 뒤 4가지 지표(voiced_ratio, jump_ratio 등)를 비교하여 더 나은 값을 자동 게이팅.
+  #   - "original": VR 모델을 사용하지 않고 원본 오디오만 처리. 처리 속도가 가장 빠름.
+  #   - "vr": 추출된 목소리(VR 오디오)만 사용하여 피처를 추출. (노이즈가 매우 심한 영상 전용)
+  source_mode: "both"
   # audio-separator에 전달할 모델명
   # 예시: htdemucs, MDX23C-8KFFT.ckpt, UVR-MDX-NET-Voc_FT.onnx
   model: "htdemucs_ft.yaml"
@@ -352,6 +369,15 @@ vocal_remover:
   # 보컬 외 분리된 디버그 스템(Bass, Drums 등)을 보존할지 여부
   # false 이면 분리 직후 비보컬 트랙을 삭제하여 디스크 용량을 확보합니다
   save_debug_stems: false
+
+# ─────────────────────────────────────────────────
+# 평가 설정 (Evaluation)
+# ─────────────────────────────────────────────────
+evaluation:
+  # 유저 오디오 평가 시 VR(Vocal Remover)를 적용할지 여부
+  # true 면 피처 추출 전 보컬 분리로 배경 소음을 제거합니다.
+  # 처리 시간이 증가하지만 노이즈 환경에서의 정확도가 향상됩니다.
+  user_vr_enabled: false
 
 # ─────────────────────────────────────────────────
 # 레퍼런스 feature source gating

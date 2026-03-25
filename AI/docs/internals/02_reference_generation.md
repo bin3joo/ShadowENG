@@ -1,151 +1,56 @@
-# 2. 레퍼런스 생성 파트 (Reference Generation)
+# 2. 레퍼런스 생성 내부 아키텍처 (Reference Generation Internals)
 
-클라이언트가 요청한 YouTube 비디오의 특정 구간 오디오를 바탕으로, 유저가 따라 말할 수 있는 **정답(Reference) 데이터**를 생성하는 계층입니다. `services/reference_service.py` 내의 `generate_reference()` 함수가 오케스트레이션을 담당합니다.
+본 문서는 [`reference_service.py`](../../../services/reference_service.py) 패키지의 `generate_reference()` 함수가 내부적으로 어떤 파이프라인(순서와 병렬 처리 구간)을 거쳐 동작하는지 기술합니다.
 
-## 최근 변경사항 요약
+## 🚀 아키텍처 핵심 요약 (Architecture Summary)
 
-1. **원본 / VR 역할 분리**
-   - STT / forced alignment 및 품질 평가는 원본 오디오 기준으로 수행합니다.
-   - prosody 후보 추출은 원본과 VR 오디오를 함께 사용할 수 있습니다.
+- **음성 인식 고정 (STT Stabilization)**: `Whisper STT`와 `Forced Alignment`는 VR 보컬 모델을 통과한 가공된 음원이 아닌, **항상 원본 오디오** 기준으로 수행하여 잡음 속에서도 원어민의 실제 숨결 타이밍을 놓치지 않도록 설계되었습니다.
+- **다중 운율 소스 (Multi-Prosody Sourcing)**: 반면 운율(Prosody)에 해당하는 `F0`(Pitch)와 `RMS`(Intensity)는 설정에 따라 **원본 오디오**와 **별도의 VR 클린 오디오**에서 각각 동시에 추출한 뒤, 노이즈 왜곡이 덜한 최적의 소스를 `Source Gating` 룰셋으로 각기 판단하여 선택합니다.
+- **LLM 네트워크 지연 원천 차단 (Zero-Wait LLM Strategy)**: 
+  - 과거에는 "Prosody 추출(10초) → 품질 판독(2초) → LLM 번역(5초) ➔ 응답(총 17초)"의 직렬 구조였습니다.
+  - 현재는 **"STT 결과물 문장 분할 직후 LLM 비동기 발사"** 라는 극단적인 병렬화 혁신을 도입했습니다. 즉 문장 구조만 나오면 바로 Gemini 번역을 돌려두고, 그 사이 서버는 `Prosody 추출, Part 분석, Reference 화자 품질 판독`이라는 **가장 무거운 연산들을 동시 수행**합니다. ➔ **체감 응답 속도 대폭 40~50% 감소.**
 
-2. **병렬 처리 확대**
-   - caption fetch ↔ audio download
-   - VR ↔ STT / alignment
-   - original prosody ↔ VR prosody
-   - Gemini 번역 ↔ prosody attach / quality assessment
+---
 
-3. **Gemini 호출 시점 조정**
-   - `sentence_data` 생성 직후 Gemini 요청을 시작하고,
-     그 동안 prosody attach 및 품질 평가를 진행합니다.
+## 📅 내부 실행 로직 (Execution Flow)
 
-4. **VR 설정 토글 추가**
-   - `vocal_remover.enabled: false` 이면 reference 생성에서
-     vocal separation, VR prosody 추출, source gating 비교를 모두 스킵합니다.
-   - 이 경우 prosody는 원본 오디오만 사용합니다.
+1. **초기화 및 준비 단계**
+    - `generator`, `audio/vr` 임시 파일 경로 세팅 및 요청 시간 자르기.
+2. **Phase 1: 자막 및 오디오 병렬 다운로드**
+    - YouTube Transcript API(수동 자막) 병렬 조회 및 YT-DLP 음속 다운로드 돌입.
+3. **Phase 2: 보컬 분리 비동기 배치 (VR Optional)**
+    - `vocal_remover.enabled`가 True이면 16kHz 다운로드 종결 즉시 `audio-separator`로 배경음 제거를 백그라운드로 밀어넣습니다.
+4. **Phase 3: 음성 텍스트화 및 리파이닝 (STT & Refine)**
+    - 원본 오디오에 대해 Caption Alignment (Fast Path) 또는 WhisperX STT (Full Path)를 거칩니다.
+    - 양 극단 구간 밖의 단어를 잘라내고(Trim), 문장 내 특수문자를 정제(Sanitize)합니다.
+5. **Phase 4: 문장 분할 및 동시 다발적 연산 포크 (Fork)** 🌟 (가장 중요한 부분)
+    - 5-1. `split_into_sentences_with_timestamps(final_script, final_words)` 를 호출하여 기초 `sentence_data` 블록을 생성합니다.
+    - 5-2. 생성 즉시 `deepcopy`를 뜬 후 `translate_reference_parts_with_gemini`를 ThreadPoolExecutor 백그라운드로 Submit 합니다. **이때부터 약 3~6초 간의 LLM 네트워크 유휴 시간 (I/O Bound) 이 발생합니다.**
+6. **Phase 5: 프로소디 피처 완전 분석 (CPU/GPU Bound)** (위 5-2의 대기 시간 내에서 동시 수행)
+    - 6-1. 오디오 신호 메트릭 평가(SNR 등) 및 디노이즈 모드 결정.
+    - 6-2. 원본(`original`) 및 `VR` 버전에 대해 병렬로 `F0`, `RMS` 피처 추출.
+    - 6-3. `Smart Cropping`, `Baseline Zeroing`, `Source Gating` 기술 적용.
+    - 6-4. Reference 오디오 자체 품질 평가 (Reject / Risky 게이트 검열).
+    - 만약 이 과정에서 스크립트 정렬 수준이 형편없다고 422 Reject 판정이 나면, 뒤에서 돌아가고 있는 Gemini Future에 `cancel()` 신호를 보내버리고 곧바로 차단합니다. (버림받은 비용 최소화)
+7. **Phase 6: 조인 및 융합 (LLM Join & Data Merge)**
+    - 위 6의 연산들이 먼저 끝난 뒤(혹은 비슷하게 끝남) `translation_future.result()`를 받아옵니다.
+    - LLM이 똑똑하게 찢어진 두 파트를 한 파트로 자연스럽게 합쳤을(Merge) 경우, 여기에 맞춰서 Phase 5에서 구한 피처 배열과 Timestamp 배열을 재조립(`remerge`) 해줍니다.
+8. **Phase 7: 안전 폐기 및 송신**
+    - 오디오/VR 등의 파일 찌꺼기(`tempfile`) 삭제 트리거를 `BackgroundTasks`에 넘기고 JSON 짐 꾸려 `return`.
 
-## 시스템 흐름도 (Execution Flow)
+---
 
-### 1단계: 준비
-1. `get_pipeline()`으로 WhisperX 파이프라인 싱글턴을 확보합니다.
-2. 임시 작업 디렉터리와 WAV 출력 경로를 생성합니다.
-3. 다운로드 시에는 항상 `AUDIO_PADDING_SEC`를 포함한 padded 오디오를 확보하도록 준비합니다.
+## 🚦 현재 동작 중인 병렬 구간 요약
 
-### 2단계: 외부 자원 획득 병렬화 (I/O)
-이 단계는 `ThreadPoolExecutor`로 병렬 처리됩니다.
+현재 시스템이 성능 극대화를 위해 교차(Overlap) 실행하고 있는 4가지 코루틴/쓰레드 다발입니다:
 
-1. **자막 조회 (`fetch_youtube_captions`)**
-   - manual / auto / none 상태를 판별합니다.
-   - manual 자막이면 padded 범위를 기준으로 텍스트를 구성합니다.
-   - auto 자막은 현재 STT fallback 신호로만 사용합니다.
+1. `자막 다운로드 (Network)` ↔ `WAV 음원 추출 (Network + I/O)`
+2. `audio-separator (GPU/CPU)` ↔ `WhisperX STT 및 정렬 (GPU/CPU)`
+3. `Original Prosody (CPU/GPU)` ↔ `VR Prosody (CPU/GPU)`
+4. **`Gemini LLM 번역 (Network)` ↔ `Prosody 분석 + 품질 판정 (CPU/GPU)`** 🌟 새로 도입된 최고의 가속 메커니즘.
 
-2. **오디오 다운로드 (`download_reference_audio`)**
-   - `yt-dlp` Python API로 padded 오디오를 WAV로 저장합니다.
-   - 이후 실제 분석은 요청 구간 기준으로 다시 잘라 사용합니다.
+## ⚠️ 동시성 고려 및 이슈 트래킹
 
-### 3단계: STT/정렬과 VR 병렬화
-오디오 다운로드가 끝나면, 다음 두 갈래가 동시에 시작됩니다.
-
-1. **보컬 분리 (`separate_vocals`)**
-   - BGM/효과음이 섞인 YouTube 오디오에서 보컬만 분리합니다.
-   - VR 실패 시 원본 오디오 경로를 그대로 반환합니다.
-
-2. **원본 오디오 기반 텍스트 정렬 / STT**
-   - **Fast Path**: manual caption이 있으면 `pipeline.align_text_to_audio(actual_audio, caption_text)`를 수행합니다.
-   - **Fallback**: 정렬 품질이 낮거나 단어 타임스탬프가 비어 있으면 `pipeline.extract_whisper_stats(actual_audio)`로 재시도합니다.
-   - **Slow Path**: caption이 없으면 처음부터 `pipeline.extract_whisper_stats(actual_audio)`를 수행합니다.
-
-중요한 점은 다음과 같습니다.
-
-- **STT / forced alignment는 원본 오디오**를 사용합니다.
-- **VR 오디오는 이 단계에서 텍스트 인식에 사용하지 않습니다.**
-
-### 4단계: 텍스트 및 타임스탬프 정제
-1. `trim_boundary_fragments()`로 요청 구간 경계에 걸친 fragment 단어를 정리합니다.
-2. `sanitize_word_timestamps()`로 word timestamp 구조를 정리합니다.
-3. `_rebase_reference_words()`로 padded 오디오 기준 타임스탬프를 요청 구간 기준으로 재매핑합니다.
-4. 최종 `final_script`, `final_words`, `trimmed_word_count`를 확정합니다.
-
-### 5단계: 요청 구간 오디오 슬라이싱
-1. **원본 request 오디오**를 요청 구간 기준으로 잘라 `request_audio`를 만듭니다.
-2. **VR request 오디오**를 같은 구간으로 잘라 `feature_request_audio`를 만듭니다.
-3. `estimate_reference_audio_metrics()`로 reference 품질 메타데이터를 계산합니다.
-4. `select_reference_denoise_mode_from_metrics()`로 prosody 분석 시 사용할 denoise mode를 결정합니다.
-
-### 6단계: 원본 / VR prosody 병렬 추출
-speech 구간만 다시 잘라낸 뒤, 두 소스에서 prosody를 병렬 추출합니다.
-
-1. **원본 prosody**
-   - `pipeline.extract_prosody_features(cropped_original_feature_audio, ...)`
-
-2. **VR prosody**
-   - `pipeline.extract_prosody_features(cropped_feature_audio, ...)`
-
-이후 `pipeline.select_reference_prosody_sources()`가 gating 규칙으로 최종 소스를 결정합니다.
-
-- `f0`와 `rms`는 **독립적으로 선택**될 수 있습니다.
-- 예: `f0=vr`, `rms=original`
-
-### 7단계: sentence_data 생성
-1. `split_into_sentences_with_timestamps()`로 `final_script`와 `final_words`를 part 단위로 분할합니다.
-2. 이 시점의 `sentence_data`는 번역 입력의 기준 구조가 됩니다.
-
-### 8단계: Gemini 번역과 prosody/quality 병렬화
-이 단계도 병렬 처리됩니다.
-
-1. **Gemini 번역 시작**
-   - `translate_reference_parts_with_gemini(final_script, deepcopy(sentence_data))`
-   - `sentence_data`는 이후 in-place로 수정되므로 경쟁 상태 방지를 위해 deep copy를 넘깁니다.
-
-2. **메인 스레드에서 prosody attach 및 품질 평가**
-   - `attach_part_analysis()`로 각 part에 `features.f0_array`, `features.rms_array`, `pause_count`를 붙입니다.
-   - `assess_reference_quality()`로 `good / risky / reject`를 판단합니다.
-   - `_apply_speaker_risk_policy()`로 part별 speaker risk를 보정합니다.
-
-3. **reject 여부 판단**
-   - reject 또는 risky-but-not-allowed이면 HTTP 422를 반환합니다.
-   - 이 경우 Gemini future는 cancel을 시도하지만, 이미 외부 호출이 시작된 경우 실제 호출 자체가 완전히 중단되지는 않을 수 있습니다.
-
-### 9단계: 번역 결과 병합
-reject가 아니면 Gemini 결과를 받아 후처리를 이어갑니다.
-
-1. `translation_future.result()`로 번역 결과를 회수합니다.
-2. 번역 후 part 구조(`translation_result.parts`)에 다시 `attach_part_analysis()`를 적용합니다.
-3. `annotate_reference_part_speakers()`로 part별 화자 메타데이터를 부여합니다.
-4. `_apply_speaker_risk_policy()`를 다시 적용해 번역 후 part 구조에도 정책을 반영합니다.
-
-### 10단계: 저장 및 응답 생성
-1. 저장용 오디오에만 `peak_normalize_audio()`를 적용합니다.
-2. `prepare_reference_audio_dir()`로 저장 디렉터리를 준비합니다.
-3. `persist_reference_audio()`로 전체 reference 오디오를 저장합니다.
-4. `_export_part_audio_files()`로 part 오디오를 개별 저장합니다.
-5. `build_reference_response()`로 최종 API 응답 payload를 생성합니다.
-
-### 11단계: 임시 파일 정리
-성공 시 `BackgroundTasks`에 cleanup 작업을 등록합니다.
-
-- `remove_file(actual_audio)`
-- `remove_dir(tmp_dir)`
-
-실패 시에도 `finally` 블록에서 실패한 작업의 임시 자원을 정리합니다.
-
-## 현재 병렬 처리 요약
-
-현재 `generate_reference()`는 다음 구간을 병렬화하고 있습니다.
-
-1. **caption fetch** ↔ **audio download**
-2. **VR** ↔ **STT / forced alignment**
-3. **original prosody extraction** ↔ **VR prosody extraction**
-4. **Gemini translation** ↔ **part prosody attach / quality assessment**
-
-## 오디오 소스 사용 원칙
-
-- **STT / forced alignment**: 원본 오디오
-- **reference 품질 메트릭 / 저장용 오디오 기준**: 원본 오디오
-- **prosody 후보 추출**: 원본 + VR 둘 다
-- **최종 F0 / RMS 선택**: gating 기반 source selection
-
-## 주의할 점
-
-1. VR와 WhisperX가 모두 GPU를 사용할 경우 장비 상황에 따라 속도 이점이 줄거나 VRAM 경합이 생길 수 있습니다.
-2. Gemini 호출은 품질 reject 이전에 시작되므로, reject 요청에서도 일부 번역 호출 비용이 발생할 수 있습니다.
-3. sentence_data는 in-place 수정 함수가 있으므로 병렬 구간에서는 shared object를 직접 넘기지 않아야 합니다.
+- **`딥카피(deepcopy)` 엄수**: Gemini로 던져진 `sentence_data`는 다른 스레드에서 조작되고, 원본 스레드는 `sentence_data`에 오직 오디오 통계만 넣으며 놀아야 하므로, 리스트 포인터 복사 오류를 막기 위해 번역 쪽으로는 무조건 Deepcopy를 짭니다.
+- **Best-Effort Cancel**: Python `concurrent.futures`의 `cancel()`은 아직 실행 전 큐에 있을 때만 완벽히 통제 가능하고 런닝 중이면 막을 도리가 없으므로 무거운 마음으로 그냥 넘어갑니다. (비용 청구 감수)
+- **오디오 도메인 분리 규칙**: 무슨 일이 있어도 STT 시간축은 원본 오디오에 고정해야 합니다. VR 클린본으로 STT를 돌리면 묵음이 아닌 구간도 침묵으로 오해당해서 타임스탬프가 다 틀어집니다.

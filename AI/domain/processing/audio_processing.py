@@ -131,6 +131,8 @@ def denoise_for_analysis(
         sr=sr,
         stationary=stationary,
         prop_decrease=prop_decrease,
+        n_fft=1024,
+        time_mask_smooth_ms=50
     )
 
 
@@ -170,12 +172,16 @@ def separate_vocals(
 
     try:
         separator = _get_separator_instance(output_dir)
-    except ImportError:
+    except ImportError as e:
         logger.warning(
-            "audio-separator 패키지 미설치. "
+            "audio-separator 패키지 미설치 또는 의존성 로드 실패: %s. "
             "pip install audio-separator[gpu] 로 설치하세요. "
-            "원본 오디오를 사용합니다."
+            "원본 오디오를 사용합니다.",
+            e,
         )
+        return audio_path
+    except Exception as e:
+        logger.warning("VR 인스턴스 생성 중 기타 에러 발생: %s", e)
         return audio_path
 
     try:

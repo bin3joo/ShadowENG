@@ -1,15 +1,17 @@
---extra-index-url https://download.pytorch.org/whl/cu118
+--extra-index-url https://download.pytorch.org/whl/cu124
 
 # Core ML / Audio
-torch==2.0.1
-torchaudio==2.0.2
-torchvision==0.15.2
+torch==2.4.1
+torchaudio==2.4.1
+torchvision==0.19.1
 pyannote.audio==3.1.1
 transformers==4.39.3
 
 librosa==0.11.0
 numpy==1.26.4
+pandas==2.2.3
 scipy==1.15.3
+soundfile==0.12.1
 fastdtw==0.3.4
 jiwer==4.0.0
 noisereduce==3.0.3
@@ -17,7 +19,8 @@ nltk==3.9.1
 pydub==0.25.1
 
 # VR Dependencies (from audio-separator)
-diffq-fixed==0.2.4
+diffq-fixed==0.2.4; sys_platform == 'win32'
+diffq==0.2.4; sys_platform != 'win32'
 samplerate==0.1.0
 julius==0.2.7
 einops==0.8.0
@@ -25,16 +28,17 @@ ml-collections==0.1.1
 resampy==0.4.3
 beartype==0.19.0
 rotary-embedding-torch==0.6.5
-av
+onnx==1.16.1
+av==14.2.0
 
-# [Note] The following packages cause strict dependency conflicts with torch 2.0.1.
+# [Note] The following packages cause strict dependency conflicts with torch 2.4.1.
 # They MUST be installed separately WITHOUT dependencies using the second file:
 #   pip install -r requirements_no_deps.txt --no-deps
 
 # Compatibility Fixes
 setuptools<81.0              # pkg_resources required by ctranslate2
-pytorch-lightning==2.1.4     # torch.utils.flop_counter not in torch 2.0.x
-lightning==2.1.4
+pytorch-lightning==2.4.0     # CUDA 12 호환 향상 및 torch 2.4.1 매칭
+lightning==2.4.0
 
 # API Server
 fastapi==0.135.1

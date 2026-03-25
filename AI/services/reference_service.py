@@ -174,6 +174,331 @@ def _export_part_audio_files(
         )
 
 
+def _transcribe_and_refine(
+    pipeline: Any,
+    actual_audio: str,
+    caption_text: str | None,
+    caption_source: str | None,
+    original_audio_array: np.ndarray,
+    target_sr: int,
+    request_offset_sec: float,
+    request_duration_sec: float,
+) -> tuple[dict[str, Any], str, list[dict[str, Any]], int]:
+    """STT 또는 Caption Align 후 단어를 정제·리베이스합니다.
+
+    Args:
+        pipeline: ``StyleEchoPipeline`` 인스턴스.
+        actual_audio: 다운로드된 오디오 파일 경로.
+        caption_text: YouTube 자막 텍스트 (없으면 ``None``).
+        caption_source: 자막 출처 라벨.
+        original_audio_array: 원본 오디오 배열 (target_sr 기준).
+        target_sr: 오디오 샘플레이트.
+        request_offset_sec: 패딩된 클립 내 요청 시작 오프셋.
+        request_duration_sec: 요청 클립 길이.
+
+    Returns:
+        ``(stats, final_script, final_words, trimmed_count)`` 튜플.
+    """
+    if caption_text:
+        logger.info(
+            "Fast Path: caption-align (source=%s, 자막 %d자)",
+            caption_source,
+            len(caption_text),
+        )
+        stats = pipeline.align_text_to_audio(actual_audio, caption_text)
+        fallback_reasons = stats.get("caption_fallback_reasons", [])
+        should_fallback = config.CAPTION_FALLBACK_ENABLED and (
+            stats.get("caption_should_fallback", False)
+            or not stats.get("word_timestamps")
+        )
+        if should_fallback:
+            logger.info(
+                "Caption align fallback to Whisper STT: reasons=%s",
+                fallback_reasons or ["empty_alignment"],
+            )
+            stats = pipeline.extract_whisper_stats(actual_audio)
+    else:
+        logger.info(
+            "Slow Path: full STT transcribe (caption_source=%s)",
+            caption_source,
+        )
+        stats = pipeline.extract_whisper_stats(actual_audio)
+
+    audio_duration_sec = float(len(original_audio_array) / target_sr)
+    refined_words, refined_text = (
+        audio_processing_module.trim_boundary_fragments(
+            word_timestamps=stats["word_timestamps"],
+            full_text=stats["text"],
+            audio_duration_sec=audio_duration_sec,
+        )
+    )
+    trimmed_count = len(stats["word_timestamps"]) - len(refined_words)
+    final_script = refined_text if refined_text else stats["text"]
+    final_words = refined_words if refined_words else stats["word_timestamps"]
+    sanitized_words = sanitize_word_timestamps(final_words)
+    if sanitized_words:
+        final_words = sanitized_words
+        final_script = sanitize_reference_text(
+            " ".join(word["word"] for word in final_words)
+        )
+    else:
+        final_script = sanitize_reference_text(final_script)
+    request_words = _rebase_reference_words(
+        final_words,
+        request_offset_sec,
+        request_duration_sec,
+    )
+    if request_words:
+        final_words = sanitize_word_timestamps(request_words)
+        final_script = sanitize_reference_text(
+            " ".join(word["word"] for word in final_words)
+        )
+    logger.info(
+        "trim_boundary_fragments: removed %d words (%d remain)",
+        trimmed_count,
+        len(final_words),
+    )
+    return stats, final_script, final_words, trimmed_count
+
+
+def _extract_reference_prosody(
+    pipeline: Any,
+    executor: ThreadPoolExecutor,
+    request_audio: np.ndarray,
+    feature_request_audio: np.ndarray,
+    final_words: list[dict[str, Any]],
+    target_sr: int,
+    request_duration_sec: float,
+    vr_source_mode: str,
+    use_vr: bool,
+    denoise_mode: str,
+) -> tuple[np.ndarray, np.ndarray, float]:
+    """원본/VR 분기에 따라 레퍼런스 F0, RMS를 추출합니다.
+
+    Args:
+        pipeline: ``StyleEchoPipeline`` 인스턴스.
+        executor: 병렬 작업 실행기.
+        request_audio: 요청 구간 원본 오디오 배열.
+        feature_request_audio: 요청 구간 VR/원본 특징 오디오 배열.
+        final_words: 최종 단어 타임스탬프.
+        target_sr: 샘플레이트.
+        request_duration_sec: 요청 클립 길이.
+        vr_source_mode: VR 소스 모드 (``original`` / ``vr`` / ``both``).
+        use_vr: VR 활성화 여부.
+        denoise_mode: 디노이즈 프로파일.
+
+    Returns:
+        ``(f0, rms, speech_start_sec)`` 튜플.
+    """
+    speech_start_sec = (
+        float(final_words[0].get("start", 0.0)) if final_words else 0.0
+    )
+    speech_end_sec = (
+        float(final_words[-1].get("end", request_duration_sec))
+        if final_words
+        else request_duration_sec
+    )
+    start_idx = int(speech_start_sec * target_sr)
+    end_idx = int(speech_end_sec * target_sr)
+    cropped_original = (
+        request_audio[start_idx:end_idx]
+        if end_idx > start_idx
+        else request_audio
+    )
+    cropped_feature = (
+        feature_request_audio[start_idx:end_idx]
+        if end_idx > start_idx
+        else feature_request_audio
+    )
+
+    original_prosody_future = None
+    if vr_source_mode in ("original", "both"):
+        original_prosody_future = executor.submit(
+            pipeline.extract_prosody_features,
+            cropped_original,
+            target_sr,
+            denoise_mode != "off",
+            denoise_mode,
+        )
+
+    vr_prosody_future = None
+    if use_vr and vr_source_mode in ("vr", "both"):
+        vr_prosody_future = executor.submit(
+            pipeline.extract_prosody_features,
+            cropped_feature,
+            target_sr,
+            denoise_mode != "off",
+            denoise_mode,
+        )
+
+    f0, rms = None, None
+
+    if vr_source_mode == "original":
+        f0, rms, _ = original_prosody_future.result()
+        logger.info(
+            "Reference prosody source selected: f0=original "
+            "rms=original (Original only mode)"
+        )
+    elif vr_source_mode == "vr" and use_vr:
+        f0, rms, _ = vr_prosody_future.result()
+        logger.info(
+            "Reference prosody source selected: f0=vr " "rms=vr (VR only mode)"
+        )
+    elif vr_source_mode == "both" and use_vr:
+        original_f0, original_rms, _ = original_prosody_future.result()
+        vr_f0, vr_rms, _ = vr_prosody_future.result()
+        selected_prosody = select_reference_prosody_sources(
+            original_f0,
+            original_rms,
+            vr_f0,
+            vr_rms,
+        )
+        f0 = selected_prosody["f0"]
+        rms = selected_prosody["rms"]
+        logger.info(
+            "Reference prosody source selected: f0=%s rms=%s "
+            "(orig_f0=%s vr_f0=%s orig_rms=%s vr_rms=%s)",
+            selected_prosody["f0_source"],
+            selected_prosody["rms_source"],
+            selected_prosody["original_f0_metrics"],
+            selected_prosody["vr_f0_metrics"],
+            selected_prosody["original_rms_metrics"],
+            selected_prosody["vr_rms_metrics"],
+        )
+    else:
+        if original_prosody_future:
+            f0, rms, _ = original_prosody_future.result()
+        else:
+            original_f0, original_rms, _ = pipeline.extract_prosody_features(
+                cropped_original,
+                target_sr,
+                denoise_mode != "off",
+                denoise_mode,
+            )
+            f0, rms = original_f0, original_rms
+        logger.info(
+            "Reference prosody source selected: f0=original "
+            "rms=original (Fallback mode)"
+        )
+
+    return f0, rms, speech_start_sec
+
+
+def _assess_reference_and_collect_translation(
+    request_audio: np.ndarray,
+    target_sr: int,
+    final_words: list[dict[str, Any]],
+    sentence_data: list[dict[str, Any]],
+    translation_future: Any,
+    f0: np.ndarray,
+    rms: np.ndarray,
+    speech_start_sec: float,
+    caption_source: str | None,
+    stt_method: str,
+    denoise_mode: str,
+    audio_metrics: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any], Any]:
+    """품질 평가와 번역을 병렬 실행하고 거부 여부를 판정합니다.
+
+    Args:
+        executor: 병렬 작업 실행기.
+        request_audio: 요청 구간 오디오 배열.
+        target_sr: 샘플레이트.
+        final_script: 최종 정제된 트랜스크립트.
+        final_words: 최종 단어 타임스탬프.
+        f0: F0 특징 배열.
+        rms: RMS 특징 배열.
+        speech_start_sec: 발화 시작 시간.
+        caption_source: 자막 출처 라벨.
+        stt_method: STT 방식 라벨.
+        denoise_mode: 디노이즈 프로파일.
+        audio_metrics: 사전 계산된 오디오 품질 지표.
+
+    Returns:
+        ``(sentence_data, quality_metadata, translation_result)`` 튜플.
+
+    Raises:
+        HTTPException: 품질 게이트 거부 시.
+    """
+    sentence_data = attach_part_analysis(
+        sentence_data,
+        f0,
+        rms,
+        speech_start_sec,
+        target_sr,
+        config.HOP_LENGTH,
+    )
+
+    quality_metadata = assess_reference_quality(
+        request_audio,
+        target_sr,
+        final_words,
+        sentence_data,
+        caption_source,
+        stt_method,
+        denoise_mode,
+        precomputed_metrics=audio_metrics,
+    )
+    _apply_speaker_risk_policy(sentence_data, quality_metadata)
+
+    should_reject = quality_metadata.get("reference_quality") == "reject"
+    if (
+        quality_metadata.get("reference_quality") == "risky"
+        and not config.REFERENCE_ALLOW_RISKY
+    ):
+        should_reject = True
+
+    if should_reject:
+        translation_future.cancel()
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "reference 구간 품질이 낮아 생성이 거부되었습니다.",
+                **quality_metadata,
+            },
+        )
+
+    translation_result = translation_future.result()
+    return sentence_data, quality_metadata, translation_result
+
+
+def _persist_artifacts(
+    req: GenerateReferenceRequest,
+    request_audio: np.ndarray,
+    target_sr: int,
+    sentence_data: list[dict[str, Any]],
+) -> str | None:
+    """레퍼런스 오디오와 파트 WAV 파일을 저장합니다.
+
+    Args:
+        req: 레퍼런스 생성 요청.
+        request_audio: 요청 구간 오디오 배열.
+        target_sr: 샘플레이트.
+        sentence_data: 파트 페이로드 리스트.
+
+    Returns:
+        저장 디렉터리 경로 또는 ``None``.
+    """
+    if not config.SAVE_REFERENCE_AUDIO:
+        return None
+
+    save_audio = audio_processing_module.peak_normalize_audio(request_audio)
+    prepared_save_dir: str = prepare_reference_audio_dir(
+        req.video_id,
+        req.start_sec,
+        req.end_sec,
+        req.save_dir,
+    )
+    persist_reference_audio(save_audio, target_sr, prepared_save_dir)
+    _export_part_audio_files(
+        save_audio,
+        target_sr,
+        prepared_save_dir,
+        sentence_data,
+    )
+    return prepared_save_dir
+
+
 def generate_reference(
     req: GenerateReferenceRequest,
     background_tasks: BackgroundTasks,
@@ -192,7 +517,6 @@ def generate_reference(
     """
     tmp_dir: str | None = None
     actual_audio: str | None = None
-    quality_metadata: dict[str, Any] | None = None
     save_dir: str | None = None
     _succeeded = False
     try:
@@ -207,14 +531,19 @@ def generate_reference(
         request_offset_sec = min(req.start_sec, download_padding_sec)
         request_duration_sec = max(0.0, req.end_sec - req.start_sec)
 
+        target_sr = config.TARGET_SR
+
         with ThreadPoolExecutor(max_workers=4) as executor:
-            caption_future = executor.submit(
-                fetch_youtube_captions,
-                req.video_id,
-                req.start_sec,
-                req.end_sec,
-                config.AUDIO_PADDING_SEC,
-            )
+            # ── 1단계: 다운로드 + 캡션 가져오기 ──
+            caption_future = None
+            if config.YOUTUBE_CAPTION_ENABLED:
+                caption_future = executor.submit(
+                    fetch_youtube_captions,
+                    req.video_id,
+                    req.start_sec,
+                    req.end_sec,
+                    config.AUDIO_PADDING_SEC,
+                )
             download_future = executor.submit(
                 download_reference_audio,
                 req.video_id,
@@ -225,7 +554,10 @@ def generate_reference(
                 download_padding_sec,
             )
 
-            caption_text, caption_source = caption_future.result()
+            if caption_future is not None:
+                caption_text, caption_source = caption_future.result()
+            else:
+                caption_text, caption_source = None, "disabled"
             _, actual_audio = download_future.result()
 
             vocal_future = None
@@ -236,87 +568,42 @@ def generate_reference(
                     tmp_dir,
                 )
 
-            if caption_text:
-                logger.info(
-                    "Fast Path: caption-align (source=%s, 자막 %d자)",
+            # ── 2단계: STT / 정렬 + 단어 정제 ──
+            original_audio_array, _ = librosa.load(
+                actual_audio,
+                sr=target_sr,
+            )
+
+            stats, final_script, final_words, trimmed_count = (
+                _transcribe_and_refine(
+                    pipeline,
+                    actual_audio,
+                    caption_text,
                     caption_source,
-                    len(caption_text),
+                    original_audio_array,
+                    target_sr,
+                    request_offset_sec,
+                    request_duration_sec,
                 )
-                stats = pipeline.align_text_to_audio(
-                    actual_audio, caption_text
-                )
-                fallback_reasons = stats.get(
-                    "caption_fallback_reasons",
-                    [],
-                )
-                should_fallback = config.CAPTION_FALLBACK_ENABLED and (
-                    stats.get("caption_should_fallback", False)
-                    or not stats.get("word_timestamps")
-                )
-                if should_fallback:
-                    logger.info(
-                        "Caption align fallback to Whisper STT: reasons=%s",
-                        fallback_reasons or ["empty_alignment"],
-                    )
-                    stats = pipeline.extract_whisper_stats(actual_audio)
-            else:
-                logger.info(
-                    "Slow Path: full STT transcribe (caption_source=%s)",
-                    caption_source,
-                )
-                stats = pipeline.extract_whisper_stats(actual_audio)
+            )
+            sentence_data = split_into_sentences_with_timestamps(
+                final_script,
+                final_words,
+            )
+            translation_future = executor.submit(
+                translate_reference_parts_with_gemini,
+                final_script,
+                deepcopy(sentence_data),
+            )
 
             vocal_audio = actual_audio
             if vocal_future is not None:
                 vocal_audio = vocal_future.result()
 
             stt_method = stats.get("stt_method", "whisper_stt")
-            target_sr = config.TARGET_SR
-            original_audio_array, _ = librosa.load(
-                actual_audio,
-                sr=target_sr,
-            )
             feature_audio_array, _ = librosa.load(
                 vocal_audio,
                 sr=target_sr,
-            )
-
-            audio_duration_sec = float(len(original_audio_array) / target_sr)
-
-            refined_words, refined_text = (
-                audio_processing_module.trim_boundary_fragments(
-                    word_timestamps=stats["word_timestamps"],
-                    full_text=stats["text"],
-                    audio_duration_sec=audio_duration_sec,
-                )
-            )
-            trimmed_count = len(stats["word_timestamps"]) - len(refined_words)
-            final_script = refined_text if refined_text else stats["text"]
-            final_words = (
-                refined_words if refined_words else stats["word_timestamps"]
-            )
-            sanitized_words = sanitize_word_timestamps(final_words)
-            if sanitized_words:
-                final_words = sanitized_words
-                final_script = sanitize_reference_text(
-                    " ".join(word["word"] for word in final_words)
-                )
-            else:
-                final_script = sanitize_reference_text(final_script)
-            request_words = _rebase_reference_words(
-                final_words,
-                request_offset_sec,
-                request_duration_sec,
-            )
-            if request_words:
-                final_words = sanitize_word_timestamps(request_words)
-                final_script = sanitize_reference_text(
-                    " ".join(word["word"] for word in final_words)
-                )
-            logger.info(
-                "trim_boundary_fragments: removed %d words (%d remain)",
-                trimmed_count,
-                len(final_words),
             )
 
             request_audio = _slice_audio_segment(
@@ -341,150 +628,39 @@ def generate_reference(
                 audio_metrics
             )
 
-            speech_start_sec = (
-                float(final_words[0].get("start", 0.0)) if final_words else 0.0
-            )
-            speech_end_sec = (
-                float(final_words[-1].get("end", request_duration_sec))
-                if final_words
-                else request_duration_sec
-            )
-            start_idx = int(speech_start_sec * target_sr)
-            end_idx = int(speech_end_sec * target_sr)
-            cropped_original_feature_audio = (
-                request_audio[start_idx:end_idx]
-                if end_idx > start_idx
-                else request_audio
-            )
-            cropped_feature_audio = (
-                feature_request_audio[start_idx:end_idx]
-                if end_idx > start_idx
-                else feature_request_audio
-            )
-
-            original_prosody_future = None
-            if vr_source_mode in ("original", "both"):
-                original_prosody_future = executor.submit(
-                    pipeline.extract_prosody_features,
-                    cropped_original_feature_audio,
-                    target_sr,
-                    denoise_mode != "off",
-                    denoise_mode,
-                )
-
-            vr_prosody_future = None
-            if use_vr and vr_source_mode in ("vr", "both"):
-                vr_prosody_future = executor.submit(
-                    pipeline.extract_prosody_features,
-                    cropped_feature_audio,
-                    target_sr,
-                    denoise_mode != "off",
-                    denoise_mode,
-                )
-
-            f0, rms = None, None
-
-            if vr_source_mode == "original":
-                f0, rms, _ = original_prosody_future.result()
-                logger.info(
-                    "Reference prosody source selected: f0=original "
-                    "rms=original (Original only mode)"
-                )
-            elif vr_source_mode == "vr" and use_vr:
-                f0, rms, _ = vr_prosody_future.result()
-                logger.info(
-                    "Reference prosody source selected: f0=vr "
-                    "rms=vr (VR only mode)"
-                )
-            elif vr_source_mode == "both" and use_vr:
-                original_f0, original_rms, _ = original_prosody_future.result()
-                vr_f0, vr_rms, _ = vr_prosody_future.result()
-                selected_prosody = select_reference_prosody_sources(
-                    original_f0,
-                    original_rms,
-                    vr_f0,
-                    vr_rms,
-                )
-                f0 = selected_prosody["f0"]
-                rms = selected_prosody["rms"]
-                logger.info(
-                    "Reference prosody source selected: f0=%s rms=%s "
-                    "(orig_f0=%s vr_f0=%s orig_rms=%s vr_rms=%s)",
-                    selected_prosody["f0_source"],
-                    selected_prosody["rms_source"],
-                    selected_prosody["original_f0_metrics"],
-                    selected_prosody["vr_f0_metrics"],
-                    selected_prosody["original_rms_metrics"],
-                    selected_prosody["vr_rms_metrics"],
-                )
-            else:
-                # 안전장치(예: vr 모드인데 VR이 실패했거나 비활성화된 경우)
-                if original_prosody_future:
-                    f0, rms, _ = original_prosody_future.result()
-                else:
-                    original_f0, original_rms, _ = pipeline.extract_prosody_features(
-                        cropped_original_feature_audio,
-                        target_sr,
-                        denoise_mode != "off",
-                        denoise_mode,
-                    )
-                    f0, rms = original_f0, original_rms
-                logger.info(
-                    "Reference prosody source selected: f0=original "
-                    "rms=original (Fallback mode)"
-                )
-
-            sentence_data = split_into_sentences_with_timestamps(
-                final_script,
-                final_words,
-            )
-            translation_future = executor.submit(
-                translate_reference_parts_with_gemini,
-                final_script,
-                deepcopy(sentence_data),
-            )
-
-            sentence_data = attach_part_analysis(
-                sentence_data,
-                f0,
-                rms,
-                speech_start_sec,
-                target_sr,
-                config.HOP_LENGTH,
-            )
-
-            quality_metadata = assess_reference_quality(
+            # ── 3단계: Prosody 추출 ──
+            f0, rms, speech_start_sec = _extract_reference_prosody(
+                pipeline,
+                executor,
                 request_audio,
-                target_sr,
+                feature_request_audio,
                 final_words,
-                sentence_data,
-                caption_source,
-                stt_method,
+                target_sr,
+                request_duration_sec,
+                vr_source_mode,
+                use_vr,
                 denoise_mode,
-                precomputed_metrics=audio_metrics,
             )
-            _apply_speaker_risk_policy(sentence_data, quality_metadata)
 
-            should_reject = (
-                quality_metadata.get("reference_quality") == "reject"
-            )
-            if (
-                quality_metadata.get("reference_quality") == "risky"
-                and not config.REFERENCE_ALLOW_RISKY
-            ):
-                should_reject = True
-
-            if should_reject:
-                translation_future.cancel()
-                raise HTTPException(
-                    status_code=422,
-                    detail={
-                        "message": "reference 구간 품질이 낮아 생성이 거부되었습니다.",
-                        **quality_metadata,
-                    },
+            # ── 4단계: 품질 평가 + 번역 ──
+            sentence_data, quality_metadata, translation_result = (
+                _assess_reference_and_collect_translation(
+                    request_audio,
+                    target_sr,
+                    final_words,
+                    sentence_data,
+                    translation_future,
+                    f0,
+                    rms,
+                    speech_start_sec,
+                    caption_source,
+                    stt_method,
+                    denoise_mode,
+                    audio_metrics,
                 )
+            )
 
-            translation_result = translation_future.result()
+        # ── 5단계: 번역 결과 병합 + 저장 ──
         sentence_data = attach_part_analysis(
             translation_result.parts,
             f0,
@@ -496,30 +672,12 @@ def generate_reference(
         annotate_reference_part_speakers(sentence_data)
         _apply_speaker_risk_policy(sentence_data, quality_metadata)
 
-        # 저장용 오디오만 Peak 정규화 (플레이백 품질 향상)
-        if config.SAVE_REFERENCE_AUDIO:
-            save_audio = audio_processing_module.peak_normalize_audio(
-                request_audio
-            )
-
-            prepared_save_dir: str = prepare_reference_audio_dir(
-                req.video_id,
-                req.start_sec,
-                req.end_sec,
-                req.save_dir,
-            )
-            save_dir = prepared_save_dir
-            persist_reference_audio(
-                save_audio,
-                target_sr,
-                prepared_save_dir,
-            )
-            _export_part_audio_files(
-                save_audio,
-                target_sr,
-                prepared_save_dir,
-                sentence_data,
-            )
+        save_dir = _persist_artifacts(
+            req,
+            request_audio,
+            target_sr,
+            sentence_data,
+        )
 
         background_tasks.add_task(remove_file, actual_audio)
         background_tasks.add_task(remove_dir, tmp_dir)

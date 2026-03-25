@@ -24,6 +24,7 @@ AI 서버가 레퍼런스의 프로소디 피처와 비교하여 **7가지 지�
 - Base64 디코딩 또는 S3/URL 다운로드
 - `librosa.load(sr=16000)` → 16kHz 모노로 로드
 - **Peak 정규화**: 오디오 최대 진폭을 1.0으로 스케일링 → WhisperX STT 인식률 향상
+- *(선택)* `evaluation.user_vr_enabled` 설정이 켜져 있을 경우, `audio-separator`로 배경 노이즈를 제거한 순수 보컬을 추출하여 이후 `extract_prosody_features`에 투입할 수 있도록 준비합니다.
 
 ---
 
@@ -92,7 +93,11 @@ count_score = 100 × exp(-(diff²) / (2 × sigma²))
 ```
 prosody_score = 100 × exp(-beta × normalized_DTW_distance)
 ```
-- 레퍼런스·사용자의 `[F0_norm, RMS_norm]` 2차원 벡터를 **Fast DTW**로 비교
+- **Smart Cropping**: 시작 단어~끝 단어 구간 외의 잉여 오디오를 버려 무음으로 인한 왜곡 방지
+- **Baseline 0 고정**:
+  - `F0` 곡선에서 pyin `voiced_flag` 기반으로 무성음을 0.0 으로 마스킹 후 메디안 필터(kernel=5) 적용
+  - `RMS` 볼륨에서 하위 15% 또는 극소 신호를 0.0 으로 고정 처리
+- **정규화**: 침묵을 0점으로 맞춘 두 개의 2차원 `[F0_norm, RMS_norm]` 벡터를 **Fast DTW**로 비교
 - `beta = 1.2`, `DTW_radius = 10`
 
 **9b. 종결 억양 (Boundary Tone) — 가중치 10%**
@@ -108,9 +113,9 @@ prosody_score = 100 × exp(-beta × normalized_DTW_distance)
 - `dynamic_score = 100 × ((min + 0.1) / (max + 0.1))^1.2`
 
 #### Step 10. 사용자 프로소디 피처 추출
-- 사용자 오디오의 발화 구간만 크롭
-- 원본 오디오(정규화 전)로 `extract_prosody_features(denoise=True)` 실행
-- Track B 디노이징 적용 후 F0/RMS 추출
+- 사용자 오디오의 실제 발화 단어들(Smart Cropping) 기준 발화 구간만 크롭
+- 설정에 따라 `extract_prosody_features(denoise=True)` 또는 **VR 모드(배경음 분리)**를 거친 순수 오디오를 투입
+- 추출된 피처에 무성음 마스킹, F0 Median filtering(kernel=5), F0/RMS Z-Score 정규화(0점 고정) 적용
 
 ---
 
