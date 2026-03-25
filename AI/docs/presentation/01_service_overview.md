@@ -44,8 +44,12 @@
 ## 4. AI 특화 기능 요약
 
 ### 4.1 Prosody Feature Extraction (프로소디 피처 추출)
-- **F0 (피치)**: `librosa.pyin`으로 C2~C7 주파수 대역에서 프레임별 기본 주파수를 추출, 화자 정규화(유성음 기준 Z-score)
-- **RMS (에너지)**: `librosa.feature.rms`로 프레임별 에너지를 추출, Z-score 정규화
+- **F0 (피치)**: `librosa.pyin`으로 C2~C7 주파수 대역에서 프레임별 기본 주파수를 추출
+  - **Baseline 0 Fixed**: `voiced_flag` 기반 무성음/30Hz 미만 구간을 `0.0`으로 마스킹 후 메디안 필터(kernel=5) 적용
+  - 유성음 구간만으로 Z-score 정규화
+- **RMS (에너지)**: `librosa.feature.rms`로 프레임별 에너지를 추출
+  - **Baseline 0 Fixed**: 하위 15% 이하 또는 극소 신호(1e-4) 구간을 `0.0`으로 강제 고정 후 Z-score 정규화
+- **Smart Cropping**: STT 타임스탬프 기반으로 실제 발화 구간만 잘라내어 앞뒤 무음의 평균 왜곡 차단
 - **Hop Length**: 256 프레임 (16kHz 기준 ~16ms 해상도)
 
 ### 4.2 VR Gating (보컬 분리 게이팅)
@@ -85,26 +89,40 @@
 ```
 AI/
 ├── main.py                  # FastAPI 앱 진입점
-├── pipeline.py              # WhisperX STT, Prosody 추출, 채점 로직
+├── pipeline.py              # WhisperX STT, 채점 헬퍼
 ├── config.py / config.yaml  # 설정 관리 (300+ 파라미터)
 ├── schemas.py               # Pydantic 요청/응답 스키마
 ├── services/
-│   ├── reference_service.py           # 레퍼런스 생성 유스케이스
+│   ├── reference_service.py           # 레퍼런스 생성 (병렬/분기 관리)
 │   ├── reference_translation_service.py  # Gemini LLM 번역/병합
 │   ├── reference_payload.py           # 응답 페이로드 빌더
 │   └── evaluation_service.py          # 사용자 평가 유스케이스
-├── domain/processing/
-│   ├── audio_processing.py   # 보컬 분리, 디노이징, Peak 정규화
-│   ├── quality.py            # 오디오 품질 추정, 품질 게이트
-│   ├── text_processing.py    # 문장/턴 분할, 짧은 파트 병합
-│   ├── speaker_analysis.py   # 화자 분석, diarization 후처리
-│   ├── engine_utils.py       # 유틸리티 (WER, pause 계산 등)
-│   └── constants.py          # A1 단어 사전, 축약형 패턴
+├── domain/
+│   ├── processing/              # 텍스트, 품질, 오디오 기초 처리
+│   │   ├── audio_processing.py  # 보컬 분리, 디노이징, Peak 정규화
+│   │   ├── quality.py           # 오디오 품질 추정, 품질 게이트
+│   │   ├── text_processing.py   # 문장/턴 분할, 짧은 파트 병합
+│   │   ├── speaker_analysis.py  # 화자 분석, diarization 후처리
+│   │   ├── engine_utils.py      # 유틸리티 (케노니컬 토큰 등)
+│   │   └── constants.py         # A1 단어 사전, 축약형 패턴
+│   ├── prosody/                 # F0/RMS 피처 추출 엔진
+│   │   ├── feature_extraction.py # Baseline 0 Fixed + Smart Crop 추출
+│   │   └── source_selection.py  # 원본 vs VR 소스 게이팅 결정 트리
+│   ├── scoring/                 # 사용자 발화 채점 엔진 (8개 모듈)
+│   │   ├── aggregator.py        # 평가 오케스트레이션 및 점수 통합
+│   │   ├── prosody_scoring.py   # Hybrid: Pearson 유사도 + DTW 타이밍
+│   │   ├── boundary_scoring.py  # 종결 억양 채점
+│   │   ├── rhythm_scoring.py    # 단어별 리듬 채점
+│   │   └── ...                  # pause, dynamic, pitch_contour, word_alignment
+│   └── stt/
+│       └── diarization.py       # Pyannote 화자 분리
 ├── integrations/
 │   ├── youtube_service.py    # YouTube 오디오/자막 다운로드
 │   ├── io_utils.py           # S3/URL 다운로드, 파일 관리
-│   └── audio_cache.py        # 오디오 다운로드 캐시
+│   └── audio_cache.py        # 오디오 다운로드 LRU+TTL 캐시
 └── test/
     ├── test_api.py           # API 테스트 CLI
-    └── test_vr_onnx.py       # VR 분리 테스트 스크립트
+    ├── test_vr_onnx.py       # VR 분리 테스트
+    ├── visualize_prosody_eval_mode.py  # 유저 평가 데이터 프리미엄 시각화 (6종 PNG)
+    └── visualize_prosody_vr_mode.py    # VR 음원 비교 시각화
 ```
