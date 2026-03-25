@@ -259,6 +259,15 @@ PAUSE_ALIGN_WEIGHT: float = get("scoring.pause_align_weight", 0.7)
 PAUSE_ALIGN_GAP_SEC: float = get("scoring.pause_align_gap_sec", 0.3)
 PROSODY_BETA: float = get("scoring.prosody_beta", 1.2)
 PROSODY_DTW_RADIUS: int = get("scoring.prosody_dtw_radius", 10)
+PROSODY_SCORING_MODE: str = get("scoring.prosody_scoring_mode", "hybrid")
+PROSODY_SIMILARITY_METRIC: str = get(
+    "scoring.prosody_similarity_metric", "pearson"
+)
+PROSODY_F0_WEIGHT: float = get("scoring.prosody_f0_weight", 0.7)
+PROSODY_RMS_WEIGHT: float = get("scoring.prosody_rms_weight", 0.3)
+PROSODY_TIMING_PENALTY_WEIGHT: float = get(
+    "scoring.prosody_timing_penalty_weight", 0.25
+)
 RHYTHM_K: float = get("scoring.rhythm_k", 1.2)
 RHYTHM_DIFF_THRESHOLD: float = get("scoring.rhythm_diff_threshold", 0.4)
 BOUNDARY_SLOPE_THRESHOLD: float = get("scoring.boundary_slope_threshold", 0.55)
@@ -277,6 +286,15 @@ PITCH_FLAT_THRESHOLD_RATIO: float = get(
     "scoring.pitch_flat_threshold_ratio", 0.04
 )
 PASS_THRESHOLD: float = get("scoring.pass_threshold", 60.0)
+PROSODY_F0_VOICED_MASK_ENABLED: bool = get(
+    "scoring.prosody_f0_voiced_mask_enabled", True
+)
+PROSODY_F0_MEDIAN_FILTER_ENABLED: bool = get(
+    "scoring.prosody_f0_median_filter_enabled", True
+)
+PROSODY_F0_MEDIAN_FILTER_KERNEL: int = get(
+    "scoring.prosody_f0_median_filter_kernel", 5
+)
 
 SCORE_WEIGHTS: dict = get(
     "scoring.weights",
@@ -292,6 +310,9 @@ SCORE_WEIGHTS: dict = get(
 )
 
 GHOST_WORD_CONFIDENCE: float = get("alignment.ghost_word_confidence", 0.1)
+YOUTUBE_CAPTION_ENABLED: bool = get(
+    "alignment.youtube_caption_enabled", True
+)
 CAPTION_FALLBACK_ENABLED: bool = get(
     "alignment.caption_fallback_enabled", True
 )
@@ -318,6 +339,7 @@ CAPTION_FALLBACK_MIN_REASON_COUNT: int = get(
 # false이면 reference 생성에서 vocal separation 및
 # VR 기반 prosody 추출 경로를 모두 스킵합니다.
 VR_ENABLED: bool = get("vocal_remover.enabled", True)
+EVALUATION_USER_VR_ENABLED: bool = get("evaluation.user_vr_enabled", False)
 VR_MODEL: str = get("vocal_remover.model", "htdemucs")
 VR_DEVICE: str = get("vocal_remover.device", "auto")
 VR_SEGMENT: int | None = get("vocal_remover.segment", None)
