@@ -78,7 +78,7 @@ public class GameScheduler {
      * 2) 지난 주 비활성 유저: 1단계 강등 패널티 (4주 이상 → freeze)
      * 3) 전체 주간 점수 초기화
      */
-    @Scheduled(cron = "0 0 0 * * MON", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 0 0 * * SUN", zone = "Asia/Seoul")
     @Transactional
     public void recalculateTiers() {
         log.info("[GameScheduler] recalculateTiers start");
