@@ -124,6 +124,11 @@ AUDIO_CACHE_ENABLED: bool = get("audio.cache.enabled", True)
 AUDIO_CACHE_DIR: str = get("audio.cache.dir", "temp/audio_cache")
 AUDIO_CACHE_MAX_SIZE_MB: int = get("audio.cache.max_size_mb", 500)
 AUDIO_CACHE_TTL_HOURS: int = get("audio.cache.ttl_hours", 24)
+REQUEST_TRACE_ENABLED: bool = get("analytics.request_trace_enabled", True)
+REQUEST_TRACE_DIR: str = get(
+    "analytics.request_trace_dir",
+    "temp/request_traces",
+)
 
 DENOISE_ENABLED: bool = get("denoise.enabled", True)
 DENOISE_STATIONARY: bool = get("denoise.stationary", True)

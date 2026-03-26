@@ -41,11 +41,43 @@ from services.reference_payload import (
     sanitize_reference_text,
     sanitize_word_timestamps,
 )
+from services.request_trace_service import (
+    create_trace_context,
+    persist_request_trace,
+)
 from services.reference_translation_service import (
     translate_reference_parts_with_gemini,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _summarize_reference_parts(parts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Extract analysis-friendly part features without full contour payloads."""
+    return [
+        {
+            "sentence": part.get("sentence", ""),
+            "start_sec": part.get("start_sec"),
+            "end_sec": part.get("end_sec"),
+            "duration_sec": part.get("duration_sec"),
+            "word_count": part.get("word_count"),
+            "part_source": part.get("part_source"),
+            "turn_id": part.get("turn_id"),
+            "turn_break_reason": part.get("turn_break_reason"),
+            "speaker_risk": part.get("speaker_risk"),
+            "pause_count": part.get("pause_count"),
+            "feature_frames": {
+                "f0": len(part.get("features", {}).get("f0_array", []))
+                if part.get("features")
+                else 0,
+                "rms": len(part.get("features", {}).get("rms_array", []))
+                if part.get("features")
+                else 0,
+            },
+            "source_part_ids": list(part.get("source_part_ids", [])),
+        }
+        for part in parts
+    ]
 
 
 def _apply_speaker_risk_policy(
@@ -519,6 +551,15 @@ def generate_reference(
     actual_audio: str | None = None
     save_dir: str | None = None
     _succeeded = False
+    trace_context = create_trace_context("/api/v1/generate-reference")
+    trace_intermediate: dict[str, Any] = {
+        "request_summary": {
+            "video_id": req.video_id,
+            "start_sec": req.start_sec,
+            "end_sec": req.end_sec,
+            "save_dir": req.save_dir,
+        }
+    }
     try:
         pipeline = get_pipeline()
         vr_source_mode = config.VR_SOURCE_MODE.lower()
@@ -530,6 +571,13 @@ def generate_reference(
         download_padding_sec = config.AUDIO_PADDING_SEC
         request_offset_sec = min(req.start_sec, download_padding_sec)
         request_duration_sec = max(0.0, req.end_sec - req.start_sec)
+        trace_intermediate["request_audio_window"] = {
+            "download_padding_sec": download_padding_sec,
+            "request_offset_sec": request_offset_sec,
+            "request_duration_sec": request_duration_sec,
+            "use_vr": use_vr,
+            "vr_source_mode": vr_source_mode,
+        }
 
         target_sr = config.TARGET_SR
 
@@ -559,6 +607,10 @@ def generate_reference(
             else:
                 caption_text, caption_source = None, "disabled"
             _, actual_audio = download_future.result()
+            trace_intermediate["download"] = {
+                "caption_source": caption_source,
+                "audio_path": actual_audio,
+            }
 
             vocal_future = None
             if use_vr:
@@ -590,6 +642,13 @@ def generate_reference(
                 final_script,
                 final_words,
             )
+            trace_intermediate["transcription"] = {
+                "stt_method": stats.get("stt_method", "whisper_stt"),
+                "trimmed_word_count": trimmed_count,
+                "final_word_count": len(final_words),
+                "final_script_word_count": len(final_script.split()),
+                "initial_parts": _summarize_reference_parts(sentence_data),
+            }
             translation_future = executor.submit(
                 translate_reference_parts_with_gemini,
                 final_script,
@@ -627,6 +686,8 @@ def generate_reference(
             denoise_mode = select_reference_denoise_mode_from_metrics(
                 audio_metrics
             )
+            trace_intermediate["audio_metrics"] = audio_metrics
+            trace_intermediate["denoise_mode"] = denoise_mode
 
             # ── 3단계: Prosody 추출 ──
             f0, rms, speech_start_sec = _extract_reference_prosody(
@@ -641,6 +702,13 @@ def generate_reference(
                 use_vr,
                 denoise_mode,
             )
+            trace_intermediate["prosody_summary"] = {
+                "f0_frames": len(f0),
+                "rms_frames": len(rms),
+                "speech_start_sec": speech_start_sec,
+                "target_sr": target_sr,
+                "hop_length": config.HOP_LENGTH,
+            }
 
             # ── 4단계: 품질 평가 + 번역 ──
             sentence_data, quality_metadata, translation_result = (
@@ -657,6 +725,18 @@ def generate_reference(
                     stt_method,
                     denoise_mode,
                     audio_metrics,
+                )
+            )
+            trace_intermediate["quality_metadata"] = quality_metadata
+            trace_intermediate["translation_metadata"] = (
+                translation_result.model_dump(
+                    include={
+                        "translation_status",
+                        "translation_retry_count",
+                        "translation_provider",
+                        "final_script_ko",
+                        "learning_expressions",
+                    }
                 )
             )
 
@@ -678,12 +758,16 @@ def generate_reference(
             target_sr,
             sentence_data,
         )
+        trace_intermediate["final_parts"] = _summarize_reference_parts(
+            sentence_data
+        )
+        trace_intermediate["artifact_dir"] = save_dir
 
         background_tasks.add_task(remove_file, actual_audio)
         background_tasks.add_task(remove_dir, tmp_dir)
 
         _succeeded = True
-        return build_reference_response(
+        response_payload = build_reference_response(
             video_id=req.video_id,
             start_sec=req.start_sec,
             end_sec=req.end_sec,
@@ -703,11 +787,36 @@ def generate_reference(
             ),
             hop_length=config.HOP_LENGTH,
         )
+        persist_request_trace(
+            trace_context=trace_context,
+            request_payload=trace_intermediate["request_summary"],
+            intermediate=trace_intermediate,
+            response_payload=response_payload,
+        )
+        return response_payload
 
-    except HTTPException:
+    except HTTPException as exc:
+        persist_request_trace(
+            trace_context=trace_context,
+            request_payload=trace_intermediate["request_summary"],
+            intermediate=trace_intermediate,
+            error_payload={
+                "status_code": exc.status_code,
+                "detail": exc.detail,
+            },
+        )
         raise
     except Exception:
         logger.exception("generate-reference failed")
+        persist_request_trace(
+            trace_context=trace_context,
+            request_payload=trace_intermediate["request_summary"],
+            intermediate=trace_intermediate,
+            error_payload={
+                "status_code": 500,
+                "detail": "generate-reference failed",
+            },
+        )
         raise HTTPException(
             status_code=500,
             detail="레퍼런스 생성 중 내부 오류가 발생했습니다.",
