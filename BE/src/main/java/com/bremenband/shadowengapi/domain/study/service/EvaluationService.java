@@ -85,9 +85,14 @@ public class EvaluationService {
             throw new CustomException(ErrorCode.PREVIOUS_STEP_NOT_COMPLETED);
         }
 
-        // 4. 음성 파일 Base64 인코딩
+        // 4. 음성 파일 유효성 검사 및 Base64 인코딩
         log.info("[evaluate] audio received: name={}, size={}bytes, contentType={}",
                 audioFile.getOriginalFilename(), audioFile.getSize(), audioFile.getContentType());
+
+        if (audioFile.getSize() < 5000) {
+            log.warn("[evaluate] audio too short: size={}bytes", audioFile.getSize());
+            throw new CustomException(ErrorCode.AUDIO_TOO_SHORT);
+        }
 
         String audioBase64;
         try {

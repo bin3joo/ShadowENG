@@ -13,6 +13,7 @@ public enum ErrorCode {
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, 1001, "입력값이 올바르지 않습니다."),
     INVALID_YOUTUBE_URL(HttpStatus.BAD_REQUEST, 1002, "올바르지 않은 유튜브 URL입니다."),
     VOICE_RECOGNITION_FAILED(HttpStatus.BAD_REQUEST, 1003, "음성이 인식되지 않았습니다. 다시 녹음해주세요."),
+    AUDIO_TOO_SHORT(HttpStatus.BAD_REQUEST, 1009, "녹음 시간이 너무 짧습니다. 다시 녹음해주세요."),
     NO_EVALUATIONS_FOR_REPORT(HttpStatus.BAD_REQUEST, 1004, "평가 결과가 없어 리포트를 생성할 수 없습니다."),
     GAME_ROUND_INVALID(HttpStatus.BAD_REQUEST, 1005, "유효하지 않은 게임 라운드 요청입니다. 이전 라운드를 먼저 완료해주세요."),
     PREVIOUS_STEP_NOT_COMPLETED(HttpStatus.BAD_REQUEST, 1006, "이전 학습 단계를 먼저 완료해주세요."),
