@@ -63,6 +63,10 @@ public class User extends BaseTimeEntity {
         this.lastVisitedDate = today;
     }
 
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
     public void delete() {
         this.deletedAt = LocalDateTime.now();
     }

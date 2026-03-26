@@ -153,6 +153,13 @@ public class UserService {
     }
 
     @Transactional
+    public void updateNickname(Long userId, String nickname) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        user.updateNickname(nickname);
+    }
+
+    @Transactional
     public void incrementVisitedCount(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -181,4 +188,5 @@ public class UserService {
         }
         return longest;
     }
+
 }
