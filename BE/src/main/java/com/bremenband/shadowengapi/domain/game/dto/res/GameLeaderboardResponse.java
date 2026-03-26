@@ -1,5 +1,6 @@
 package com.bremenband.shadowengapi.domain.game.dto.res;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 public record GameLeaderboardResponse(
@@ -16,6 +17,7 @@ public record GameLeaderboardResponse(
             int rank,
             String nickname,
             double weeklyScore,
+            @JsonProperty("isMe")
             boolean isMe
     ) {}
 }

@@ -1,5 +1,7 @@
 package com.bremenband.shadowengapi.domain.game.dto.res;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.util.List;
 
 public record GameEvaluationResponse(
@@ -12,6 +14,7 @@ public record GameEvaluationResponse(
         GameResult result  // null if !gameOver
 ) {
     public record Details(
+            @Schema(name = "wordFeedback")
             List<WordLevelFeedback> wordFeedback,
             BoundaryToneFeedback boundaryToneFeedback,
             DynamicStressFeedback dynamicStressFeedback
