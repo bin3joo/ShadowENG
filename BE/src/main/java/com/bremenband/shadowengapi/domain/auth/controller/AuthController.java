@@ -3,6 +3,7 @@ package com.bremenband.shadowengapi.domain.auth.controller;
 import com.bremenband.shadowengapi.domain.auth.dto.req.GuestLoginRequest;
 import com.bremenband.shadowengapi.domain.auth.dto.req.KakaoLoginRequest;
 import com.bremenband.shadowengapi.domain.auth.dto.req.TokenRefreshRequest;
+import com.bremenband.shadowengapi.domain.auth.dto.res.GuestLoginResponse;
 import com.bremenband.shadowengapi.domain.auth.dto.res.TokenResponse;
 import com.bremenband.shadowengapi.domain.auth.service.AuthService;
 import com.bremenband.shadowengapi.domain.auth.service.GuestAuthService;
@@ -36,7 +37,7 @@ public class AuthController {
             description = "디바이스 ID(UUID)로 게스트 계정을 생성하거나 기존 게스트 계정으로 로그인합니다. " +
                     "최초 요청 시 게스트 계정이 자동 생성됩니다."
     )
-    public ApiResponse<TokenResponse> guestLogin(@Valid @RequestBody GuestLoginRequest request) {
+    public ApiResponse<GuestLoginResponse> guestLogin(@Valid @RequestBody GuestLoginRequest request) {
         return ApiResponse.success(guestAuthService.guestLogin(request.deviceId()));
     }
 
