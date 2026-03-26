@@ -83,7 +83,7 @@ public class StudySessionService {
                                     "https://i.ytimg.com/vi/" + videoId + "/sddefault.jpg", 640, 480);
                             long total     = totalMap.getOrDefault(session.getId(), 0L);
                             long completed = completedMap.getOrDefault(session.getId(), 0L);
-                            return new ActiveSessionResponse(session.getId(), session.getVideo().getTitle(), thumbnail, total, completed);
+                            return new ActiveSessionResponse(session.getId(), session.getName(), session.getVideo().getTitle(), thumbnail, total, completed);
                         }, Collectors.toList())
                 ));
 
@@ -135,6 +135,7 @@ public class StudySessionService {
 
         return new StudySessionCreateResponse(
                 session.getId(),
+                session.getName(),
                 parentSessionId,
                 new StudySessionCreateResponse.VideoData(
                         video.getVideoId(),
@@ -167,6 +168,7 @@ public class StudySessionService {
 
         LatestActiveSessionResponse latestSession = new LatestActiveSessionResponse(
                 session.getId(),
+                session.getName(),
                 thumbnailUrl,
                 session.getVideo().getTitle(),
                 totalSentences,
@@ -302,6 +304,7 @@ public class StudySessionService {
 
         return new StudySessionCreateResponse(
                 newSession.getId(),
+                newSession.getName(),
                 original.getId(),
                 new StudySessionCreateResponse.VideoData(
                         video.getVideoId(),
@@ -347,6 +350,22 @@ public class StudySessionService {
         }
 
         session.startReview();
+    }
+
+    @Transactional
+    public void renameSession(Long sessionId, Long userId, String name) {
+        StudySession session = studySessionRepository.findById(sessionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
+
+        if (session.getStatus() == SessionStatus.DELETED) {
+            throw new CustomException(ErrorCode.SESSION_NOT_FOUND);
+        }
+
+        if (!session.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
+
+        session.rename(name);
     }
 
     private record SentenceMetadata(

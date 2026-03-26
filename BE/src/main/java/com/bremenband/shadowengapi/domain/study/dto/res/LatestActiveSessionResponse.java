@@ -8,6 +8,9 @@ public record LatestActiveSessionResponse(
         @Schema(description = "학습 세션 ID", example = "12345")
         Long sessionId,
 
+        @Schema(description = "세션 이름", example = "Rick Astley - Never Gonna Give You Up")
+        String name,
+
         @Schema(description = "영상 썸네일 URL (standard 640x480)", example = "https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg")
         String thumbnailUrl,
 

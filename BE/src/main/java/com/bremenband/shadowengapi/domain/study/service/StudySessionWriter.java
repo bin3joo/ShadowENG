@@ -73,6 +73,7 @@ public class StudySessionWriter {
                 .user(user)
                 .startSec(startSec)
                 .endSec(endSec)
+                .name(video.getTitle())
                 .build());
 
         List<Sentence> sentencesToSave = transcriptions.stream()
@@ -95,6 +96,7 @@ public class StudySessionWriter {
 
         return new StudySessionCreateResponse(
                 session.getId(),
+                session.getName(),
                 null,
                 new StudySessionCreateResponse.VideoData(
                         video.getVideoId(),
