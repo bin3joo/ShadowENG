@@ -18,6 +18,7 @@ public class ApiResponse<T> {
     @Schema(description = "응답 데이터")
     private final T data;
 
+    @JsonProperty("isSuccess")
     @Schema(description = "성공 여부", example = "true")
     private final Boolean isSuccess;
 
