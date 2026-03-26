@@ -26,7 +26,7 @@ public class BookmarkController {
     @GetMapping("/bookmarks")
     @Operation(
             summary = "사용자의 북마크 목록 전체 조회",
-            description = "요청 헤더의 Access Token을 통해 인증된 사용자가 북마크한 문장 목록을 조회합니다."
+            description = "요청 헤더의 Access Token을 통해 인증된 사용자가 북마크한 학습 세션 목록을 조회합니다."
     )
     public ApiResponse<BookmarkListResponse> getBookmarks(
             @Parameter(hidden = true) @AuthenticationPrincipal Long userId
@@ -34,18 +34,17 @@ public class BookmarkController {
         return ApiResponse.success(bookmarkService.getBookmarks(userId));
     }
 
-    @PatchMapping(value = "/bookmarks/{sentenceId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PatchMapping(value = "/bookmarks/{sessionId}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
-            summary = "문장 북마크 상태 변경",
-            description = "특정 문장의 북마크 상태를 변경(추가 또는 해제)합니다."
+            summary = "학습 세션 북마크 상태 변경",
+            description = "특정 학습 세션의 북마크 상태를 변경(추가 또는 해제)합니다."
     )
     public ApiResponse<BookmarkUpdateResponse> updateBookmark(
-            @Parameter(description = "북마크 상태를 변경할 문장의 고유 ID", example = "123")
-            @PathVariable Long sentenceId,
+            @Parameter(description = "북마크 상태를 변경할 학습 세션의 고유 ID", example = "123")
+            @PathVariable Long sessionId,
             @Valid @RequestBody BookmarkUpdateRequest request,
             @Parameter(hidden = true) @AuthenticationPrincipal Long userId
     ) {
-        return ApiResponse.success(bookmarkService.updateBookmark(userId, sentenceId, request.isBookmarked()));
+        return ApiResponse.success(bookmarkService.updateBookmark(userId, sessionId, request.isBookmarked()));
     }
-
 }

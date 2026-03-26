@@ -1,6 +1,6 @@
 package com.bremenband.shadowengapi.domain.bookmark.entity;
 
-import com.bremenband.shadowengapi.domain.study.entity.Sentence;
+import com.bremenband.shadowengapi.domain.study.entity.StudySession;
 import com.bremenband.shadowengapi.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -28,16 +28,16 @@ public class Bookmark {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sentence_id", nullable = false)
-    private Sentence sentence;
+    @JoinColumn(name = "session_id", nullable = false)
+    private StudySession studySession;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false, nullable = false)
     private LocalDateTime createdAt;
 
     @Builder
-    private Bookmark(User user, Sentence sentence) {
+    private Bookmark(User user, StudySession studySession) {
         this.user = user;
-        this.sentence = sentence;
+        this.studySession = studySession;
     }
 }
