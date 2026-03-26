@@ -146,8 +146,9 @@
 
 ## 5.1. 실행 방법 (개발)
 
-* **패키지 설치:**
-  * `pip install -r requirements.txt`
+* **패키지 설치 (자동화 스크립트 이용):**
+  * Windows (일반 CMD/PowerShell): `setup.bat` 실행
+  * Windows (Git Bash) / Mac / Linux: `bash setup.sh` 실행
 * **서버 실행 (예시):**
   * 프로젝트 루트 경로에서 실행
   * `uvicorn main:app --reload --host 0.0.0.0 --port 8000`
@@ -187,8 +188,8 @@ setup.bat
 bash setup.sh
 ```
 
-> **CPU 전용 환경**인 경우 2번 단계를 건너뛰면 `requirements.txt`의 PyTorch CPU 빌드가 설치됩니다.
-> `config.yaml`에서 `whisper.device: "cpu"`, `whisper.compute_type: "int8"` 로 변경하세요.
+> **CPU 전용 환경**인 경우 2번(PyTorch 수동 설치) 단계를 건너뛰고 바로 `setup.bat / setup.sh`을 실행하면 안전하게 CPU 전용 구조가 설치됩니다.
+> 설치 후 `config.yaml`에서 `whisper.device: "cpu"`, `whisper.compute_type: "int8"` 로 변경하세요.
 
 ### 6.4. 환경 변수 설정 (`.env`)
 

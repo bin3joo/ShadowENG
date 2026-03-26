@@ -1,5 +1,12 @@
 # Pipe Change Log
 
+## 2026-03-26
+
+### 평가 prosody 정렬 회귀 수정
+- `AI/domain/scoring/aggregator.py`에서 유저 prosody 추출 호출 시 `hop_length`를 위치 인자가 아니라 `hop_length=` 키워드 인자로 전달하도록 수정했습니다. 이제 reference JSON에 저장된 hop length가 평가 단계에서도 그대로 적용됩니다.
+- reference payload에 이미 `speech_start_sec:speech_end_sec` 기준으로 잘려 저장된 `f0_array` / `rms_array`를 평가 단계에서 다시 request-relative word timestamp로 재크롭하던 로직을 제거했습니다.
+- 그 결과, 첫 단어 시작이 늦는 레퍼런스에서도 prosody, boundary tone, dynamic stress 점수가 잘못된 시간축으로 계산되던 회귀를 방지하고, non-default hop length reference와의 프레임 정렬도 복구했습니다.
+
 ## 2026-03-25
 
 ### 유저 오디오 평가 VR(보컬 분리) 모드 지원

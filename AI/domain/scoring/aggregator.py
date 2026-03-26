@@ -115,7 +115,7 @@ def evaluate(
         ref_data: 레퍼런스 JSON 데이터 (final_script, features,
             word_timestamps, hop_length).
         stt_fn: ``extract_whisper_stats(audio_path) -> dict`` 콜백.
-        prosody_fn: ``extract_prosody_features(y, sr, denoise, hop_length)
+        prosody_fn: ``extract_prosody_features(y, sr, denoise, denoise_profile, hop_length)
             -> (f0, rms, features)`` 콜백.
 
     Returns:
@@ -250,31 +250,24 @@ def evaluate(
         )
         # VR 자체가 강력한 디노이징이므로 추가 denoise 불필요
         user_f0, user_rms, user_features = prosody_fn(
-            user_y_cropped, target_sr, False, hop_length
+            user_y_cropped,
+            target_sr,
+            False,
+            hop_length=hop_length,
         )
     else:
         user_f0, user_rms, user_features = prosody_fn(
-            user_y_cropped, target_sr, True, hop_length
+            user_y_cropped,
+            target_sr,
+            True,
+            hop_length=hop_length,
         )
 
-    # 8. 억양 DTW + 세부 분석 (레퍼런스 피처 복원 및 크롭)
+    # 8. 억양 DTW + 세부 분석
     if len(ref_f0) > 0 and len(ref_rms) > 0:
-        # 레퍼런스 유효 발화 구간 크롭 (첫 단어 시작 ~ 마지막 단어 끝)
-        # ref_data["word_timestamps"]는 이미 해당 파트의 오디오 시작점으로부터의 상대적 시간임
-        if ref_word_timestamps:
-            ref_start_time = ref_word_timestamps[0]["start"]
-            ref_end_time = ref_word_timestamps[-1]["end"]
-            ref_start_idx = int(ref_start_time * target_sr / hop_length)
-            ref_end_idx = int(ref_end_time * target_sr / hop_length)
-            
-            ref_f0_t = ref_f0[ref_start_idx:ref_end_idx]
-            ref_rms_t = ref_rms[ref_start_idx:ref_end_idx]
-            
-            # 만약 크롭 결과가 너무 짧으면 안전하게 원본 사용
-            if len(ref_f0_t) < 5:
-                ref_f0_t, ref_rms_t = ref_f0, ref_rms
-        else:
-            ref_f0_t, ref_rms_t = ref_f0, ref_rms
+        # reference payload에는 이미 speech_start_sec:speech_end_sec 기준의
+        # prosody contour가 저장되어 있으므로 평가 단계에서 다시 자르지 않는다.
+        ref_f0_t, ref_rms_t = ref_f0, ref_rms
 
         min_len = min(len(ref_f0_t), len(ref_rms_t))
         ref_f0_t = ref_f0_t[:min_len]
