@@ -136,13 +136,30 @@ public class EvaluationService {
         pendingEvaluationStore.save(sessionId, sentenceId, pending);
         log.info("[evaluate] pending saved to redis: sessionId={}, sentenceId={}, step={}", sessionId, sentenceId, step);
 
+        EvaluationResponse.Scores previousScores = null;
         if (step == 4) {
+            // 복습 모드이면 commitCycle(DB 저장) 전에 직전 step4 점수를 조회
+            if (session.isReviewing()) {
+                previousScores = evaluationRepository
+                        .findTopBySentence_IdAndStepOrderByCreatedAtDesc(sentenceId, 4)
+                        .map(e -> new EvaluationResponse.Scores(
+                                e.getTotalScore().doubleValue(),
+                                e.getWordAccuracy().doubleValue(),
+                                e.getProsodyAndStress().doubleValue(),
+                                e.getWordRhythmScore().doubleValue(),
+                                e.getBoundaryToneScore().doubleValue(),
+                                e.getDynamicStressScore().doubleValue(),
+                                e.getSpeedSimilarity().doubleValue(),
+                                e.getPauseSimilarity().doubleValue()))
+                        .orElse(null);
+                log.info("[evaluate] previousScores loaded: sentenceId={}, found={}", sentenceId, previousScores != null);
+            }
             log.info("[evaluate] step 4 detected, committing cycle: sessionId={}, sentenceId={}", sessionId, sentenceId);
             commitCycle(sessionId, sentenceId, session, sentence);
         }
 
         log.info("[evaluate] done: sessionId={}, sentenceId={}, step={}", sessionId, sentenceId, step);
-        return buildResponse(step, sentence, pythonResponse);
+        return buildResponse(step, sentence, pythonResponse, previousScores);
     }
 
     /**
@@ -203,7 +220,8 @@ public class EvaluationService {
         );
     }
 
-    private EvaluationResponse buildResponse(int step, Sentence sentence, PythonEvaluateAudioResponse python) {
+    private EvaluationResponse buildResponse(int step, Sentence sentence, PythonEvaluateAudioResponse python,
+                                              EvaluationResponse.Scores previousScores) {
         PythonEvaluateAudioResponse.Details d = python.details();
         PythonEvaluateAudioResponse.Scores  s = python.scores();
 
@@ -230,7 +248,8 @@ public class EvaluationService {
                 sentence.getDurationSec(),
                 python.userTranscription(),
                 new EvaluationResponse.Details(wordFeedback, boundaryFeedback, dynamicFeedback),
-                scores);
+                scores,
+                previousScores);
     }
 
     private String getFileExtension(String filename) {
