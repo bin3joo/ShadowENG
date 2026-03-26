@@ -58,11 +58,13 @@ class StudySessionDetailControllerTest {
                 "Rick Astley"
         );
         List<StudySessionCreateResponse.SentenceData> sentencesData = List.of(
-                new StudySessionCreateResponse.SentenceData(10L, "I got it bad.", 5.61, 10.78, 5.17, 2),
-                new StudySessionCreateResponse.SentenceData(11L, "But what do I do?", 11.1, 15.83, 4.73, 0)
+                new StudySessionCreateResponse.SentenceData(10L, 1, "I got it bad.", 5.61, 10.78, 5.17, 2,
+                        null, List.of(), null, null, List.of(), List.of()),
+                new StudySessionCreateResponse.SentenceData(11L, 2, "But what do I do?", 11.1, 15.83, 4.73, 0,
+                        null, List.of(), null, null, List.of(), List.of())
         );
         StudySessionCreateResponse response =
-                new StudySessionCreateResponse(sessionId, videoData, sentencesData);
+                new StudySessionCreateResponse(sessionId, null, videoData, sentencesData, false);
 
         given(studySessionService.getStudySession(eq(sessionId), any())).willReturn(response);
 
@@ -102,7 +104,7 @@ class StudySessionDetailControllerTest {
         StudySessionCreateResponse.VideoData videoData = new StudySessionCreateResponse.VideoData(
                 VIDEO_ID, "embed", "https://www.youtube.com/watch?v=" + VIDEO_ID, "title", "thumb", 212L, "ch");
         StudySessionCreateResponse response =
-                new StudySessionCreateResponse(sessionId, videoData, List.of());
+                new StudySessionCreateResponse(sessionId, null, videoData, List.of(), false);
 
         given(studySessionService.getStudySession(eq(sessionId), any())).willReturn(response);
 

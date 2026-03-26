@@ -51,9 +51,9 @@ class ReportGetControllerTest {
 
         LocalDateTime now = LocalDateTime.of(2025, 3, 23, 14, 30, 0);
         List<ReportResponse> response = List.of(
-                new ReportResponse(2L, sessionId, now, SCORES,
+                new ReportResponse(2L, sessionId, now, 2, 5, SCORES,
                         List.of(new ReportResponse.DifficultSentence(10L, "I got it bad.", 55.0, "weak", "monotone", List.of()))),
-                new ReportResponse(1L, sessionId, now, SCORES, List.of())
+                new ReportResponse(1L, sessionId, now, 1, 5, SCORES, List.of())
         );
 
         given(reportService.getReports(eq(sessionId), any())).willReturn(response);
@@ -100,7 +100,7 @@ class ReportGetControllerTest {
         Long reportId  = 100L;
 
         ReportResponse response = new ReportResponse(
-                reportId, sessionId, LocalDateTime.of(2025, 3, 23, 14, 30, 0), SCORES,
+                reportId, sessionId, LocalDateTime.of(2025, 3, 23, 14, 30, 0), 1, 5, SCORES,
                 List.of(new ReportResponse.DifficultSentence(10L, "I got it bad.", 55.0, "weak", "monotone", List.of()))
         );
 

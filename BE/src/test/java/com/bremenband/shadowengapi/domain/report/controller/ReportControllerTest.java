@@ -7,6 +7,7 @@ import com.bremenband.shadowengapi.global.jwt.JwtProvider;
 import com.bremenband.shadowengapi.global.exception.CustomException;
 import com.bremenband.shadowengapi.global.exception.ErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +42,7 @@ class ReportControllerTest {
 
     @MockitoBean private ReportService reportService;
 
+    @Disabled("POST /study-sessions/{sessionId}/reports 엔드포인트 주석처리됨")
     @Test
     @DisplayName("유효한 요청으로 레포트 생성 시 점수와 취약 문장을 포함한 200을 반환한다")
     void createSessionReport_성공_200() throws Exception {
@@ -52,6 +54,7 @@ class ReportControllerTest {
                 100L,
                 sessionId,
                 LocalDateTime.of(2025, 3, 23, 14, 30, 0),
+                1, 5,
                 new ReportResponse.Scores(72.5, 90.0, 80.0, 75.0, 85.0, 70.0, 88.0, 95.0),
                 List.of(new ReportResponse.DifficultSentence(10L, "I got it bad.", 55.0, "weak", "monotone", List.of()))
         );
@@ -84,6 +87,7 @@ class ReportControllerTest {
         then(reportService).should(times(1)).createReport(eq(sessionId), any());
     }
 
+    @Disabled("POST /study-sessions/{sessionId}/reports 엔드포인트 주석처리됨")
     @Test
     @DisplayName("평가 결과가 없으면 400을 반환한다")
     void createSessionReport_평가없음_400() throws Exception {
@@ -109,6 +113,7 @@ class ReportControllerTest {
                 .andExpect(jsonPath("$.message").value(ErrorCode.NO_EVALUATIONS_FOR_REPORT.getMessage()));
     }
 
+    @Disabled("POST /study-sessions/{sessionId}/reports 엔드포인트 주석처리됨")
     @Test
     @DisplayName("세션이 없으면 404를 반환한다")
     void createSessionReport_세션없음_404() throws Exception {

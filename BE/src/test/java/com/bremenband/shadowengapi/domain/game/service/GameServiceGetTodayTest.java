@@ -53,11 +53,10 @@ class GameServiceGetTodayTest {
                 .user(user).level(level).playedDate(LocalDate.now())
                 .hearts(hearts)
                 .avgTotalScore(BigDecimal.valueOf(80.0))
-                .avgSpeedSimilarity(BigDecimal.valueOf(80.0))
+                .avgWordRhythmScore(BigDecimal.valueOf(80.0))
                 .avgDynamicStressScore(BigDecimal.valueOf(70.0))
-                .avgBoundaryToneScore(BigDecimal.valueOf(75.0))
+                .avgWordAccuracy(BigDecimal.valueOf(75.0))
                 .finalScore(BigDecimal.valueOf(finalScore))
-                .cumulativeScore(BigDecimal.valueOf(80.0))
                 .build();
         ReflectionTestUtils.setField(record, "id", (long) (level * 10));
 

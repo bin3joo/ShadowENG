@@ -58,10 +58,11 @@ class StudySessionCreateControllerTest {
                 212L, "Rick Astley"
         );
         StudySessionCreateResponse.SentenceData sentenceData =
-                new StudySessionCreateResponse.SentenceData(1234L, "Hello world", 15.5, 20.0, 4.5, 0);
+                new StudySessionCreateResponse.SentenceData(1234L, 1, "Hello world", 15.5, 20.0, 4.5, 0,
+                        null, List.of(), null, null, List.of(), List.of());
 
         StudySessionCreateResponse response =
-                new StudySessionCreateResponse(12345L, videoData, List.of(sentenceData));
+                new StudySessionCreateResponse(12345L, null, videoData, List.of(sentenceData), false);
 
         given(studySessionService.createStudySession(eq(userId), any())).willReturn(response);
 

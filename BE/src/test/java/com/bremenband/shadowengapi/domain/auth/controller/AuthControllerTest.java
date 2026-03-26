@@ -1,5 +1,6 @@
 package com.bremenband.shadowengapi.domain.auth.controller;
 
+import com.bremenband.shadowengapi.domain.auth.dto.res.GuestLoginResponse;
 import com.bremenband.shadowengapi.domain.auth.dto.res.TokenResponse;
 import com.bremenband.shadowengapi.domain.auth.service.AuthService;
 import com.bremenband.shadowengapi.domain.auth.service.GuestAuthService;
@@ -93,7 +94,7 @@ class AuthControllerTest {
     void guestLogin_성공_200() throws Exception {
         // given
         String deviceId = "550e8400-e29b-41d4-a716-446655440000";
-        TokenResponse response = new TokenResponse("access.token", "refresh.token");
+        GuestLoginResponse response = new GuestLoginResponse("access.token", "refresh.token", false);
         given(guestAuthService.guestLogin(deviceId)).willReturn(response);
 
         // when & then
