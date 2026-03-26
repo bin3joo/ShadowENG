@@ -29,7 +29,10 @@ public record EvaluationResponse(
         Details details,
 
         @Schema(description = "채점 결과")
-        Scores scores
+        Scores scores,
+
+        @Schema(description = "직전 사이클 step4 점수 (복습 모드 step4 완료 시에만 제공, 그 외 null)")
+        Scores previousScores
 
 ) {
 

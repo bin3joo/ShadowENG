@@ -17,6 +17,8 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, Long> {
 
     Optional<Evaluation> findTopBySentence_IdOrderByCreatedAtDesc(Long sentenceId);
 
+    Optional<Evaluation> findTopBySentence_IdAndStepOrderByCreatedAtDesc(Long sentenceId, int step);
+
     List<Evaluation> findByStudySession_Id(Long sessionId);
 
     List<Evaluation> findByStudySession_IdAndStep(Long sessionId, int step);
