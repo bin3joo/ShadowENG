@@ -17,35 +17,57 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TranscriptionService {
 
+    private static final int MAX_RETRIES = 2;
+
     private final PythonApiClient pythonApiClient;
     private final S3Uploader s3Uploader;
     private final ObjectMapper objectMapper;
 
     public List<TranscribedSentence> transcribe(String videoId, double startSec, double endSec) {
 
-        PythonGenerateReferenceResponse response =
-                pythonApiClient.generateReference(videoId, startSec, endSec);
+        PythonGenerateReferenceResponse response = null;
 
-        if (!"SUCCESS".equals(response.status())) {
+        for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            response = pythonApiClient.generateReference(videoId, startSec, endSec);
+
+            if (!"SUCCESS".equals(response.status())) {
+                throw new CustomException(ErrorCode.EXTERNAL_API_ERROR);
+            }
+
+            if (response.translationSuccess()) {
+                break;
+            }
+        }
+
+        if (!response.translationSuccess()) {
             throw new CustomException(ErrorCode.EXTERNAL_API_ERROR);
         }
 
         return response.parts().stream()
                 .map(part -> {
                     String featuresUrl = s3Uploader.uploadJson(toJson(part.features()), "features/");
+                    List<PythonGenerateReferenceResponse.WordTimestamp> offsetTimestamps = part.wordTimestamps()
+                            .stream()
+                            .map(wt -> new PythonGenerateReferenceResponse.WordTimestamp(
+                                    wt.word(),
+                                    wt.start() + startSec,
+                                    wt.end() + startSec,
+                                    wt.score()
+                            ))
+                            .toList();
                     return new TranscribedSentence(
                             part.sentence(),
-                            part.startSec(),
-                            part.endSec(),
+                            part.startSec() + startSec,
+                            part.endSec() + startSec,
                             part.durationSec(),
-                            toJson(part.wordTimestamps()),
+                            toJson(offsetTimestamps),
                             featuresUrl,
                             part.sentenceKo(),
                             part.keyExpressions(),
                             part.difficulty(),
                             part.difficultyScore(),
                             part.vocabulary(),
-                            part.wordTimestamps()
+                            offsetTimestamps
                     );
                 })
                 .toList();

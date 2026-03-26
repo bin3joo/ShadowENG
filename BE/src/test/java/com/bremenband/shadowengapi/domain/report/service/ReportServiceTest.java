@@ -10,6 +10,7 @@ import com.bremenband.shadowengapi.domain.study.entity.Sentence;
 import com.bremenband.shadowengapi.domain.study.entity.StudySession;
 import com.bremenband.shadowengapi.domain.youtube.entity.Video;
 import com.bremenband.shadowengapi.domain.study.repository.EvaluationRepository;
+import com.bremenband.shadowengapi.domain.study.repository.SentenceRepository;
 import com.bremenband.shadowengapi.domain.study.repository.StudySessionRepository;
 import com.bremenband.shadowengapi.domain.user.entity.User;
 import com.bremenband.shadowengapi.global.exception.CustomException;
@@ -47,6 +48,7 @@ class ReportServiceTest {
     @Mock private EvaluationRepository   evaluationRepository;
     @Mock private ReportRepository       reportRepository;
     @Mock private WeekSentenceRepository weekSentenceRepository;
+    @Mock private SentenceRepository     sentenceRepository;
     @Spy  private ObjectMapper           objectMapper;
 
     private static final Long USER_ID = 1L;
@@ -132,6 +134,7 @@ class ReportServiceTest {
         given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(session));
         given(evaluationRepository.findByStudySession_IdAndStep(sessionId, 4)).willReturn(List.of(e1, e2));
         given(reportRepository.save(any(Report.class))).willReturn(savedReport);
+        given(sentenceRepository.countByStudySession_Id(sessionId)).willReturn(2L);
 
         WeekSentence ws = WeekSentence.builder().report(savedReport).sentence(s1).build();
         ReflectionTestUtils.setField(ws, "id", 1L);
@@ -185,6 +188,7 @@ class ReportServiceTest {
         given(evaluationRepository.findByStudySession_IdAndStep(sessionId, 4)).willReturn(List.of(e1, e2, e3, e4));
         given(reportRepository.save(any(Report.class))).willReturn(savedReport);
         given(weekSentenceRepository.save(any(WeekSentence.class))).willAnswer(inv -> inv.getArgument(0));
+        given(sentenceRepository.countByStudySession_Id(sessionId)).willReturn(4L);
 
         // when
         ReportResponse response = reportService.createReport(sessionId, USER_ID);
@@ -210,6 +214,7 @@ class ReportServiceTest {
         given(studySessionRepository.findById(sessionId)).willReturn(Optional.of(session));
         given(evaluationRepository.findByStudySession_IdAndStep(sessionId, 4)).willReturn(List.of(e1));
         given(reportRepository.save(any(Report.class))).willReturn(savedReport);
+        given(sentenceRepository.countByStudySession_Id(sessionId)).willReturn(1L);
 
         // when
         ReportResponse response = reportService.createReport(sessionId, USER_ID);

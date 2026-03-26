@@ -1,6 +1,6 @@
 package com.bremenband.shadowengapi.domain.auth.service;
 
-import com.bremenband.shadowengapi.domain.auth.dto.res.TokenResponse;
+import com.bremenband.shadowengapi.domain.auth.dto.res.GuestLoginResponse;
 import com.bremenband.shadowengapi.domain.user.entity.User;
 import com.bremenband.shadowengapi.domain.user.repository.UserRepository;
 import com.bremenband.shadowengapi.domain.user.service.UserService;
@@ -57,11 +57,12 @@ class GuestAuthServiceTest {
         given(jwtProvider.generateRefreshToken(1L)).willReturn(REFRESH_TOKEN);
 
         // when
-        TokenResponse response = guestAuthService.guestLogin(DEVICE_ID);
+        GuestLoginResponse response = guestAuthService.guestLogin(DEVICE_ID);
 
         // then
         assertThat(response.accessToken()).isEqualTo(ACCESS_TOKEN);
         assertThat(response.refreshToken()).isEqualTo(REFRESH_TOKEN);
+        assertThat(response.isNew()).isTrue();
 
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         then(userRepository).should(times(1)).save(captor.capture());
@@ -92,11 +93,12 @@ class GuestAuthServiceTest {
         given(jwtProvider.generateRefreshToken(42L)).willReturn(REFRESH_TOKEN);
 
         // when
-        TokenResponse response = guestAuthService.guestLogin(DEVICE_ID);
+        GuestLoginResponse response = guestAuthService.guestLogin(DEVICE_ID);
 
         // then
         assertThat(response.accessToken()).isEqualTo(ACCESS_TOKEN);
         assertThat(response.refreshToken()).isEqualTo(REFRESH_TOKEN);
+        assertThat(response.isNew()).isFalse();
 
         then(userRepository).should(never()).save(any());
         then(refreshTokenService).should(times(1)).save(42L, REFRESH_TOKEN);

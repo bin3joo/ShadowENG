@@ -1,6 +1,7 @@
 package com.bremenband.shadowengapi.domain.study.service;
 
 import com.bremenband.shadowengapi.domain.study.client.PythonApiClient;
+import com.bremenband.shadowengapi.domain.study.facade.StudyReportFacade;
 import com.bremenband.shadowengapi.domain.study.dto.python.PythonEvaluateAudioRequest;
 import com.bremenband.shadowengapi.domain.study.dto.python.PythonEvaluateAudioResponse;
 import com.bremenband.shadowengapi.domain.study.dto.redis.PendingEvaluation;
@@ -52,7 +53,7 @@ class EvaluationServiceTest {
     @Mock private SentenceRepository     sentenceRepository;
     @Mock private EvaluationRepository   evaluationRepository;
     @Mock private PythonApiClient        pythonApiClient;
-    @Mock private StudySessionWriter     studySessionWriter;
+    @Mock private StudyReportFacade      studyReportFacade;
     @Mock private S3Uploader             s3Uploader;
     @Mock private PendingEvaluationStore pendingEvaluationStore;
     @Spy  private ObjectMapper           objectMapper;
@@ -130,6 +131,11 @@ class EvaluationServiceTest {
         given(s3Uploader.fetchJson(any())).willReturn(FEATURES_JSON);
         given(pythonApiClient.evaluateAudio(any(PythonEvaluateAudioRequest.class)))
                 .willReturn(buildSuccessPythonResponse());
+        // step 3의 경우 이전 step(2) 완료 여부 확인
+        if (step > 2) {
+            given(pendingEvaluationStore.findStep(sessionId, sentenceId, step - 1))
+                    .willReturn(Optional.of(buildAllPending().get(step - 2)));
+        }
 
         MockMultipartFile audio = new MockMultipartFile(
                 "file", "test.wav", "audio/wav", "audio-bytes".getBytes());
@@ -147,7 +153,7 @@ class EvaluationServiceTest {
         then(pendingEvaluationStore).should(times(1))
                 .save(eq(sessionId), eq(sentenceId), any(PendingEvaluation.class));
         then(evaluationRepository).should(never()).saveAll(any());
-        then(studySessionWriter).should(never()).completeSessionIfAllEvaluated(any(), any());
+        then(studyReportFacade).should(never()).completeSessionAndAutoReport(any(), any());
     }
 
     @Test
@@ -163,6 +169,8 @@ class EvaluationServiceTest {
         given(sentenceRepository.findById(sentenceId)).willReturn(Optional.of(sentence));
         given(s3Uploader.fetchJson(any())).willReturn(FEATURES_JSON);
         given(pythonApiClient.evaluateAudio(any())).willReturn(buildSuccessPythonResponse());
+        given(pendingEvaluationStore.findStep(sessionId, sentenceId, 3))
+                .willReturn(Optional.of(buildAllPending().get(2)));
         given(pendingEvaluationStore.findAll(sessionId, sentenceId)).willReturn(buildAllPending());
 
         MockMultipartFile audio = new MockMultipartFile(
@@ -181,7 +189,7 @@ class EvaluationServiceTest {
         then(pendingEvaluationStore).should(times(1)).findAll(sessionId, sentenceId);
         then(evaluationRepository).should(times(1)).saveAll(any());
         then(pendingEvaluationStore).should(times(1)).deleteAll(sessionId, sentenceId);
-        then(studySessionWriter).should(times(1)).completeSessionIfAllEvaluated(sessionId, sentenceId);
+        then(studyReportFacade).should(times(1)).completeSessionAndAutoReport(sessionId, sentenceId);
     }
 
     @Test

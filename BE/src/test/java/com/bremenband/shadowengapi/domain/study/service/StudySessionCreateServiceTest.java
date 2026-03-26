@@ -74,11 +74,15 @@ class StudySessionCreateServiceTest {
     private StudySessionCreateResponse buildExpectedResponse() {
         return new StudySessionCreateResponse(
                 12345L,
+                null,
                 new StudySessionCreateResponse.VideoData(
                         VIDEO_ID, EMBED_URL, "https://www.youtube.com/watch?v=" + VIDEO_ID,
                         "Never Gonna Give You Up",
                         "https://i.ytimg.com/vi/" + VIDEO_ID + "/maxresdefault.jpg", 212L, "Rick Astley"),
-                List.of(new StudySessionCreateResponse.SentenceData(1L, "Hello world", 15.5, 20.0, 4.5, 0))
+                List.of(new StudySessionCreateResponse.SentenceData(
+                        1L, 1, "Hello world", 15.5, 20.0, 4.5, 0,
+                        null, List.of(), null, null, List.of(), List.of())),
+                false
         );
     }
 
@@ -107,7 +111,7 @@ class StudySessionCreateServiceTest {
                 new TranscribedSentence("Hello world", 15.5, 20.0, 4.5,
                         "[{\"word\":\"Hello\",\"start\":15.5,\"end\":16.0,\"score\":0.98}]",
                         "features/test.json",
-                        "metadata/test.json")
+                        null, List.of(), null, null, List.of(), List.of())
         ));
         given(studySessionWriter.saveSessionAndSentences(any(), any(), anyDouble(), anyDouble(), anyList()))
                 .willReturn(buildExpectedResponse());
@@ -142,12 +146,12 @@ class StudySessionCreateServiceTest {
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(transcriptionService.transcribe(VIDEO_ID, 15.5, 45.0)).willReturn(List.of());
         given(studySessionWriter.saveSessionAndSentences(any(), any(), anyDouble(), anyDouble(), anyList()))
-                .willReturn(new StudySessionCreateResponse(12345L,
+                .willReturn(new StudySessionCreateResponse(12345L, null,
                         new StudySessionCreateResponse.VideoData(
                                 VIDEO_ID, EMBED_URL, "https://www.youtube.com/watch?v=" + VIDEO_ID,
                                 "Never Gonna Give You Up",
                                 "https://i.ytimg.com/vi/" + VIDEO_ID + "/maxresdefault.jpg", 212L, "Rick Astley"),
-                        List.of()));
+                        List.of(), false));
 
         // when
         StudySessionCreateResponse response = studySessionService.createStudySession(userId, request);

@@ -10,6 +10,7 @@ import com.bremenband.shadowengapi.domain.study.entity.Sentence;
 import com.bremenband.shadowengapi.domain.study.entity.StudySession;
 import com.bremenband.shadowengapi.domain.youtube.entity.Video;
 import com.bremenband.shadowengapi.domain.study.repository.EvaluationRepository;
+import com.bremenband.shadowengapi.domain.study.repository.SentenceRepository;
 import com.bremenband.shadowengapi.domain.study.repository.StudySessionRepository;
 import com.bremenband.shadowengapi.domain.user.entity.User;
 import com.bremenband.shadowengapi.global.exception.CustomException;
@@ -46,6 +47,7 @@ class ReportGetServiceTest {
     @Mock private EvaluationRepository   evaluationRepository;
     @Mock private ReportRepository       reportRepository;
     @Mock private WeekSentenceRepository weekSentenceRepository;
+    @Mock private SentenceRepository     sentenceRepository;
     @Spy  private ObjectMapper           objectMapper;
 
     private static final Long USER_ID = 1L;
@@ -130,6 +132,7 @@ class ReportGetServiceTest {
         given(reportRepository.findByIdAndStudySession_Id(reportId, sessionId)).willReturn(Optional.of(report));
         given(weekSentenceRepository.findByReport_Id(reportId)).willReturn(List.of(ws));
         given(evaluationRepository.findByStudySession_IdAndStep(sessionId, 4)).willReturn(List.of(e1));
+        given(sentenceRepository.countByStudySession_Id(sessionId)).willReturn(3L);
 
         // when
         ReportResponse response = reportService.getReport(sessionId, reportId, USER_ID);
@@ -167,6 +170,7 @@ class ReportGetServiceTest {
         given(reportRepository.findByIdAndStudySession_Id(reportId, sessionId)).willReturn(Optional.of(report));
         given(weekSentenceRepository.findByReport_Id(reportId)).willReturn(List.of());
         given(evaluationRepository.findByStudySession_IdAndStep(sessionId, 4)).willReturn(List.of());
+        given(sentenceRepository.countByStudySession_Id(sessionId)).willReturn(0L);
 
         // when
         ReportResponse response = reportService.getReport(sessionId, reportId, USER_ID);

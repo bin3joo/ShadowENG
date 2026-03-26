@@ -10,6 +10,9 @@ public record PythonGenerateReferenceResponse(
 
         String status,
 
+        @JsonProperty("translation_success")
+        boolean translationSuccess,
+
         List<Part> parts
 
 ) {

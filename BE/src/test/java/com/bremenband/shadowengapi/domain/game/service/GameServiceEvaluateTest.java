@@ -82,9 +82,9 @@ class GameServiceEvaluateTest {
         GameRecord record = GameRecord.builder()
                 .user(user).level(level).playedDate(LocalDate.now())
                 .hearts(hearts)
-                .avgTotalScore(BigDecimal.valueOf(80.0)).avgSpeedSimilarity(BigDecimal.valueOf(80.0))
-                .avgDynamicStressScore(BigDecimal.valueOf(70.0)).avgBoundaryToneScore(BigDecimal.valueOf(75.0))
-                .finalScore(BigDecimal.valueOf(88.0)).cumulativeScore(BigDecimal.valueOf(80.0))
+                .avgTotalScore(BigDecimal.valueOf(80.0)).avgWordRhythmScore(BigDecimal.valueOf(80.0))
+                .avgDynamicStressScore(BigDecimal.valueOf(70.0)).avgWordAccuracy(BigDecimal.valueOf(75.0))
+                .finalScore(BigDecimal.valueOf(88.0))
                 .build();
         ReflectionTestUtils.setField(record, "id", 10L);
         return DailyBestRecord.builder()
@@ -196,7 +196,7 @@ class GameServiceEvaluateTest {
         then(s3Uploader).should(never()).upload(any());
         then(s3Uploader).should(never()).delete(any());
         then(gameWriter).should(never()).saveGameResult(any(), anyInt(), any(), anyInt(),
-                anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble());
+                anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble());
     }
 
     // ── 정상 플로우 ──────────────────────────────────────────────────────────────
@@ -219,7 +219,7 @@ class GameServiceEvaluateTest {
         // 세션 저장 O, DB 저장 X
         then(gameSessionStore).should(times(1)).save(eq(USER_ID), eq(LEVEL), any(LocalDate.class), any());
         then(gameWriter).should(never()).saveGameResult(any(), anyInt(), any(), anyInt(),
-                anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble());
+                anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble());
     }
 
     @Test
@@ -239,7 +239,7 @@ class GameServiceEvaluateTest {
 
         // round 1이 gameOver가 아니므로 DB 저장 없음
         then(gameWriter).should(never()).saveGameResult(any(), anyInt(), any(), anyInt(),
-                anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble());
+                anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble());
     }
 
     @Test
@@ -281,7 +281,7 @@ class GameServiceEvaluateTest {
         assertThat(response.result().hearts()).isEqualTo(3);
 
         then(gameWriter).should(times(1)).saveGameResult(eq(USER_ID), eq(LEVEL), any(LocalDate.class),
-                eq(3), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble());
+                eq(3), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble());
         then(gameSessionStore).should(times(1)).delete(eq(USER_ID), eq(LEVEL), any(LocalDate.class));
     }
 
