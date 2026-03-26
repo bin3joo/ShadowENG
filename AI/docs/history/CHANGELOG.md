@@ -7,6 +7,15 @@
 - reference payload에 이미 `speech_start_sec:speech_end_sec` 기준으로 잘려 저장된 `f0_array` / `rms_array`를 평가 단계에서 다시 request-relative word timestamp로 재크롭하던 로직을 제거했습니다.
 - 그 결과, 첫 단어 시작이 늦는 레퍼런스에서도 prosody, boundary tone, dynamic stress 점수가 잘못된 시간축으로 계산되던 회귀를 방지하고, non-default hop length reference와의 프레임 정렬도 복구했습니다.
 
+### 평가 입력 분기 및 다운로드 안전성 강화
+- `AI/services/evaluation_service.py`에서 S3 object key와 base64 입력을 명시적으로 분기하도록 수정했습니다. 더 이상 우연히 base64 디코딩이 성공하는 짧은 S3 key가 쓰레기 오디오 파일로 저장되지 않습니다.
+- `AI/integrations/youtube_service.py`의 YouTube 다운로드 경로에 `--socket-timeout 15`, `--retries 3`, `timeout=60`을 적용해 yt-dlp 네트워크 지연과 장기 hang에 대한 이중 방어막을 추가했습니다.
+
+### 평가 에러 코드 및 손상 오디오 방어 정리
+- `AI/domain/scoring/evaluation_errors.py`를 추가해 평가 관련 공통 에러 코드와 메시지 규격을 중앙화했습니다.
+- `AI/services/evaluation_service.py`에서 너무 짧은 오디오를 평가 진입 전에 `400`으로 거절하고, `AUDIO_INPUT_FORMAT_INVALID`, `AUDIO_TOO_SHORT`, `EVALUATION_INTERNAL_ERROR` 형태의 구조화된 `error_code`를 HTTP 응답에 담도록 정리했습니다.
+- `AI/domain/scoring/aggregator.py`에서는 오디오 로드 실패 시 `AUDIO_LOAD_FAILED`, 무음/비음성 입력 시 `NO_VOICE_DETECTED`를 포함한 `FAIL` 응답을 반환하도록 통일했습니다.
+
 ## 2026-03-25
 
 ### 유저 오디오 평가 VR(보컬 분리) 모드 지원
