@@ -16,21 +16,29 @@ public record BookmarkListResponse(
     @Schema(description = "북마크 항목")
     public record BookmarkItem(
 
-            @Schema(description = "문장 ID", example = "1234")
-            Long sentenceId,
-
-            @Schema(description = "문장 내용", example = "I got it bad.")
-            String sentence,
-
             @Schema(description = "학습 세션 ID", example = "12345")
-            Long sessionId
+            Long sessionId,
+
+            @Schema(description = "영상 제목", example = "Never Gonna Give You Up")
+            String videoTitle,
+
+            @Schema(description = "영상 썸네일 URL")
+            String thumbnailUrl,
+
+            @Schema(description = "세션 시작 시간 (초)", example = "30.0")
+            double startSec,
+
+            @Schema(description = "세션 종료 시간 (초)", example = "60.0")
+            double endSec
 
     ) {
         public static BookmarkItem from(Bookmark bookmark) {
             return new BookmarkItem(
-                    bookmark.getSentence().getId(),
-                    bookmark.getSentence().getContent(),
-                    bookmark.getSentence().getStudySession().getId()
+                    bookmark.getStudySession().getId(),
+                    bookmark.getStudySession().getVideo().getTitle(),
+                    bookmark.getStudySession().getVideo().getThumbnailUrl(),
+                    bookmark.getStudySession().getStartSec(),
+                    bookmark.getStudySession().getEndSec()
             );
         }
     }

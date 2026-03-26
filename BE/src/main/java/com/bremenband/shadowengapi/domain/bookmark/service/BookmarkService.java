@@ -4,8 +4,8 @@ import com.bremenband.shadowengapi.domain.bookmark.dto.res.BookmarkListResponse;
 import com.bremenband.shadowengapi.domain.bookmark.dto.res.BookmarkUpdateResponse;
 import com.bremenband.shadowengapi.domain.bookmark.entity.Bookmark;
 import com.bremenband.shadowengapi.domain.bookmark.repository.BookmarkRepository;
-import com.bremenband.shadowengapi.domain.study.entity.Sentence;
-import com.bremenband.shadowengapi.domain.study.repository.SentenceRepository;
+import com.bremenband.shadowengapi.domain.study.entity.StudySession;
+import com.bremenband.shadowengapi.domain.study.repository.StudySessionRepository;
 import com.bremenband.shadowengapi.domain.user.entity.User;
 import com.bremenband.shadowengapi.domain.user.repository.UserRepository;
 import com.bremenband.shadowengapi.global.exception.CustomException;
@@ -21,7 +21,7 @@ import java.util.List;
 public class BookmarkService {
 
     private final BookmarkRepository bookmarkRepository;
-    private final SentenceRepository sentenceRepository;
+    private final StudySessionRepository studySessionRepository;
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
@@ -36,21 +36,19 @@ public class BookmarkService {
     }
 
     @Transactional
-    public BookmarkUpdateResponse updateBookmark(Long userId, Long sentenceId, Boolean isBookmarked) {
-        Sentence sentence = sentenceRepository.findById(sentenceId)
-                .orElseThrow(() -> new CustomException(ErrorCode.SENTENCE_NOT_FOUND));
+    public BookmarkUpdateResponse updateBookmark(Long userId, Long sessionId, Boolean isBookmarked) {
+        StudySession session = studySessionRepository.findById(sessionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
 
         if (isBookmarked) {
-            boolean alreadyExists = bookmarkRepository.findByUser_IdAndSentence_Id(userId, sentenceId).isPresent();
-            if (!alreadyExists) {
-                User user = userRepository.findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-                bookmarkRepository.save(Bookmark.builder().user(user).sentence(sentence).build());
+            if (!bookmarkRepository.existsByUser_IdAndStudySession_Id(userId, sessionId)) {
+                User user = userRepository.getReferenceById(userId);
+                bookmarkRepository.save(Bookmark.builder().user(user).studySession(session).build());
             }
         } else {
-            bookmarkRepository.deleteByUser_IdAndSentence_Id(userId, sentenceId);
+            bookmarkRepository.deleteByUser_IdAndStudySession_Id(userId, sessionId);
         }
 
-        return new BookmarkUpdateResponse(sentenceId, sentence.getContent(), isBookmarked);
+        return new BookmarkUpdateResponse(sessionId, isBookmarked);
     }
 }
