@@ -17,6 +17,10 @@ from domain.processing.audio_processing import (
     peak_normalize_audio,
     separate_vocals,
 )
+from domain.scoring.evaluation_errors import (
+    build_invalid_audio_fail_response,
+    build_no_voice_fail_response,
+)
 
 logger = logging.getLogger(__name__)
 from domain.processing.engine_utils import (
@@ -132,7 +136,14 @@ def evaluate(
 
     # 0. 유저 오디오 로드 및 STT 전용 Peak 정규화
     target_sr = config.TARGET_SR
-    user_y_raw, _ = librosa.load(user_audio_path, sr=target_sr)
+    try:
+        user_y_raw, _ = librosa.load(user_audio_path, sr=target_sr)
+        if len(user_y_raw) == 0:
+            raise ValueError("Loaded audio is empty.")
+    except Exception as exc:
+        logger.warning("Failed to load user audio for evaluation: %s", exc)
+        return build_invalid_audio_fail_response()
+
     user_y_normalized = peak_normalize_audio(user_y_raw)
 
     # 정규화된 WAV를 임시 파일로 저장하여 STT에 전달
@@ -164,10 +175,7 @@ def evaluate(
     user_text = " ".join(_canonicalize_tokens(user_stats.get("text", "")))
 
     if not user_text:
-        return {
-            "status": "FAIL",
-            "message": "음성이 인식되지 않았습니다. 다시 녹음해주세요.",
-        }
+        return build_no_voice_fail_response()
 
     # 2. 유저 word_timestamps를 레퍼런스 구조에 맞게 통일
     aligned_user_words = align_user_words_to_ref(

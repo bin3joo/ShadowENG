@@ -7,8 +7,21 @@ import os
 import tempfile
 from typing import Any
 
+from domain.scoring.evaluation_errors import (
+    ERROR_AUDIO_INPUT_FORMAT_INVALID,
+    ERROR_AUDIO_TOO_SHORT,
+    ERROR_EVALUATION_INTERNAL,
+    EVALUATION_INTERNAL_ERROR_MESSAGE,
+    INVALID_AUDIO_INPUT_FORMAT_MESSAGE,
+    MIN_EVALUATION_AUDIO_BYTES,
+    build_http_error_detail,
+)
 from fastapi import BackgroundTasks, HTTPException
-from integrations.io_utils import download_audio_from_url, remove_file
+from integrations.io_utils import (
+    _is_likely_s3_object_key,
+    download_audio_from_url,
+    remove_file,
+)
 from pipeline import get_pipeline
 from schemas import EvaluateAudioRequest
 
@@ -46,14 +59,22 @@ def evaluate_audio_request(
         if audio_str.startswith(("http://", "https://", "s3://")):
             download_audio_from_url(audio_str, tmp_user_path)
             logger.info("Downloaded user audio from URL: %s", audio_str[:80])
+        elif _is_likely_s3_object_key(audio_str):
+            download_audio_from_url(audio_str, tmp_user_path)
+            logger.info(
+                "Downloaded user audio from configured S3 key: %s",
+                audio_str[:80],
+            )
         else:
             try:
                 audio_bytes = base64.b64decode(audio_str, validate=True)
             except binascii.Error:
-                download_audio_from_url(audio_str, tmp_user_path)
-                logger.info(
-                    "Downloaded user audio from configured S3 key: %s",
-                    audio_str[:80],
+                raise HTTPException(
+                    status_code=400,
+                    detail=build_http_error_detail(
+                        ERROR_AUDIO_INPUT_FORMAT_INVALID,
+                        INVALID_AUDIO_INPUT_FORMAT_MESSAGE,
+                    ),
                 )
             else:
                 with open(tmp_user_path, "wb") as file_obj:
@@ -62,6 +83,20 @@ def evaluate_audio_request(
                     "Decoded base64 user audio (%d bytes)",
                     len(audio_bytes),
                 )
+
+        file_size = os.path.getsize(tmp_user_path)
+        if file_size < MIN_EVALUATION_AUDIO_BYTES:
+            logger.warning(
+                "Rejected invalid user audio before evaluation: %d bytes",
+                file_size,
+            )
+            raise HTTPException(
+                status_code=400,
+                detail=build_http_error_detail(
+                    ERROR_AUDIO_TOO_SHORT,
+                    f"File size is under {MIN_EVALUATION_AUDIO_BYTES} bytes.",
+                ),
+            )
 
         ref_data = {
             "final_script": req.final_script,
@@ -85,5 +120,8 @@ def evaluate_audio_request(
             remove_file(tmp_user_path)
         raise HTTPException(
             status_code=500,
-            detail="오디오 평가 중 내부 오류가 발생했습니다.",
+            detail=build_http_error_detail(
+                ERROR_EVALUATION_INTERNAL,
+                EVALUATION_INTERNAL_ERROR_MESSAGE,
+            ),
         ) from None

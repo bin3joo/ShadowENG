@@ -3,6 +3,7 @@
 import logging
 import os
 import subprocess
+import sys
 from typing import Literal
 
 import config
@@ -47,9 +48,6 @@ def download_reference_audio(
         RuntimeError: yt-dlp 다운로드 실패 시.
         FileNotFoundError: 다운로드된 오디오 파일을 찾을 수 없을 때.
     """
-    import yt_dlp
-    import yt_dlp.utils
-
     youtube_url = build_youtube_url(video_id)
     padded_start_sec = max(0.0, start_sec - audio_padding_sec)
     padded_end_sec = end_sec + audio_padding_sec
@@ -59,32 +57,59 @@ def download_reference_audio(
     if base_outtmpl.endswith(".wav"):
         base_outtmpl = base_outtmpl[:-4]
 
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": base_outtmpl,
-        "postprocessors": [
-            {
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "wav",
-            }
-        ],
-        "download_ranges": yt_dlp.utils.download_range_func(
-            None, [(padded_start_sec, int(padded_end_sec + 1.0))]
-        ),
-        "force_keyframes_at_cuts": True,
-        "noplaylist": True,
-        "quiet": True,
-        "no_warnings": True,
-    }
+    download_section = f"*{padded_start_sec:.3f}-{padded_end_sec + 1.0:.3f}"
+    command = [
+        sys.executable,
+        "-m",
+        "yt_dlp",
+        "--format",
+        "m4a/bestaudio/best",
+        "--output",
+        base_outtmpl,
+        "--extract-audio",
+        "--audio-format",
+        "wav",
+        "--download-sections",
+        download_section,
+        "--force-keyframes-at-cuts",
+        "--no-mtime",
+        "--concurrent-fragments",
+        "5",
+        "--socket-timeout",
+        "15",
+        "--retries",
+        "3",
+        "--extractor-args",
+        "youtube:player_client=android,ios",
+        "--downloader-args",
+        "ffmpeg:-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+        "--no-playlist",
+        "--quiet",
+        "--no-warnings",
+        youtube_url,
+    ]
 
     logger.info(
-        "Downloading audio for %s natively via yt_dlp Python API", video_id
+        "Downloading audio for %s via yt-dlp subprocess", video_id
     )
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([youtube_url])
-    except Exception as exc:
-        logger.error("yt_dlp API 다운로드 실패: %s", exc)
+        subprocess.run(
+            command,
+            check=True,
+            timeout=60,
+            cwd=tmp_dir,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.TimeoutExpired as exc:
+        logger.error("yt-dlp timed out after 60s: %s", exc)
+        raise RuntimeError("yt-dlp 다운로드 타임아웃(60초)") from exc
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or exc.stdout or "").strip()
+        logger.error("yt-dlp subprocess 다운로드 실패: %s", stderr)
+        raise RuntimeError(f"yt-dlp 다운로드 실패: {stderr}") from exc
+    except OSError as exc:
+        logger.error("yt-dlp subprocess 실행 실패: %s", exc)
         raise RuntimeError(f"yt-dlp 다운로드 실패: {exc}")
 
     actual_audio = audio_path
