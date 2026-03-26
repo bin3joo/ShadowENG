@@ -126,7 +126,14 @@ public class GameService {
                     .orElseThrow(() -> new CustomException(ErrorCode.GAME_ROUND_INVALID));
         }
 
-        // 4. Base64 인코딩
+        // 4. 음성 파일 유효성 검사 및 Base64 인코딩
+        log.info("[Game.evaluate] audio received: name={}, size={}bytes", audioFile.getOriginalFilename(), audioFile.getSize());
+
+        if (audioFile.getSize() < 5000) {
+            log.warn("[Game.evaluate] audio too short: size={}bytes", audioFile.getSize());
+            throw new CustomException(ErrorCode.AUDIO_TOO_SHORT);
+        }
+
         String audioBase64;
         try {
             audioBase64 = java.util.Base64.getEncoder().encodeToString(audioFile.getBytes());
