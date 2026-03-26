@@ -1,5 +1,6 @@
 package com.bremenband.shadowengapi.domain.study.controller;
 
+import com.bremenband.shadowengapi.domain.study.dto.req.SessionRenameRequest;
 import com.bremenband.shadowengapi.domain.study.dto.req.StudySessionCreateRequest;
 import com.bremenband.shadowengapi.domain.study.dto.res.ActiveSessionsResponse;
 import com.bremenband.shadowengapi.domain.study.dto.res.EvaluationResponse;
@@ -136,6 +137,21 @@ public class StudySessionController {
             @Parameter(hidden = true) @AuthenticationPrincipal Long userId
     ) {
         studySessionService.startReview(sessionId, userId);
+        return ApiResponse.success(null);
+    }
+
+    @PatchMapping(value = "/{sessionId}/name", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(
+            summary = "학습 세션 이름 변경",
+            description = "학습 세션의 이름을 변경합니다."
+    )
+    public ApiResponse<Void> renameSession(
+            @Parameter(description = "이름을 변경할 학습 세션 ID", example = "12345")
+            @PathVariable Long sessionId,
+            @Valid @RequestBody SessionRenameRequest request,
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId
+    ) {
+        studySessionService.renameSession(sessionId, userId, request.name());
         return ApiResponse.success(null);
     }
 

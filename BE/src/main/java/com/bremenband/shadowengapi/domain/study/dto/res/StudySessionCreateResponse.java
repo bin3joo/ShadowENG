@@ -12,6 +12,9 @@ public record StudySessionCreateResponse(
         @Schema(description = "생성된 세션 ID", example = "12345")
         Long sessionId,
 
+        @Schema(description = "세션 이름", example = "Rick Astley - Never Gonna Give You Up")
+        String name,
+
         @Schema(description = "조상 세션 ID (최초학습이면 null, 재학습이면 원본 세션 ID)", example = "null")
         Long parentSessionId,
 

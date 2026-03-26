@@ -47,6 +47,9 @@ public class StudySession extends BaseTimeEntity {
     @Column(name = "is_reviewing", nullable = false)
     private boolean isReviewing = false;
 
+    @Column(name = "name", length = 100)
+    private String name;
+
     public void complete() {
         this.status = SessionStatus.COMPLETED;
     }
@@ -64,13 +67,18 @@ public class StudySession extends BaseTimeEntity {
         this.isReviewing = false;
     }
 
+    public void rename(String name) {
+        this.name = name;
+    }
+
     @Builder
-    private StudySession(Video video, User user, double startSec, double endSec, StudySession parentSession) {
+    private StudySession(Video video, User user, double startSec, double endSec, StudySession parentSession, String name) {
         this.video = video;
         this.user = user;
         this.startSec = startSec;
         this.endSec = endSec;
         this.parentSession = parentSession;
+        this.name = name;
         this.status = SessionStatus.ACTIVE;
         this.cycleCount = 0;
         this.isReviewing = false;
