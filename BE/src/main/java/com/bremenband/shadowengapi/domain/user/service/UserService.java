@@ -118,7 +118,7 @@ public class UserService {
 
         // 학습 통계
         long totalStudiedSentences = sentenceRepository.countStudiedSentencesByUserId(userId);
-        double totalStudyTimeSeconds = sentenceRepository.sumStudyTimeSecByUserId(userId);
+        long totalStudyTimeSeconds = Math.round(sentenceRepository.sumStudyTimeSecByUserId(userId));
 
         // 레포트 날짜별 그룹핑
         List<Report> reports = reportRepository.findAllByUserIdWithVideoOrderByCreatedAtAsc(userId);
@@ -136,7 +136,8 @@ public class UserService {
                                         r.getId(),
                                         r.getStudySession().getId(),
                                         r.getStudySession().getVideo().getThumbnailUrl(),
-                                        r.getStudySession().getVideo().getTitle()
+                                        r.getStudySession().getVideo().getTitle(),
+                                        r.getTotalScore().doubleValue()
                                 ))
                                 .toList()
                 ))
