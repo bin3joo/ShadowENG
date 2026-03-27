@@ -1,6 +1,7 @@
 package com.bremenband.shadowengapi.domain.study.repository;
 
 import com.bremenband.shadowengapi.domain.study.entity.Evaluation;
+import com.bremenband.shadowengapi.domain.study.entity.SessionStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -24,6 +25,8 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, Long> {
     List<Evaluation> findByStudySession_IdAndStep(Long sessionId, int step);
 
     List<Evaluation> findByStudySession_User_IdAndStepOrderByCreatedAtAsc(Long userId, int step);
+
+    Optional<Evaluation> findTopByStudySession_User_IdAndStudySession_StatusOrderByCreatedAtDesc(Long userId, SessionStatus status);
 
     @Query("SELECT COUNT(DISTINCT e.sentence.id) FROM Evaluation e WHERE e.studySession.id = :sessionId")
     long countDistinctEvaluatedSentencesBySessionId(@Param("sessionId") Long sessionId);

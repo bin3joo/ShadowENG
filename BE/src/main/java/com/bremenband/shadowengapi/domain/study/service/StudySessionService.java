@@ -152,8 +152,16 @@ public class StudySessionService {
     }
 
     public RecentStudySessionResponse getRecentSession(Long userId) {
-        Optional<StudySession> sessionOpt = studySessionRepository
-                .findTopByUser_IdAndStatusOrderByCreatedAtDesc(userId, SessionStatus.ACTIVE);
+        // 가장 최근에 evaluation이 발생한 ACTIVE 세션 조회
+        Optional<StudySession> sessionOpt = evaluationRepository
+                .findTopByStudySession_User_IdAndStudySession_StatusOrderByCreatedAtDesc(userId, SessionStatus.ACTIVE)
+                .map(e -> e.getStudySession());
+
+        // evaluation이 없으면(한 번도 학습 안 한 경우) 생성일 기준 최신 세션으로 fallback
+        if (sessionOpt.isEmpty()) {
+            sessionOpt = studySessionRepository
+                    .findTopByUser_IdAndStatusOrderByCreatedAtDesc(userId, SessionStatus.ACTIVE);
+        }
 
         if (sessionOpt.isEmpty()) {
             return new RecentStudySessionResponse(null);
