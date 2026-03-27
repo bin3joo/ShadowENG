@@ -79,6 +79,10 @@ audio:
     # 파일 최대 유지 시간 (시간). 마지막 접근 후 이 시간이 지나면 자동 삭제
     ttl_hours: 24
 
+analytics:
+  request_trace_enabled: true
+  request_trace_dir: "temp/request_traces"
+
 # ─────────────────────────────────────────────────
 # 디노이징 (Track B: 유저 오디오 분석용)
 # ─────────────────────────────────────────────────

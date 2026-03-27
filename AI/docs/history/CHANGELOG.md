@@ -16,6 +16,10 @@
 - `AI/services/evaluation_service.py`에서 너무 짧은 오디오를 평가 진입 전에 `400`으로 거절하고, `AUDIO_INPUT_FORMAT_INVALID`, `AUDIO_TOO_SHORT`, `EVALUATION_INTERNAL_ERROR` 형태의 구조화된 `error_code`를 HTTP 응답에 담도록 정리했습니다.
 - `AI/domain/scoring/aggregator.py`에서는 오디오 로드 실패 시 `AUDIO_LOAD_FAILED`, 무음/비음성 입력 시 `NO_VOICE_DETECTED`를 포함한 `FAIL` 응답을 반환하도록 통일했습니다.
 
+### 요청별 trace 저장 추가
+- `AI/services/request_trace_service.py`를 추가하고 `generate-reference`, `evaluate-audio` 요청마다 선별된 중간 feature와 최종 응답/에러를 `temp/request_traces` 하위 JSON 파일로 저장하도록 구현했습니다.
+- trace에는 요청 요약, 입력 오디오 크기/유형, audio metrics, denoise mode, prosody frame 수, 품질/번역 메타데이터, 평가 점수 요약, 최종 상태 코드 등 데이터 축적과 후속 분석에 유의미한 피처만 선별해 저장합니다.
+
 ## 2026-03-25
 
 ### 유저 오디오 평가 VR(보컬 분리) 모드 지원
