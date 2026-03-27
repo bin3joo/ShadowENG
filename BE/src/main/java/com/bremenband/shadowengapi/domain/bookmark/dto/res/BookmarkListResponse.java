@@ -1,6 +1,5 @@
 package com.bremenband.shadowengapi.domain.bookmark.dto.res;
 
-import com.bremenband.shadowengapi.domain.bookmark.entity.Bookmark;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.List;
@@ -29,17 +28,13 @@ public record BookmarkListResponse(
             double startSec,
 
             @Schema(description = "세션 종료 시간 (초)", example = "60.0")
-            double endSec
+            double endSec,
 
-    ) {
-        public static BookmarkItem from(Bookmark bookmark) {
-            return new BookmarkItem(
-                    bookmark.getStudySession().getId(),
-                    bookmark.getStudySession().getVideo().getTitle(),
-                    bookmark.getStudySession().getVideo().getThumbnailUrl(),
-                    bookmark.getStudySession().getStartSec(),
-                    bookmark.getStudySession().getEndSec()
-            );
-        }
-    }
+            @Schema(description = "총 문장 수", example = "8")
+            long totalSentences,
+
+            @Schema(description = "학습 완료된 문장 수 (step4 완료 기준)", example = "5")
+            long completedSentences
+
+    ) {}
 }
