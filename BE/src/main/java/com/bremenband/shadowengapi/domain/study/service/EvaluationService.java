@@ -127,9 +127,12 @@ public class EvaluationService {
                         "wordRhythmScore={}, boundaryToneScore={}, dynamicStressScore={}, " +
                         "speedSimilarity={}, pauseSimilarity={}",
                 pythonResponse.scores().wordAccuracy(),
-                pythonResponse.scores().prosodyAndStress(), pythonResponse.scores().wordRhythmScore(),
-                pythonResponse.scores().boundaryToneScore(), pythonResponse.scores().dynamicStressScore(),
-                pythonResponse.scores().speedSimilarity(), pythonResponse.scores().pauseSimilarity());
+                pythonResponse.scores().prosodyAndStress(),
+                pythonResponse.scores().wordRhythmScore(),
+                pythonResponse.scores().boundaryToneScore(),
+                pythonResponse.scores().dynamicStressScore(),
+                pythonResponse.scores().speedSimilarity(),
+                pythonResponse.scores().pauseSimilarity());
 
         // 6. 평가 결과를 Redis에 임시 저장 (step 1~4 공통)
         PendingEvaluation pending = buildPending(step, pythonResponse);
