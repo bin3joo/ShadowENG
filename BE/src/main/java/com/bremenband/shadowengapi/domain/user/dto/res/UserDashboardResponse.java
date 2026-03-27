@@ -17,8 +17,8 @@ public record UserDashboardResponse(
         @Schema(description = "총 학습 완료 문장 수", example = "42")
         long totalStudiedSentences,
 
-        @Schema(description = "총 학습 시간 (초)", example = "3600.0")
-        double totalStudyTimeSeconds,
+        @Schema(description = "총 학습 시간 (초)", example = "3600")
+        long totalStudyTimeSeconds,
 
         @Schema(description = "한 문장 이상 학습한 날짜 목록")
         List<LocalDate> studyDates,
@@ -52,7 +52,10 @@ public record UserDashboardResponse(
             String thumbnailUrl,
 
             @Schema(description = "영상 제목")
-            String videoTitle
+            String videoTitle,
+
+            @Schema(description = "리포트 종합 점수", example = "82.5")
+            double totalScore
 
     ) {}
 }
