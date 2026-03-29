@@ -8,7 +8,8 @@ data class StudySessionUiState(
     val thumbnailUrl: String = "",
     val sentences: List<SentenceItem> = emptyList(),
     val selectedSentenceId: Long? = null,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val isReviewing: Boolean = false
 )
 
 sealed class StudySessionEvent {

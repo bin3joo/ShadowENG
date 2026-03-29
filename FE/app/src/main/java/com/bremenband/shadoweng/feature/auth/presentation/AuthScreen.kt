@@ -22,13 +22,17 @@ import com.bremenband.shadoweng.R
 @Composable
 fun AuthScreen(
     onLoginSuccess: () -> Unit,
+    onNewUser: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
 
     LaunchedEffect(uiState) {
-        if (uiState is AuthUiState.Success) onLoginSuccess()
+        when (val s = uiState) {
+            is AuthUiState.Success -> if (s.isNew) onNewUser() else onLoginSuccess()
+            else -> {}
+        }
     }
 
     Column(
@@ -88,7 +92,7 @@ fun AuthScreen(
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEDF57))
         ) {
             Text(
-                text = if (uiState is AuthUiState.Loading) "로그인 중..." else "💬  카카오 로그인",
+                text = if (uiState is AuthUiState.Loading) "로그인 중..." else "게스트 로그인",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF362000)

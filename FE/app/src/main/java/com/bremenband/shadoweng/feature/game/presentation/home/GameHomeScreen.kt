@@ -46,6 +46,10 @@ fun GameHomeScreen(
     LaunchedEffect(Unit) { viewModel.navigateToPlay.collect { onNavigateToPlay() } }
     LaunchedEffect(Unit) { viewModel.navigateToLeaderboard.collect { onNavigateToLeaderboard() } }
 
+    LaunchedEffect(Unit) {
+        viewModel.reload()
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -86,7 +90,7 @@ fun GameHomeScreen(
                 .padding(top = 24.dp, start = 16.dp)
                 .size(40.dp)
                 .clip(CircleShape)
-                // .background(Color(0xFFFEDF57))
+            // .background(Color(0xFFFEDF57))
         ) {
             Icon(
                 imageVector = Icons.Default.Close,

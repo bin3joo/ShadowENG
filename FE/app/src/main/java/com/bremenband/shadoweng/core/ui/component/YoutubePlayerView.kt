@@ -1,10 +1,19 @@
 package com.bremenband.shadoweng.core.ui.component
 
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.options.IFramePlayerOptions
@@ -13,7 +22,10 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTube
 @Composable
 fun YoutubePlayerView(
     embedUrl: String,
-    startSec: Double = 0.0,
+    startSec: Double? = null,
+    endSec: Double? = null,
+    repeatCount: Int? = null,
+    autoPlay: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val videoId = remember(embedUrl) { extractVideoId(embedUrl) }
@@ -21,40 +33,116 @@ fun YoutubePlayerView(
 
     if (videoId.isEmpty()) return
 
-    AndroidView(
-        modifier = modifier,
-        factory = { context ->
-            com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView(context).apply {
-                // 1. 초기 설정
-                enableAutomaticInitialization = false
+    Box(modifier = modifier) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { context ->
+                YouTubePlayerView(context).apply {
+                    enableAutomaticInitialization = false
+                    lifecycleOwner.lifecycle.addObserver(this)
 
-                // 2. 라이프사이클 연결 (factory 내에서 등록)
-                lifecycleOwner.lifecycle.addObserver(this)
+                    val options = IFramePlayerOptions.Builder()
+                        .controls(1)
+                        .autoplay(0)
+                        .origin("https://com.bremenband.shadoweng")
+                        .build()
 
-                val options = IFramePlayerOptions.Builder()
-                    .controls(1)
-                    .autoplay(1)
-                    .build()
+                    initialize(object : AbstractYouTubePlayerListener() {
+                        private var loopCount = 0
+                        private var isSeeking = false
+                        private var hasReachedEnd = false
 
-                // 3. 수동 초기화
-                initialize(object : AbstractYouTubePlayerListener() {
-                    override fun onReady(youTubePlayer: YouTubePlayer) {
-                        // 초기 로드
-                        youTubePlayer.loadVideo(videoId, startSec.toFloat())
-                    }
-                }, options)
+                        override fun onReady(youTubePlayer: YouTubePlayer) {
+                            val start = startSec?.toFloat() ?: 0f
+                            if (autoPlay) youTubePlayer.loadVideo(videoId, start)
+                            else youTubePlayer.cueVideo(videoId, start)
+                        }
+                        override fun onCurrentSecond(youTubePlayer: YouTubePlayer, second: Float) {
+                            if (endSec == null || isSeeking) return
+
+                            if (second >= endSec.toFloat() && !hasReachedEnd) {
+                                hasReachedEnd = true
+                                youTubePlayer.pause()
+
+                                val shouldLoop = repeatCount == null || loopCount < repeatCount - 1
+                                if (shouldLoop) {
+                                    loopCount++
+                                }
+                            }
+                        }
+
+                        override fun onStateChange(
+                            youTubePlayer: YouTubePlayer,
+                            state: PlayerConstants.PlayerState
+                        ) {
+                            when (state) {
+                                PlayerConstants.PlayerState.PLAYING -> {
+                                    isSeeking = false
+                                    hasReachedEnd = false
+                                }
+
+                                PlayerConstants.PlayerState.PAUSED -> {
+                                    // 사용자가 재생 버튼을 누르면 시작 위치로 리셋
+                                    if (hasReachedEnd) {
+                                        val start = startSec?.toFloat() ?: 0f
+                                        isSeeking = true
+                                        youTubePlayer.seekTo(start)
+                                    }
+                                }
+
+                                else -> {}
+                            }
+                        }
+                    }, options)
+                }
+            },
+            update = { },
+            onRelease = { view ->
+                lifecycleOwner.lifecycle.removeObserver(view)
+                view.release()
             }
-        },
-        update = { view ->
-            // embedUrl이 바뀌었을 때 영상만 교체하는 로직 (필요시)
-            // 주의: 초기화 완료(onReady) 후에만 호출 가능하므로 내부 상태 관리가 필요할 수 있습니다.
-        },
-        onRelease = { view ->
-            // 4. 메모리 해제 및 옵저버 제거
-            lifecycleOwner.lifecycle.removeObserver(view)
-            view.release()
-        }
-    )
+        )
+
+        // 상단 오버레이
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.2f)
+                .align(Alignment.TopCenter)
+//                .background(Color.Black.copy(alpha = 0.7f))
+                .pointerInput(Unit) { detectTapGestures { } }
+        )
+
+// 하단 오버레이
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.3f)
+                .align(Alignment.BottomCenter)
+//                .background(Color.Black.copy(alpha = 0.7f))
+                .pointerInput(Unit) { detectTapGestures { } }
+        )
+
+// 좌측 오버레이
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.3f)
+                .fillMaxHeight(0.7f)
+                .align(Alignment.CenterStart)
+//                .background(Color.Black.copy(alpha = 0.7f))
+                .pointerInput(Unit) { detectTapGestures { } }
+        )
+
+// 우측 오버레이
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.3f)
+                .fillMaxHeight(0.7f)
+                .align(Alignment.CenterEnd)
+//                .background(Color.Black.copy(alpha = 0.7f))
+                .pointerInput(Unit) { detectTapGestures { } }
+        )
+    }
 }
 
 private fun extractVideoId(embedUrl: String): String {
@@ -64,5 +152,7 @@ private fun extractVideoId(embedUrl: String): String {
     if (!shortUrl.isNullOrEmpty()) return shortUrl
     val embedPath = Regex("embed/([^?]+)").find(embedUrl)?.groupValues?.get(1)
     if (!embedPath.isNullOrEmpty()) return embedPath
+    val liveUrl = Regex("youtube\\.com/live/([^?]+)").find(embedUrl)?.groupValues?.get(1)
+    if (!liveUrl.isNullOrEmpty()) return liveUrl
     return ""
 }

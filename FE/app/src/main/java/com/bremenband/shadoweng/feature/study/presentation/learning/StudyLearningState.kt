@@ -1,6 +1,7 @@
 package com.bremenband.shadoweng.feature.study.presentation.learning
 
 import com.bremenband.shadoweng.feature.study.domain.SentenceItem
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 
 enum class SubtitleMode { NONE, FULL, PARTIAL, NONE_FINAL }
 
@@ -15,11 +16,16 @@ data class StudyLearningUiState(
     val isAnalyzing: Boolean = false,
     val showEncourageModal: Boolean = false,
     val isNavigating: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val youtubePlayer: YouTubePlayer? = null,  // ← 추가
+    val showVoiceNotRecognizedModal: Boolean = false,
+    val showTooShortModal: Boolean = false
 )
 
 sealed class StudyLearningEvent {
     object StartRecording : StudyLearningEvent()
     object StopRecording : StudyLearningEvent()
     object RetryRecording : StudyLearningEvent()
+    object DismissVoiceModal : StudyLearningEvent()
+    object DismissTooShortModal : StudyLearningEvent()
 }

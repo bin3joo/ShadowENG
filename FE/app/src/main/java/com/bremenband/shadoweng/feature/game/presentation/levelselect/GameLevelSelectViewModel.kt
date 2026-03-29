@@ -27,10 +27,6 @@ class GameLevelSelectViewModel @Inject constructor(
     private val _navigateToPlay = MutableSharedFlow<Int>() // level
     val navigateToPlay: SharedFlow<Int> = _navigateToPlay.asSharedFlow()
 
-    init {
-        reload()
-    }
-
     fun isBgmPlaying(): Boolean = soundManager.isBgmPlaying()
 
     fun startBgm() { soundManager.playBgmHome() }

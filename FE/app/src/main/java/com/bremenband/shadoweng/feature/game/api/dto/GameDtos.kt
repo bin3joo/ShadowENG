@@ -40,6 +40,7 @@ data class GameEvaluateDetails(
     val boundaryToneFeedback: GameToneFeedback,
     val dynamicStressFeedback: GameToneFeedback
 )
+
 data class GameWordFeedback(val word: String, val status: String)
 data class GameToneFeedback(val status: String)
 data class GameEvaluateScores(
@@ -54,11 +55,10 @@ data class GameEvaluateScores(
 )
 data class GameFinalResultDto(
     val avgTotalScore: Double,
-    val avgSpeedSimilarity: Double,
+    val avgWordRhythmScore: Double,
     val avgDynamicStressScore: Double,
-    val avgBoundaryToneScore: Double,
+    val avgWordAccuracy: Double,
     val finalScore: Double,
-    val cumulativeScore: Double,
     val hearts: Int
 )
 

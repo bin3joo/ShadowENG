@@ -6,5 +6,7 @@ data class SentenceItem(
     val content: String,
     val isCompleted: Boolean = false,
     val startSec: Double = 0.0,
-    val endSec: Double = 0.0
+    val endSec: Double = 0.0,
+    val sentenceKo: String = "",
+    val vocabulary: List<com.bremenband.shadoweng.feature.study.api.dto.VocabularyDto> = emptyList()
 )

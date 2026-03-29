@@ -37,7 +37,6 @@ class ContentRangeViewModel @Inject constructor(
                         it.copy(
                             thumbnailUrl = video.thumbnailUrl ?: "",
                             videoDuration = duration,
-                            sliderEnd = defaultEnd,
                             endTime = formatSeconds(defaultEnd.toInt())
                         )
                     }
@@ -50,42 +49,13 @@ class ContentRangeViewModel @Inject constructor(
             is ContentRangeEvent.StartTimeChanged ->
                 _uiState.update { it.copy(startTime = event.time, isStartValid = isValidTime(event.time)) }
             is ContentRangeEvent.EndTimeChanged ->
-                _uiState.update { it.copy(endTime = event.time, isEndValid = isValidTime(event.time)) }
-            is ContentRangeEvent.Submit -> submit()
-            is ContentRangeEvent.SliderStartChanged -> {
-                val seconds = event.seconds.toInt()
-                _uiState.update {
-                    it.copy(
-                        sliderStart = event.seconds,
-                        startTime = formatSeconds(seconds),
-                        isStartValid = true
-                    )
-                }
-            }
-            is ContentRangeEvent.SliderEndChanged -> {
-                val seconds = event.seconds.toInt()
-                _uiState.update {
-                    it.copy(
-                        sliderEnd = event.seconds,
-                        endTime = formatSeconds(seconds),
-                        isEndValid = true
-                    )
-                }
-            }
-        }
+                _uiState.update { it.copy(endTime = event.time, isEndValid = isValidTime(event.time)) } }
     }
 
-    private fun submit() {
-        val state = _uiState.value
-        if (!state.isStartValid || !state.isEndValid) return
-        if (state.sliderEnd - state.sliderStart < 1f) return
+    fun submitRange(startSec: Double, endSec: Double) {
         viewModelScope.launch {
             _navigateToLoading.emit(
-                Triple(
-                    state.embedUrl,
-                    parseTimeToSeconds(state.startTime).toDouble(),
-                    parseTimeToSeconds(state.endTime).toDouble()
-                )
+                Triple(_uiState.value.embedUrl, startSec, endSec)
             )
         }
     }

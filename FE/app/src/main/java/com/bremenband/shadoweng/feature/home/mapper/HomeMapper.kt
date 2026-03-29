@@ -9,7 +9,8 @@ import java.time.LocalDate
 fun LatestActiveSessionDto.toLatestSession(): LatestSession = LatestSession(
     sessionId = sessionId,
     thumbnailUrl = thumbnailUrl ?: "",
-    progressRate = 0, // progressRate 필드 없어짐 — 백엔드 확인 필요
+    progressRate = if ((totalSentences ?: 0) == 0) 0
+    else ((completedSentences ?: 0) * 100 / totalSentences!!),
     title = videoTitle ?: "",
     completedSentences = completedSentences ?: 0,
     totalSentences = totalSentences ?: 0
@@ -18,7 +19,7 @@ fun LatestActiveSessionDto.toLatestSession(): LatestSession = LatestSession(
 fun UserMeDto.toUserProfile(): UserProfile = UserProfile(
     userId = userId,
     nickname = nickname,
-    email = email,
+    email = email ?: "",
     totalVisitedDays = totalVisitedDays,
     totalStudyDays = totalStudyDays,
     longestStreak = longestStreak,

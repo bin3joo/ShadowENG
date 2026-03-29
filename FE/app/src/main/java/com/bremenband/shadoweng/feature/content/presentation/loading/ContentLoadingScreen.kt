@@ -32,8 +32,10 @@ fun ContentLoadingScreen(
     viewModel: ContentLoadingViewModel = hiltViewModel()
 ) {
     LaunchedEffect(Unit) {
-        viewModel.init(embedUrl, startSec, endSec)
         viewModel.navigateToStudy.collect { onNavigateToStudy(it) }
+    }
+    LaunchedEffect(Unit) {
+        viewModel.init(embedUrl, startSec, endSec)
     }
 
     val uiState by viewModel.uiState.collectAsState()
@@ -62,11 +64,11 @@ fun ContentLoadingScreen(
         targetValue = 0.55f,
         animationSpec = infiniteRepeatable(
             animation = keyframes {
-                durationMillis = 700
+                durationMillis = 1000
                 1f at 0 with FastOutSlowInEasing
-                0.55f at 300 with FastOutSlowInEasing
-                1f at 600 with FastOutSlowInEasing
-                1f at 700
+                0.55f at 500 with FastOutSlowInEasing
+                1f at 800 with FastOutSlowInEasing
+                1f at 1000
             },
             repeatMode = RepeatMode.Restart
         ),

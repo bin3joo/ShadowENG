@@ -26,6 +26,7 @@ class LeaderboardViewModel @Inject constructor(
     val navigateToPlay: SharedFlow<Unit> = _navigateToPlay.asSharedFlow()
 
     init { load() }
+    fun reload() = load()
 
     private fun load() {
         viewModelScope.launch {

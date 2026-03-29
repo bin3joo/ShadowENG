@@ -4,7 +4,7 @@ import com.bremenband.shadoweng.core.exception.DomainException
 import com.bremenband.shadoweng.core.exception.mapDomainException
 import com.bremenband.shadoweng.feature.mypage.api.dto.ToggleBookmarkRequest
 import com.bremenband.shadoweng.feature.study.api.StudyApi
-import com.bremenband.shadoweng.feature.study.api.dto.CreateReportRequest
+import com.bremenband.shadoweng.feature.study.api.dto.SentenceDetailResponse
 import com.bremenband.shadoweng.feature.study.domain.EvaluationResult
 import com.bremenband.shadoweng.feature.study.domain.SentenceItem
 import com.bremenband.shadoweng.feature.study.domain.StudyReport
@@ -41,15 +41,19 @@ class StudyRepositoryImpl @Inject constructor(
                 "file", audioFile.name,
                 audioFile.asRequestBody("audio/m4a".toMediaTypeOrNull())
             )
-            api.createEvaluation(sessionId, sentenceId, step, filePart)
-                .data?.toDomain()?.also { cachedEvaluation = it }
-                ?: throw DomainException.InvalidResponse
-        }.mapDomainException()
-
-    override suspend fun createReport(sessionId: Long): Result<StudyReport> =
-        runCatching {
-            api.createReport(sessionId, CreateReportRequest(sessionId)).data?.toDomain()
-                ?: throw DomainException.NotFound
+            try {
+                val response = api.createEvaluation(sessionId, sentenceId, step, filePart)
+                response.data?.toDomain()?.also { cachedEvaluation = it }
+                    ?: throw DomainException.InvalidResponse
+            } catch (e: retrofit2.HttpException) {
+                val errorBody = e.response()?.errorBody()?.string()
+                val message = try {
+                    org.json.JSONObject(errorBody ?: "").getString("message")
+                } catch (ex: Exception) {
+                    e.message() ?: "평가 중 오류가 발생했어요."
+                }
+                throw DomainException.Unknown(message)
+            }
         }.mapDomainException()
 
     override suspend fun getReports(sessionId: Long): Result<List<StudyReport>> =
@@ -69,4 +73,18 @@ class StudyRepositoryImpl @Inject constructor(
             api.toggleBookmark(sentenceId, ToggleBookmarkRequest(isBookmarked)).data?.isBookmarked
                 ?: throw DomainException.NotFound
         }.mapDomainException()
+
+    override suspend fun getSentenceDetail(sessionId: Long, sentenceId: Long, step: Int): Result<SentenceDetailResponse> =
+        runCatching {
+            api.getSentence(sessionId, sentenceId, step).data ?: throw DomainException.NotFound
+        }.mapDomainException()
+
+    override suspend fun startReview(sessionId: Long): Result<Unit> = runCatching {
+        api.startReview(sessionId)
+    }
+
+    override suspend fun reLearn(sessionId: Long): Result<Long> = runCatching {
+        api.reLearn(sessionId).data?.sessionId
+            ?: error("세션 생성 실패")
+    }
 }

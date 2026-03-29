@@ -15,14 +15,15 @@ interface MyPageApi {
     @DELETE("study-sessions/{sessionId}")
     suspend fun deleteSession(@Path("sessionId") sessionId: Long): ApiResponse<String>
 
+    // 기존 문장 북마크 제거, 세션 북마크로 교체
+    @PATCH("bookmarks/{sessionId}")
+    suspend fun toggleSessionBookmark(
+        @Path("sessionId") sessionId: Long,
+        @Body request: ToggleBookmarkRequest
+    ): ApiResponse<SessionBookmarkResponse>
+
     @GET("bookmarks")
     suspend fun getBookmarks(): ApiResponse<BookmarkListResponse>
-
-    @PATCH("bookmarks/{sentenceId}")
-    suspend fun toggleBookmark(
-        @Path("sentenceId") sentenceId: Long,
-        @Body request: ToggleBookmarkRequest
-    ): ApiResponse<BookmarkResponse>
 
     @GET("reports/daily")
     suspend fun getDailyReport(): ApiResponse<DailyReportResponse>

@@ -2,6 +2,7 @@ package com.bremenband.shadoweng.feature.study.presentation.highlight
 
 import com.bremenband.shadoweng.core.ui.component.model.Annotation
 import com.bremenband.shadoweng.core.ui.component.model.ExpressionInfo
+import com.bremenband.shadoweng.feature.study.api.dto.VocabularyDto
 import com.bremenband.shadoweng.feature.study.domain.EvaluationResult
 
 data class StudyHighlightUiState(
@@ -15,12 +16,15 @@ data class StudyHighlightUiState(
     val endSec: Double = 0.0,
     val annotations: List<Annotation> = emptyList(),
     val selectedWord: String? = null,
-    val expressionInfo: ExpressionInfo? = null,
+    val expressionInfoList: List<ExpressionInfo> = emptyList(),
     val isLoadingExpression: Boolean = false,
+    val isLastSentence: Boolean = false,
     val error: String? = null,
     val showKoreanSubtitle: Boolean = false,
     val koreanTranslation: String = "",
     val evaluationResult: EvaluationResult? = null,
+    val sentenceKo: String = "",
+    val vocabulary: List<VocabularyDto> = emptyList()
 )
 
 sealed class StudyHighlightEvent {

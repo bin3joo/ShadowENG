@@ -21,7 +21,7 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             repository.guestLogin()
-                .onSuccess { _uiState.value = AuthUiState.Success }
+                .onSuccess { isNew -> _uiState.value = AuthUiState.Success(isNew) }
                 .onFailure { e -> _uiState.value = AuthUiState.Error(e.message ?: "네트워크 오류") }
         }
     }

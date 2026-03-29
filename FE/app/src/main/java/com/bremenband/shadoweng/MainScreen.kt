@@ -1,32 +1,37 @@
 package com.bremenband.shadoweng
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.bremenband.shadoweng.navigation.NavRoutes
 import com.bremenband.shadoweng.navigation.RootNavGraph
+import androidx.compose.ui.graphics.Color
 
 sealed class BottomNavItem(
     val route: String,
     val label: String,
-    val icon: ImageVector
+    @DrawableRes val icon: Int
 ) {
-    object Home   : BottomNavItem("home_graph",   "홈",        Icons.Default.Home)
-    object MyPage : BottomNavItem("mypage_graph", "학습", Icons.Default.PlayArrow)
-    object Stats  : BottomNavItem("stats_graph",  "학습 통계",  Icons.Default.Add)
-    object MyInfo : BottomNavItem("myinfo_graph", "내 정보",    Icons.Default.Person)
+    // 변경 후
+    object Home   : BottomNavItem("home_graph",    "홈",        R.drawable.home)
+    object MyPage : BottomNavItem("mypage_graph",  "마이 쉐도잉", R.drawable.my_shadoweng)
+    object Stats  : BottomNavItem("stats_graph",   "학습 통계",  R.drawable.stats)
+    object MyInfo : BottomNavItem("profile_graph", "내 정보",    R.drawable.profile)
 }
 
 val bottomNavItems = listOf(
@@ -43,7 +48,9 @@ private val hideBottomBarRoutes = setOf(
     "game_play/{level}",
     "game_play/{level}/{prevBest}",
     "game_result/{level}/{hearts}/{result}/{prevBest}",
-    "game_leaderboard"
+    "game_leaderboard",
+    NavRoutes.SPLASH,
+    NavRoutes.SET_NICKNAME
 )
 
 @Composable
@@ -72,8 +79,21 @@ fun MainScreen() {
                                     restoreState = true
                                 }
                             },
-                            icon = { Icon(item.icon, contentDescription = item.label) },
-                            label = { Text(item.label) }
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = item.icon),
+                                    contentDescription = item.label,
+                                    tint = if (currentDestination?.hierarchy?.any { it.route == item.route } == true)
+                                        Color(0xFFFF5D5D) else Color(0xFFAAAAAA)
+                                )
+                            },
+                            label = {
+                                Text(
+                                    item.label,
+                                    color = if (currentDestination?.hierarchy?.any { it.route == item.route } == true)
+                                        Color(0xFFFF5D5D) else Color(0xFFAAAAAA)
+                                )
+                            },
                         )
                     }
                 }

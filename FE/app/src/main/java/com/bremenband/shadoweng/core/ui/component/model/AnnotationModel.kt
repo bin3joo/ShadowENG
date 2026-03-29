@@ -1,25 +1,68 @@
-package com.bremenband.shadoweng.core.ui.component.model
+package com.bremenband.shadoweng.core.ui.component
 
-enum class AnnotationType {
-    HIGHLIGHT,
-    BOLD,
-    UNDERLINE,
-    ARROW_UP,
-    ARROW_DOWN,
-    CURVE_LONG,   // dragged - ~ 물결
-    CURVE_SHORT,  // rushed  - ∨
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import com.bremenband.shadoweng.R
+
+@Composable
+fun TooShortRecordingModal(
+    onRetry: () -> Unit
+) {
+    Dialog(onDismissRequest = {}) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.engmu_question),
+                    contentDescription = null,
+                    modifier = Modifier.size(80.dp)
+                )
+                Text(
+                    "발화가 너무 짧아요",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF362000)
+                )
+                Text(
+                    "문장 전체를 따라\n말해볼까요?",
+                    fontSize = 14.sp,
+                    color = Color(0xFF888888),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 22.sp
+                )
+                Button(
+                    onClick = onRetry,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEDF57))
+                ) {
+                    Text(
+                        "다시 녹음하기",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF362000)
+                    )
+                }
+            }
+        }
+    }
 }
-
-data class Annotation(
-    val startIndex: Int,
-    val endIndex: Int,
-    val type: AnnotationType,
-    val color: Long = 0xFFFFEB3B,
-)
-
-data class ExpressionInfo(
-    val word: String,
-    val pronunciation: String,
-    val description: String,
-    val examples: List<String> = emptyList()
-)

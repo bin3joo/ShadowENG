@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.bremenband.shadoweng.R
+import com.bremenband.shadoweng.core.ui.component.ThumbnailImage
 import com.bremenband.shadoweng.feature.study.domain.SentenceItem
 
 @Composable
@@ -40,7 +41,7 @@ fun StudySessionScreen(
     LaunchedEffect(Unit) {
         viewModel.navigateToLearning.collect { onStartStudy(sessionId, it) }
     }
-    LaunchedEffect(sessionId) { viewModel.loadSession(sessionId) }
+    LaunchedEffect(Unit) { viewModel.loadSession(sessionId) }
 
     val completedCount = uiState.sentences.count { it.isCompleted }
     val totalCount = uiState.sentences.size
@@ -64,7 +65,7 @@ fun StudySessionScreen(
                 Icon(Icons.Default.ArrowBack, contentDescription = "뒤로", tint = Color(0xFF362000))
             }
             Text(
-                text = "학습하기",
+                text = if (uiState.isReviewing) "복습하기" else "학습하기",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF362000),
@@ -86,15 +87,9 @@ fun StudySessionScreen(
                     elevation = CardDefaults.cardElevation(0.dp)
                 ) {
                     Column {
-                        AsyncImage(
-                            model = uiState.thumbnailUrl.ifEmpty { null },
-                            contentDescription = "썸네일",
-                            contentScale = ContentScale.Crop,
-                            placeholder = painterResource(id = R.drawable.thumbnail),
-                            error = painterResource(id = R.drawable.thumbnail),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(16f / 9f)
+                        ThumbnailImage(
+                            url = uiState.thumbnailUrl,
+                            modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
                                 .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                         )
                         Row(
@@ -147,13 +142,13 @@ fun StudySessionScreen(
                 ) {
                     Column(modifier = Modifier.padding(vertical = 4.dp)) {
                         uiState.sentences.forEachIndexed { index, sentence ->
-                            val isUnlocked = sentence.isCompleted || index == 0 || uiState.sentences[index - 1].isCompleted
+                            val isUnlocked = uiState.isReviewing ||
+                                    sentence.isCompleted || index == 0 || uiState.sentences[index - 1].isCompleted
                             SentenceListItem(
                                 item = sentence,
                                 isUnlocked = isUnlocked,
-                                onClick = {
-                                    viewModel.onEvent(StudySessionEvent.SelectSentence(sentence.id))
-                                }
+                                isReviewing = uiState.isReviewing,
+                                onClick = { viewModel.onEvent(StudySessionEvent.SelectSentence(sentence.id)) }
                             )
                             if (index < uiState.sentences.lastIndex) {
                                 HorizontalDivider(
@@ -171,15 +166,15 @@ fun StudySessionScreen(
     }
 }
 
-// SentenceListItem 파라미터 추가
 @Composable
 private fun SentenceListItem(
     item: SentenceItem,
     isUnlocked: Boolean,
+    isReviewing: Boolean = false,
     onClick: () -> Unit
 ) {
     val isCompleted = item.isCompleted
-    val isClickable = !isCompleted && isUnlocked
+    val isClickable = isUnlocked && (!isCompleted || isReviewing)
 
     Row(
         modifier = Modifier
@@ -189,26 +184,33 @@ private fun SentenceListItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .clip(CircleShape)
-                .background(if (isCompleted) Color(0xFFFF5D5D) else Color(0xFFF0F0F0)),
-            contentAlignment = Alignment.Center
-        ) {
-            if (isCompleted) {
+        if (isCompleted) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFF5D5D)),
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-            } else {
-                Text(text = item.timestamp, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF888888))
             }
+        } else {
+            Text(
+                text = item.timestamp,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF888888),
+                maxLines = 1,
+                modifier = Modifier.widthIn(min = 36.dp)
+            )
         }
 
         Text(
             text = item.content,
             fontSize = 14.sp,
             color = when {
-                isCompleted -> Color(0xFFBBBBBB)
                 !isUnlocked -> Color(0xFFCCCCCC)
+                isCompleted && !isReviewing -> Color(0xFFBBBBBB)
                 else -> Color(0xFF1A1A1A)
             },
             modifier = Modifier.weight(1f),

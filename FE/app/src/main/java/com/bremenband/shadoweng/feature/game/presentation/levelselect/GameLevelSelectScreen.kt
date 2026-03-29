@@ -71,7 +71,7 @@ fun GameLevelSelectScreen(
                 .padding(top = 24.dp, start = 16.dp)
                 .size(40.dp)
                 .clip(CircleShape)
-                // .background(Color(0xFFFEDF57))
+            // .background(Color(0xFFFEDF57))
         ) {
             Icon(
                 imageVector = Icons.Default.ArrowBackIosNew,

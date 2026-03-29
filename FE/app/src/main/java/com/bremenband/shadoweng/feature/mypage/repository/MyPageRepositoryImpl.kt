@@ -32,17 +32,28 @@ class MyPageRepositoryImpl @Inject constructor(
             .mapDomainException()
             .map { }
 
-    override suspend fun getBookmarks(): Result<List<BookmarkedSentence>> =
-        runCatching { api.getBookmarks().data?.bookmarks?.map { it.toDomain() } ?: throw DomainException.NotFound }
-            .mapDomainException()
 
     override suspend fun getDailyCount(): Result<Int> =
         runCatching { api.getDailyReport().data?.toDailyCount() ?: throw DomainException.NotFound }
             .mapDomainException()
 
-    override suspend fun toggleBookmark(sentenceId: Long, isBookmarked: Boolean): Result<Boolean> =
+    override suspend fun toggleSessionBookmark(sessionId: Long, isBookmarked: Boolean): Result<Boolean> =
         runCatching {
-            api.toggleBookmark(sentenceId, ToggleBookmarkRequest(isBookmarked)).data?.isBookmarked
+            api.toggleSessionBookmark(sessionId, ToggleBookmarkRequest(isBookmarked)).data?.isBookmarked
                 ?: throw DomainException.NotFound
-        }.mapDomainException()
+        }
+
+    override suspend fun getBookmarkedSessions(): Result<List<SessionSummary>> =
+        runCatching {
+            api.getBookmarks().data?.bookmarks?.map {
+                SessionSummary(
+                    sessionId = it.sessionId,
+                    title = it.videoTitle ?: "",
+                    thumbnailUrl = it.thumbnailUrl,
+                    completedSentences = it.completedSentences,
+                    totalSentences = it.totalSentences,
+                    isBookmarked = true
+                )
+            } ?: emptyList()
+        }
 }

@@ -3,6 +3,9 @@ package com.bremenband.shadoweng.navigation
 import android.net.Uri
 
 object NavRoutes {
+    const val SPLASH = "splash"
+    const val SET_NICKNAME = "set_nickname"
+
     // Study
     const val STUDY_LEARNING = "study_learning/{sessionId}/{sentenceId}/{step}"
     const val STUDY_LOADING = "study_loading/{sessionId}"
@@ -43,7 +46,7 @@ object NavRoutes {
     const val HOME = "home"
     const val AUTH = "auth"
     const val STATS = "stats"
-    const val MY_INFO = "my_info"
+    const val MY_INFO = "profile"
     const val STREAK_CALENDAR = "streak_calendar"
 
     const val STATS_REPORT = "stats_report/{sessionId}"

@@ -6,7 +6,19 @@ data class DailyStudyData(val date: String, val studiedSentencesCount: Int)
 
 data class ToggleBookmarkRequest(val isBookmarked: Boolean)
 data class BookmarkResponse(val sentenceId: Long, val sentence: String, val isBookmarked: Boolean)
-data class BookmarkListResponse(val bookmarks: List<BookmarkItemResponse>)
+data class BookmarkListResponse(
+    val bookmarks: List<SessionBookmarkItemDto>
+)
+
+data class SessionBookmarkItemDto(
+    val sessionId: Long,
+    val videoTitle: String?,
+    val thumbnailUrl: String?,
+    val startSec: Double,
+    val endSec: Double,
+    val totalSentences: Int,
+    val completedSentences: Int
+)
 data class BookmarkItemResponse(val sentenceId: Long, val sentence: String, val sessionId: Long)
 
 data class ActiveSessionItemDto(
@@ -28,4 +40,9 @@ data class SessionThumbnailDto(
     val url: String?,
     val width: Int?,
     val height: Int?
+)
+
+data class SessionBookmarkResponse(
+    val sessionId: Long,
+    val isBookmarked: Boolean
 )

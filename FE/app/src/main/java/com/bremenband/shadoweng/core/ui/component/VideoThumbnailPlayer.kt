@@ -41,12 +41,8 @@ fun VideoThumbnailPlayer(
 //        )
 
         if (!isPlaying) {
-            AsyncImage(
-                model = thumbnailUrl.ifEmpty { null },
-                contentDescription = "썸네일",
-                contentScale = ContentScale.Crop,
-                placeholder = painterResource(id = R.drawable.thumbnail),
-                error = painterResource(id = R.drawable.thumbnail),
+            ThumbnailImage(
+                url = thumbnailUrl,
                 modifier = Modifier.fillMaxSize()
             )
 

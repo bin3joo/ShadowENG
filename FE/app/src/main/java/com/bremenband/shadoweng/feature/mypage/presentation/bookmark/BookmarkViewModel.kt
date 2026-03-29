@@ -13,37 +13,39 @@ class BookmarkViewModel @Inject constructor(
     private val repository: MyPageRepository
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(BookmarkState())
-    val state: StateFlow<BookmarkState> = _state.asStateFlow()
+    private val _state = MutableStateFlow(BookmarkUiState())
+    val state: StateFlow<BookmarkUiState> = _state.asStateFlow()
 
-    init {
-        android.util.Log.d("BookmarkVM", "init called, loading bookmarks")
-        loadBookmarks()
-    }
+    private val _navigateToStudy = MutableSharedFlow<Long>()
+    val navigateToStudy: SharedFlow<Long> = _navigateToStudy.asSharedFlow()
+
+    init { loadBookmarks() }
+    fun reload() = loadBookmarks()
 
     private fun loadBookmarks() {
         viewModelScope.launch {
-            android.util.Log.d("BookmarkVM", "loadBookmarks called")
-            repository.getBookmarks()
-                .onSuccess { bookmarks ->
-                    android.util.Log.d("BookmarkVM", "success: ${bookmarks.size}")
-                    _state.update { it.copy(isLoading = false, bookmarks = bookmarks) }
+            repository.getBookmarkedSessions()
+                .onSuccess { sessions ->
+                    _state.update { it.copy(isLoading = false, bookmarkedSessions = sessions) }
                 }
-                .onFailure { e ->
-                    android.util.Log.d("BookmarkVM", "failure: ${e.message}")
+                .onFailure {
                     _state.update { it.copy(isLoading = false) }
                 }
         }
     }
 
-    fun toggleBookmark(sentenceId: Long) {
+    fun toggleBookmark(sessionId: Long) {
         viewModelScope.launch {
-            repository.toggleBookmark(sentenceId, false)
+            repository.toggleSessionBookmark(sessionId, false)
                 .onSuccess {
                     _state.update { state ->
-                        state.copy(bookmarks = state.bookmarks.filter { it.sentenceId != sentenceId })
+                        state.copy(bookmarkedSessions = state.bookmarkedSessions.filter { it.sessionId != sessionId })
                     }
                 }
         }
+    }
+
+    fun navigateToSession(sessionId: Long) {
+        viewModelScope.launch { _navigateToStudy.emit(sessionId) }
     }
 }

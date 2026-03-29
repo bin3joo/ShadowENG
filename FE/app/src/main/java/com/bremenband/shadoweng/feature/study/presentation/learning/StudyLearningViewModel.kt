@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bremenband.shadoweng.core.audio.AudioRecorder
+import com.bremenband.shadoweng.core.exception.DomainException
 import com.bremenband.shadoweng.feature.study.domain.SentenceItem
 import com.bremenband.shadoweng.feature.study.repository.StudyRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,6 +41,7 @@ class StudyLearningViewModel @Inject constructor(
     private var currentSessionId: Long = 0L
     private var currentStep: Int = 1
     private var recordingFile: File? = null
+    private var recordingStartTime: Long = 0L
 
     fun init(sessionId: Long, sentence: SentenceItem, step: Int) {
         currentSessionId = sessionId
@@ -74,14 +76,18 @@ class StudyLearningViewModel @Inject constructor(
 
     fun onEvent(event: StudyLearningEvent) {
         when (event) {
-            is StudyLearningEvent.StartRecording -> startRecording()   // 변경
+            is StudyLearningEvent.StartRecording -> startRecording()
             is StudyLearningEvent.StopRecording -> stopRecording()
             is StudyLearningEvent.RetryRecording -> {
                 countdownJob?.cancel()
                 audioRecorder.release()
                 recordingFile = null
-                _uiState.update { it.copy(isRecording = false) }   // countdown 제거
+                _uiState.update { it.copy(isRecording = false) }
             }
+            is StudyLearningEvent.DismissVoiceModal ->
+                _uiState.update { it.copy(showVoiceNotRecognizedModal = false) }
+            is StudyLearningEvent.DismissTooShortModal ->
+                _uiState.update { it.copy(showTooShortModal = false) }
         }
     }
 
@@ -91,8 +97,11 @@ class StudyLearningViewModel @Inject constructor(
             _uiState.update { it.copy(isRecording = true) }
             try {
                 recordingFile = audioRecorder.start()
+                recordingStartTime = System.currentTimeMillis()  // 추가
             } catch (e: Exception) {
-                _uiState.update { it.copy(isRecording = false, error = "녹음을 시작할 수 없어요. 마이크 권한을 확인해주세요.") }
+                _uiState.update {
+                    it.copy(isRecording = false, error = "녹음을 시작할 수 없어요. 마이크 권한을 확인해주세요.")
+                }
             }
         }
     }
@@ -100,6 +109,7 @@ class StudyLearningViewModel @Inject constructor(
     private fun stopRecording() {
         val sentenceId = _uiState.value.sentence?.id ?: return
         val file = audioRecorder.stop()
+        val recordingDuration = (System.currentTimeMillis() - recordingStartTime) / 1000.0
         _uiState.update { it.copy(isRecording = false) }
 
         if (currentStep == 1) {
@@ -109,6 +119,14 @@ class StudyLearningViewModel @Inject constructor(
                 _uiState.update { it.copy(showEncourageModal = false) }
                 handlePostRecording()
             }
+            return
+        }
+
+        // 너무 짧은 발화 체크 (sentence duration의 0.5배 미만)
+        val sentenceDuration = _uiState.value.endSec - _uiState.value.startSec
+        if (sentenceDuration > 0 && recordingDuration < sentenceDuration * 0.5) {
+            recordingFile = null
+            _uiState.update { it.copy(showTooShortModal = true) }
             return
         }
 
@@ -125,8 +143,13 @@ class StudyLearningViewModel @Inject constructor(
                     _uiState.update { it.copy(isAnalyzing = false) }
                     handlePostRecording()
                 }.onFailure { e ->
-                    _uiState.update { it.copy(isAnalyzing = false, error = e.message) }
-                    handlePostRecording()
+                    _uiState.update { it.copy(isAnalyzing = false) }
+                    when {
+                        e.message?.contains("음성이 인식되지 않았습니다") == true -> {
+                            _uiState.update { it.copy(showVoiceNotRecognizedModal = true) }
+                        }
+                        else -> handlePostRecording()
+                    }
                 }
             } else {
                 _uiState.update { it.copy(isAnalyzing = false) }
@@ -136,11 +159,11 @@ class StudyLearningViewModel @Inject constructor(
     }
 
     private suspend fun handlePostRecording() {
-        _uiState.update { it.copy(isNavigating = true) }  // 로딩 시작
+        _uiState.update { it.copy(isNavigating = true) }
         if (currentStep == 1) {
             _navigateToHighlight.emit(currentStep)
         } else {
-            delay(500)  // 약간의 딜레이 후 이동
+            delay(500)
             _navigateToHighlight.emit(currentStep)
         }
     }

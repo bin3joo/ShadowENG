@@ -5,7 +5,7 @@ import java.time.LocalDate
 data class UserProfile(
     val userId: Long,
     val nickname: String,
-    val email: String,
+    val email: String?,
     val totalVisitedDays: Int,
     val totalStudyDays: Int,
     val longestStreak: Int,
