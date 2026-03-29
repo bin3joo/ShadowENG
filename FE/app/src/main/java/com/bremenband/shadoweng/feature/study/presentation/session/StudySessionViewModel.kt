@@ -2,6 +2,7 @@ package com.bremenband.shadoweng.feature.study.presentation.session
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bremenband.shadoweng.feature.mypage.repository.MyPageRepository
 import com.bremenband.shadoweng.feature.study.repository.StudyRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -32,7 +33,8 @@ class StudySessionViewModel @Inject constructor(
                             title = session.title,
                             embedUrl = session.embedUrl,
                             thumbnailUrl = session.thumbnailUrl ?: "",
-                            sentences = session.sentences
+                            sentences = session.sentences,
+                            isReviewing = session.isReviewing
                         )
                     }
                 }

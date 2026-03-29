@@ -8,6 +8,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 @HiltViewModel
 class MyPageViewModel @Inject constructor(
@@ -15,8 +16,8 @@ class MyPageViewModel @Inject constructor(
     private val gameRepository: GameRepository
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(MyPageState())
-    val state: StateFlow<MyPageState> = _state.asStateFlow()
+    private val _state = MutableStateFlow(MyPageUiState())
+    val state: StateFlow<MyPageUiState> = _state.asStateFlow()
 
     private val _navigateToStudy = MutableSharedFlow<Long>()
     val navigateToStudy: SharedFlow<Long> = _navigateToStudy.asSharedFlow()
@@ -28,12 +29,13 @@ class MyPageViewModel @Inject constructor(
     val navigateToGame: SharedFlow<Unit> = _navigateToGame.asSharedFlow()
 
     init { loadAll() }
+    fun reload() = loadAll()
 
     private fun loadAll() {
         viewModelScope.launch {
             homeRepository.getUserMe()
                 .onSuccess { profile ->
-                    _state.update { it.copy(nickname = profile.nickname, email = profile.email) }
+                    _state.update { it.copy(nickname = profile.nickname, email = profile.email ?: "",) }
                 }
 
             homeRepository.getRecentSession()
@@ -50,8 +52,8 @@ class MyPageViewModel @Inject constructor(
                         ?: leaderboard.nearbyRankers.find { it.isMe }
                     _state.update {
                         it.copy(
-                            leagueTopScore = leaderboard.topRankers.firstOrNull()?.weeklyScore?.toInt() ?: 0,
-                            myScore = myRanker?.weeklyScore?.toInt() ?: 0,
+                            leagueTopScore = leaderboard.topRankers.firstOrNull()?.weeklyScore?.roundToInt() ?: 0,
+                            myScore = myRanker?.weeklyScore?.roundToInt() ?: 0,
                             tier = leaderboard.tier
                         )
                     }

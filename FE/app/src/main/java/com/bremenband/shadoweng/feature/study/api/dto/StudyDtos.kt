@@ -3,7 +3,8 @@ package com.bremenband.shadoweng.feature.study.api.dto
 data class SessionResponse(
     val sessionId: Long,
     val videoData: VideoData,
-    val sentencesData: List<SentenceData>
+    val sentencesData: List<SentenceData>,
+    val isReviewing: Boolean = false
 )
 data class VideoData(
     val videoId: String,
@@ -21,7 +22,9 @@ data class SentenceData(
     val startSec: Double,
     val endSec: Double,
     val durationSec: Double,
-    val studyCount: Int
+    val studyCount: Int,
+    val sentenceKo: String? = null,
+    val vocabulary: List<VocabularyDto> = emptyList()
 )
 
 data class SentenceDetailResponse(
@@ -33,7 +36,18 @@ data class SentenceDetailResponse(
     val startSec: Double,
     val endSec: Double,
     val durationSec: Double,
-    val studyCount: Int
+    val studyCount: Int,
+    val sentenceKo: String? = null,
+    val vocabulary: List<VocabularyDto> = emptyList()
+)
+
+data class VocabularyDto(
+    val word: String,
+    val meaning_ko: String,
+    val phonetic_en: String,
+    val phonetic_ko: String,
+    val example_en: String,
+    val example_ko: String
 )
 
 data class LatestActiveSession(val sessionId: Long, val thumbnailUrl: String, val progressRate: Int)
@@ -67,8 +81,6 @@ data class EvaluationScores(
     val speedSimilarity: Double,
     val pauseSimilarity: Double
 )
-
-data class CreateReportRequest(val sessionId: Long)
 
 // 단건 / 목록 공통 구조
 data class ReportResponse(
@@ -108,3 +120,4 @@ data class ThumbnailDto(
     val width: Int,
     val height: Int
 )
+

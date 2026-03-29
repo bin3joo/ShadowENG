@@ -12,3 +12,14 @@ fun tierToDrawable(tier: String?): Int = when (tier) {
     "CHALLENGER" -> R.drawable.engmu_challenger
     else         -> R.drawable.engmu_question
 }
+
+fun tierDisplayName(tier: String) = when (tier) {
+    "BRONZE"     -> "브론즈"
+    "SILVER"     -> "실버"
+    "GOLD"       -> "골드"
+    "PLATINUM"   -> "플래티넘"
+    "DIAMOND"    -> "다이아몬드"
+    "RUBY"       -> "루비"
+    "CHALLENGER" -> "챌린저"
+    else         -> "브론즈"
+}

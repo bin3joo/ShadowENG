@@ -16,5 +16,8 @@ data class DifficultSentence(
     val sentenceId: Long,
     val content: String,
     val feedback: String,
-    val averageScore: Double = 0.0
+    val averageScore: Double = 0.0,
+    val wordFeedback: List<WordFeedback> = emptyList()
 )
+
+// data class WordFeedback(val word: String, val status: String) ← 이 줄 삭제

@@ -7,5 +7,6 @@ data class StudySession(
     val watchUrl: String,
     val title: String,
     val thumbnailUrl: String?,
-    val sentences: List<SentenceItem>
+    val sentences: List<SentenceItem>,
+    val isReviewing: Boolean = false
 )

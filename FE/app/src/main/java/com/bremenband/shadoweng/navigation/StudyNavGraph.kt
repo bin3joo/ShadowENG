@@ -25,8 +25,11 @@ fun NavGraphBuilder.studyNavGraph(navController: NavHostController) {
             StudySessionScreen(
                 sessionId = sessionId,
                 onStartStudy = { sid, sentenceId ->
-                    navController.navigate(NavRoutes.studyLearning(sid, sentenceId, step = 1))
-                }
+                    navController.navigate(NavRoutes.studyLearning(sid, sentenceId, step = 1)) {
+                        popUpTo(NavRoutes.STUDY_SESSION) { inclusive = false }  // 세션은 남기고 learning만 쌓음
+                    }
+                },
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -117,12 +120,8 @@ fun NavGraphBuilder.studyNavGraph(navController: NavHostController) {
                 },
                 onNextSentence = { nextSentenceId ->
                     if (nextSentenceId == -1L) {
-                        // 미완료 문장 있음 → 세션으로 돌아가기
-                        navController.navigate(NavRoutes.studySession(sessionId)) {
-                            popUpTo(NavRoutes.STUDY_SESSION) { inclusive = true }
-                        }
+                        navController.popBackStack(NavRoutes.STUDY_SESSION, inclusive = false)
                     } else {
-                        // 다음 문장 → step 1부터 다시 시작
                         navController.navigate(NavRoutes.studyLearning(sessionId, nextSentenceId, 1)) {
                             popUpTo(NavRoutes.STUDY_SESSION) { inclusive = false }
                         }

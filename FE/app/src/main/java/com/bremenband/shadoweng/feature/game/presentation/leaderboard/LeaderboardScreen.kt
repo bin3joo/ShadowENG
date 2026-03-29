@@ -59,6 +59,10 @@ fun LeaderboardScreen(
         viewModel.navigateToPlay.collect { onNavigateToPlay() }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.reload()
+    }
+
     val isParticipating = uiState.tier.isNotEmpty() && !uiState.frozen
 
     val totalRankers = maxOf(
@@ -165,9 +169,9 @@ fun LeaderboardScreen(
                         painter = painterResource(tierToDrawable(prevTier(uiState.tier))),
                         contentDescription = null,
                         modifier = Modifier
-                            .size(140.dp)
+                            .size(180.dp)
                             .align(Alignment.BottomCenter)
-                            .offset(x = (-180).dp)
+                            .offset(x = (-160).dp)
                             .graphicsLayer { alpha = 0.6f },
                         contentScale = ContentScale.Fit
                     )
@@ -177,9 +181,9 @@ fun LeaderboardScreen(
                         painter = painterResource(tierToDrawable(nextTier(uiState.tier))),
                         contentDescription = null,
                         modifier = Modifier
-                            .size(140.dp)
+                            .size(180.dp)
                             .align(Alignment.BottomCenter)
-                            .offset(x = 180.dp)
+                            .offset(x = 160.dp)
                             .graphicsLayer { alpha = 0.6f },
                         contentScale = ContentScale.Fit
                     )
@@ -256,27 +260,27 @@ fun LeaderboardScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 8.dp),
+                        .padding(horizontal = 24.dp, vertical = 0.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
                         if (uiState.frozen) "4주 연속 미플레이로\n리더보드에 접근할 수 없어요."
                         else "잉무를 꼬시고 리그에 참여해 보세요!",
-                        fontSize = 16.sp,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF362000),
                         textAlign = TextAlign.Center
                     )
                     Button(
                         onClick = { viewModel.onEvent(LeaderboardEvent.ClickPlay) },
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                        shape = RoundedCornerShape(50),
+                        modifier = Modifier.fillMaxWidth().height(40.dp),
+                        shape = RoundedCornerShape(20),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEDF57))
                     ) {
-                        Text("따라 말하기 도전하고 잉무 꼬시기", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000))
+                        Text("따라 말하기 도전하고 잉무 꼬시기", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000))
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(32.dp))
                 }
             }
             items(6) { BlurredRankerRow() }

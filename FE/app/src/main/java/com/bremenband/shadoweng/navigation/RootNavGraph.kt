@@ -17,7 +17,7 @@ fun RootNavGraph(navController: NavHostController) {
         homeNavGraph(navController)
         gameNavGraph(navController)
         myPageNavGraph(navController)
-        myInfoNavGraph(navController)
+        profileNavGraph(navController)
         statsNavGraph(navController)
     }
 }

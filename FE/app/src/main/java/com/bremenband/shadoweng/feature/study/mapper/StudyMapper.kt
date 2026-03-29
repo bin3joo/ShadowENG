@@ -6,7 +6,7 @@ import com.bremenband.shadoweng.feature.study.api.dto.ReportResponse
 import com.bremenband.shadoweng.feature.study.api.dto.SentenceData
 import com.bremenband.shadoweng.feature.study.api.dto.SentenceDetailResponse
 import com.bremenband.shadoweng.feature.study.api.dto.SessionResponse
-import com.bremenband.shadoweng.feature.study.api.dto.WordFeedback
+import com.bremenband.shadoweng.feature.study.api.dto.WordFeedback as DtoWordFeedback
 import com.bremenband.shadoweng.feature.study.domain.DifficultSentence
 import com.bremenband.shadoweng.feature.study.domain.EvaluationResult
 import com.bremenband.shadoweng.feature.study.domain.EvaluationScores as ModelEvaluationScores
@@ -15,6 +15,7 @@ import com.bremenband.shadoweng.feature.study.domain.SentenceItem
 import com.bremenband.shadoweng.feature.study.domain.StudyReport
 import com.bremenband.shadoweng.feature.study.domain.StudySession
 import com.bremenband.shadoweng.feature.study.domain.WordFeedback as DomainWordFeedback
+import kotlin.math.roundToInt
 
 fun SessionResponse.toDomain() = StudySession(
     sessionId = sessionId,
@@ -23,18 +24,19 @@ fun SessionResponse.toDomain() = StudySession(
     watchUrl = videoData.watchUrl,
     title = videoData.title,
     thumbnailUrl = videoData.thumbnailUrl,
-    sentences = sentencesData
-        .sortedBy { it.sentenceIndex }
-        .map { it.toDomain() }
+    sentences = sentencesData.sortedBy { it.sentenceIndex }.map { it.toDomain() },
+    isReviewing = isReviewing
 )
 
 fun SentenceData.toDomain() = SentenceItem(
     id = sentenceId,
     timestamp = formatTimestamp(startSec),
     content = sentence,
-    isCompleted = studyCount > 0,  // 추가
+    isCompleted = studyCount > 0,
     startSec = startSec,
-    endSec = endSec
+    endSec = endSec,
+    sentenceKo = sentenceKo ?: "",
+    vocabulary = vocabulary
 )
 
 private fun formatTimestamp(seconds: Double): String {
@@ -81,10 +83,10 @@ fun EvaluationScores.toDomain() = ModelEvaluationScores(
 fun ReportResponse.toDomain() = StudyReport(
     reportId = reportId,
     sessionId = sessionId,
-    totalScore = scores.totalScore.toInt(),
-    speedScore = scores.speedSimilarity.toInt(),
-    stressScore = scores.dynamicStressScore.toInt(),
-    intonationScore = scores.boundaryToneScore.toInt(),
+    totalScore = scores.totalScore.roundToInt(),
+    speedScore = scores.speedSimilarity.roundToInt(),
+    stressScore = scores.dynamicStressScore.roundToInt(),
+    intonationScore = scores.boundaryToneScore.roundToInt(),
     studyDuration = "",
     sentenceCount = difficultSentences.size,
     difficultSentences = difficultSentences.map {
@@ -92,7 +94,8 @@ fun ReportResponse.toDomain() = StudyReport(
             sentenceId = it.sentenceId,
             content = it.sentence,
             averageScore = it.averageScore,
-            feedback = buildFeedback(it.boundaryToneStatus, it.dynamicStressStatus, it.wordFeedback)
+            feedback = buildFeedback(it.boundaryToneStatus, it.dynamicStressStatus, it.wordFeedback),
+            wordFeedback = it.wordFeedback.map { wf -> DomainWordFeedback(wf.word, wf.status) }
         )
     }
 )
@@ -100,7 +103,7 @@ fun ReportResponse.toDomain() = StudyReport(
 private fun buildFeedback(
     boundaryTone: String,
     dynamicStress: String,
-    wordFeedback: List<WordFeedback>
+    wordFeedback: List<DtoWordFeedback>
 ): String {
     val missedWords = wordFeedback.filter { it.status == "missed" }.map { it.word }
     val rushedWords = wordFeedback.filter { it.status == "rushed" }.map { it.word }

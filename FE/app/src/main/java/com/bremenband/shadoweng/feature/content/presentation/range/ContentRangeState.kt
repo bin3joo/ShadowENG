@@ -7,16 +7,11 @@ data class ContentRangeUiState(
     val endTime: String = "02:00",
     val isStartValid: Boolean = true,
     val isEndValid: Boolean = true,
-    val sliderStart: Float = 0f,
-    val sliderEnd: Float = 120f,
     val videoDuration: Float = 600f // TODO: API에서 받아오기
 )
 
 sealed class ContentRangeEvent {
     data class StartTimeChanged(val time: String) : ContentRangeEvent()
     data class EndTimeChanged(val time: String) : ContentRangeEvent()
-    data class SliderStartChanged(val seconds: Float) : ContentRangeEvent()  // 추가
-    data class SliderEndChanged(val seconds: Float) : ContentRangeEvent()    // 추가
-    object Submit : ContentRangeEvent()
 }
 

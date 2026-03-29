@@ -30,9 +30,8 @@ class GameHomeViewModel @Inject constructor(
     private val _navigateToLeaderboard = MutableSharedFlow<Unit>()
     val navigateToLeaderboard: SharedFlow<Unit> = _navigateToLeaderboard.asSharedFlow()
 
-    init {
-        load()
-    }
+    init { load() }
+    fun reload() = load()
 
     fun startBgm() {
         soundManager.playBgmHome()

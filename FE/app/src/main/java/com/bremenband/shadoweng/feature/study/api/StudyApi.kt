@@ -34,12 +34,6 @@ interface StudyApi {
         @Query("step") step: Int
     ): ApiResponse<SentenceDetailResponse>
 
-    @POST("study-sessions/{sessionId}/reports")
-    suspend fun createReport(
-        @Path("sessionId") sessionId: Long,
-        @Body request: CreateReportRequest
-    ): ApiResponse<ReportResponse>
-
     // 전체 조회
     @GET("study-sessions/{sessionId}/reports")
     suspend fun getReports(
@@ -61,4 +55,10 @@ interface StudyApi {
         @Path("sentenceId") sentenceId: Long,
         @Body request: ToggleBookmarkRequest
     ): ApiResponse<BookmarkResponse>
+
+    @PATCH("study-sessions/{sessionId}/review")
+    suspend fun startReview(@Path("sessionId") sessionId: Long): ApiResponse<String?>
+
+    @POST("study-sessions/{sessionId}/re-learn")
+    suspend fun reLearn(@Path("sessionId") sessionId: Long): ApiResponse<SessionResponse>
 }

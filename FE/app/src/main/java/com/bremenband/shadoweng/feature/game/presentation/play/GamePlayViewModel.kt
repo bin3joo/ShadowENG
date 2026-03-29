@@ -118,12 +118,11 @@ class GamePlayViewModel @Inject constructor(
                             _effect.send(GamePlayEffect.NavigateToResult(
                                 GameFinalResult(
                                     finalScore = 0.0,
-                                    cumulativeScore = result.totalScore,
                                     hearts = 0,
                                     avgTotalScore = result.totalScore,
-                                    avgSpeedSimilarity = 0.0,
+                                    avgWordRhythmScore = 0.0,
                                     avgDynamicStressScore = 0.0,
-                                    avgBoundaryToneScore = 0.0
+                                    avgWordAccuracy = 0.0
                                 ),
                                 hearts = 0,
                                 prevBest = prevBest

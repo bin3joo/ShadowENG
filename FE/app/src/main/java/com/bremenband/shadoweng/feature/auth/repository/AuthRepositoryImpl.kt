@@ -11,19 +11,20 @@ class AuthRepositoryImpl @Inject constructor(
     private val api: AuthApi,
     private val tokenStorage: TokenStorage
 ) : AuthRepository {
-    override suspend fun devLogin(userId: Long): Result<Unit> = runCatching {
-        val response = api.devLogin(1L).data ?: throw DomainException.NotFound
-        tokenStorage.saveToken(response.accessToken)
-        tokenStorage.saveRefreshToken(response.refreshToken)
-        // TODO: refreshToken도 저장 필요 시 tokenStorage.saveRefreshToken(response.refreshToken)
-    }.mapDomainException()
-
-    override suspend fun guestLogin(): Result<Unit> = runCatching {
+    override suspend fun guestLogin(): Result<Boolean> = runCatching {
         val deviceId = tokenStorage.getOrCreateDeviceId()
         val response = api.guestLogin(GuestLoginRequest(deviceId)).data
             ?: throw DomainException.NotFound
         tokenStorage.saveToken(response.accessToken)
         tokenStorage.saveRefreshToken(response.refreshToken)
+        response.isNew
+    }.mapDomainException()
+
+    override suspend fun devLogin(userId: Long): Result<Boolean> = runCatching {
+        val response = api.devLogin(1L).data ?: throw DomainException.NotFound
+        tokenStorage.saveToken(response.accessToken)
+        tokenStorage.saveRefreshToken(response.refreshToken)
+        response.isNew
     }.mapDomainException()
 
     override suspend fun logout(): Result<Unit> = runCatching {

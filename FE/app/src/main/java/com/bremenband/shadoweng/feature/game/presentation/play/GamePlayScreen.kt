@@ -3,7 +3,6 @@ package com.bremenband.shadoweng.feature.game.presentation.play
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +29,7 @@ import com.bremenband.shadoweng.R
 import com.bremenband.shadoweng.core.ui.component.AudioPlayButton
 import com.bremenband.shadoweng.core.ui.component.AudioRecordButton
 import com.bremenband.shadoweng.core.ui.component.ExitConfirmDialog
+import com.bremenband.shadoweng.core.ui.component.VoiceNotRecognizedModal
 import com.bremenband.shadoweng.feature.game.domain.model.GameFinalResult
 
 
@@ -116,7 +116,7 @@ fun GamePlayScreen(
             }
         },
         containerColor = Color.Transparent
-    ) { innerPadding ->
+    ) {innerPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
 
             // 배경
@@ -161,7 +161,7 @@ fun GamePlayScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 56.dp),
+                        .padding(top = 48.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -217,21 +217,32 @@ fun GamePlayScreen(
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // 잉무 이미지 — 남은 공간 채움 (화면 상대적)
                 Image(
-                    painter = painterResource(id = R.drawable.engmu),
+                    painter = painterResource(
+                        id = when (state.engmuMood) {
+                            EngmuMood.NEUTRAL -> R.drawable.engmu_neutral
+                            EngmuMood.INTERESTED -> R.drawable.engmu_interested
+                            EngmuMood.EXCITED -> R.drawable.engmu_excited
+                            EngmuMood.LOVE -> R.drawable.engmu_love
+                        }
+                    ),
                     contentDescription = "잉무",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
+                        .height(220.dp),
                     contentScale = ContentScale.Fit
                 )
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // 하단 카드 — 컨텐츠 크기만큼만 (고정)
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .weight(1f)  // padding 제거하고 weight 추가
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -265,7 +276,7 @@ fun GamePlayScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 56.dp),  // 최소 높이 고정 → 텍스트 없어도 레이아웃 안흔들림
+                                .heightIn(min = 56.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             if (!displayText.isNullOrEmpty()) {
@@ -306,63 +317,53 @@ fun GamePlayScreen(
                             }
                         }
 
-                        // 녹음 버튼 / 분석 중 (고정 높이 영역)
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(180.dp),  // 고정 — 분석 중/녹음 전환 시 카드 크기 안변함
-                            contentAlignment = Alignment.Center
-                        ) {
-                            AnimatedContent(
-                                targetState = state.isAnalyzing,
-                                transitionSpec = {
-                                    fadeIn(tween(250)) togetherWith fadeOut(tween(250))
-                                },
-                                label = "analyzeTransition"
-                            ) { isAnalyzing ->
-                                if (isAnalyzing) {
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        CircularProgressIndicator(
-                                            color = Color(0xFFFF5D5D),
-                                            modifier = Modifier.size(52.dp),
-                                            strokeWidth = 5.dp
-                                        )
-                                        Text(
-                                            "발음 분석 중...",
-                                            fontSize = 13.sp,
-                                            color = Color(0xFF888888)
-                                        )
-                                    }
-                                } else {
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        AudioRecordButton(
-                                            isRecording = state.isRecording,
-                                            enabled = !state.isPlayingAudio,
-                                            onStartCountdown = { viewModel.onIntent(GamePlayIntent.StartCountdown) },
-                                            onStopRecording = { viewModel.onIntent(GamePlayIntent.StopRecording) }
-                                        )
-                                        Text(
-                                            when {
-                                                state.isRecording -> "녹음 중... 버튼을 눌러 완료하세요!"
-                                                state.isPlayingAudio -> "오디오 재생 중..."
-                                                else -> "버튼을 눌러 녹음을 시작하세요!"
-                                            },
-                                            fontSize = 12.sp,
-                                            color = Color(0xFF888888)
-                                        )
-                                    }
+                        // 녹음 버튼 / 분석 중
+                        AnimatedContent(
+                            targetState = state.isAnalyzing,
+                            transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(250)) },
+                            label = "analyzeTransition"
+                        ) { isAnalyzing ->
+                            if (isAnalyzing) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        color = Color(0xFFFF5D5D),
+                                        modifier = Modifier.size(52.dp),
+                                        strokeWidth = 5.dp
+                                    )
+                                    Text("발음 분석 중...", fontSize = 13.sp, color = Color(0xFF888888))
+                                }
+                            } else {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    AudioRecordButton(
+                                        isRecording = state.isRecording,
+                                        enabled = !state.isPlayingAudio,
+                                        onStartCountdown = { viewModel.onIntent(GamePlayIntent.StartCountdown) },
+                                        onStopRecording = { viewModel.onIntent(GamePlayIntent.StopRecording) }
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        when {
+                                            state.isRecording -> "녹음 중... 버튼을 눌러 완료하세요!"
+                                            state.isPlayingAudio -> "오디오 재생 중..."
+                                            else -> "버튼을 눌러 녹음을 시작하세요!"
+                                        },
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF888888)
+                                    )
+//                                    Spacer(modifier = Modifier.height(8.dp))
                                 }
                             }
                         }
                     }
                 }
-
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }

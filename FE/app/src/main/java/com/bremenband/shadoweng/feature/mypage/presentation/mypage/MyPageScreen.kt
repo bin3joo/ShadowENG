@@ -10,9 +10,11 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.bremenband.shadoweng.R
+import com.bremenband.shadoweng.core.ui.component.ThumbnailImage
 import com.bremenband.shadoweng.core.ui.util.tierToDrawable
 import com.bremenband.shadoweng.feature.mypage.domain.model.BookmarkedSentence
 import com.bremenband.shadoweng.feature.mypage.domain.model.SessionSummary
@@ -49,14 +52,49 @@ fun MyPageScreen(
     val sessionState by sessionListViewModel.state.collectAsState()
     val bookmarkState by bookmarkViewModel.state.collectAsState()
 
-    val bookmarks = bookmarkState.bookmarks
     val isBookmarkLoading = bookmarkState.isLoading
     val inProgressSessions = sessionState.activeSessions
     val completedSessions = sessionState.completedSessions
 
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    var deleteTargetId by remember { mutableStateOf<Long?>(null) }
+    val tabs = listOf("학습하기", "복습하기", "즐겨찾기")
+
+    if (deleteTargetId != null) {
+        AlertDialog(
+            onDismissRequest = { deleteTargetId = null },
+            title = { Text("학습 삭제", fontWeight = FontWeight.Bold, color = Color(0xFF362000)) },
+            text = { Text("이 학습 세션을 삭제하시겠어요?\n삭제 후 복구할 수 없어요.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    deleteTargetId?.let {
+                        sessionListViewModel.deleteSession(it)
+                        bookmarkViewModel.reload()
+                    }
+                    deleteTargetId = null
+                }) {
+                    Text("삭제", color = Color(0xFFFF5D5D), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTargetId = null }) {
+                    Text("취소", color = Color(0xFF888888))
+                }
+            }
+        )
+    }
+
     LaunchedEffect(Unit) { viewModel.navigateToStudy.collect { onNavigateToStudy(it) } }
     LaunchedEffect(Unit) { viewModel.navigateToRegister.collect { onNavigateToRegister() } }
     LaunchedEffect(Unit) { viewModel.navigateToGame.collect { onNavigateToGame() } }
+    LaunchedEffect(Unit) { sessionListViewModel.navigateToStudy.collect { onNavigateToStudy(it) } }
+    LaunchedEffect(Unit) { bookmarkViewModel.navigateToStudy.collect { onNavigateToStudy(it) } }
+
+    LaunchedEffect(Unit) {
+        viewModel.reload()
+        sessionListViewModel.reload()
+        bookmarkViewModel.reload()
+    }
 
     Column(
         modifier = Modifier
@@ -70,205 +108,124 @@ fun MyPageScreen(
                 .padding(horizontal = 20.dp, vertical = 20.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text("학습", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000))
+            Text("마이 쉐도잉", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000))
         }
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+        TabRow(
+            selectedTabIndex = selectedTabIndex,
+            containerColor = Color.White,
+            contentColor = Color(0xFF362000),
+            indicator = { tabPositions ->
+                TabRowDefaults.SecondaryIndicator(
+                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                    color = Color(0xFF362000)
+                )
+            }
         ) {
-            // 이어하기
-            item {
-                SectionHeader(title = "이어하기", onMoreClick = onNavigateToActiveSessions)
-                Spacer(modifier = Modifier.height(8.dp))
-                if (sessionState.isLoading) {
-                    LoadingRow()
-                } else if (inProgressSessions.isEmpty()) {
-                    EmptyHorizontalCard(
-                        message = "진행 중인 학습이 없어요",
-                        actionLabel = "새 학습 시작하기",
-                        onClick = onNavigateToRegister
-                    )
-                } else {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(inProgressSessions.take(3), key = { it.sessionId }) { session ->
-                            SessionHorizontalCard(
-                                session = session,
-                                onClick = { onNavigateToStudy(session.sessionId) }
-                            )
-                        }
+            tabs.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedTabIndex == index,
+                    onClick = { selectedTabIndex = index },
+                    text = {
+                        Text(
+                            title,
+                            fontSize = 14.sp,
+                            fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
+                            color = if (selectedTabIndex == index) Color(0xFF362000) else Color(0xFF888888)
+                        )
                     }
-                }
-            }
-
-            // 복습하기
-            item {
-                SectionHeader(title = "복습하기", onMoreClick = onNavigateToCompletedSessions)
-                Spacer(modifier = Modifier.height(8.dp))
-                if (sessionState.isLoading) {
-                    LoadingRow()
-                } else if (completedSessions.isEmpty()) {
-                    EmptyHorizontalCard(
-                        message = "완료한 학습이 없어요",
-                        actionLabel = null,
-                        onClick = null
-                    )
-                } else {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(completedSessions.take(3), key = { it.sessionId }) { session ->
-                            SessionHorizontalCard(
-                                session = session,
-                                onClick = { onNavigateToStudy(session.sessionId) }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // 게임 섹션
-            item {
-                SectionHeader(title = "잉무를 꼬셔라", onMoreClick = null)
-                Spacer(modifier = Modifier.height(8.dp))
-                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    HubGameCard(
-                        onClick = onNavigateToGame,
-                        leagueTopScore = state.leagueTopScore,
-                        myScore = state.myScore,
-                        tier = state.tier
-                    )
-                }
-            }
-
-            // 북마크 헤더
-            item {
-                SectionHeader(title = "북마크", onMoreClick = onNavigateToBookmark)
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // 북마크 콘텐츠
-            item(key = "bookmark_content_${bookmarks.size}_$isBookmarkLoading") {
-                when {
-                    isBookmarkLoading -> LoadingRow()
-                    bookmarks.isEmpty() -> EmptyHorizontalCard(
-                        message = "북마크한 문장이 없어요",
-                        actionLabel = null,
-                        onClick = null
-                    )
-                    else -> {
-                        val displayBookmarks = bookmarks.take(3)
-                        val hasMore = bookmarks.size > 3
-                        LazyRow(
-                            contentPadding = PaddingValues(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(displayBookmarks, key = { it.sentenceId }) { bookmark ->
-                                BookmarkHorizontalCard(
-                                    bookmark = bookmark,
-                                    onRemove = { bookmarkViewModel.toggleBookmark(bookmark.sentenceId) }
-                                )
-                            }
-                            if (hasMore) {
-                                item {
-                                    Card(
-                                        modifier = Modifier
-                                            .width(120.dp)
-                                            .height(130.dp)
-                                            .clickable { onNavigateToBookmark() },
-                                        shape = RoundedCornerShape(16.dp),
-                                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F3)),
-                                        elevation = CardDefaults.cardElevation(0.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Column(
-                                                horizontalAlignment = Alignment.CenterHorizontally,
-                                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                Text(
-                                                    "+ ${bookmarks.size - 3}",
-                                                    fontSize = 18.sp,
-                                                    fontWeight = FontWeight.ExtraBold,
-                                                    color = Color(0xFF362000)
-                                                )
-                                                Text("더 보기", fontSize = 12.sp, color = Color(0xFF888888))
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SectionHeader(title: String, onMoreClick: (() -> Unit)?) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(title, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF362000))
-        if (onMoreClick != null) {
-            Row(
-                modifier = Modifier.clickable { onMoreClick() },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text("더보기", fontSize = 12.sp, color = Color(0xFF888888))
-                Icon(
-                    Icons.Default.ArrowForwardIos,
-                    contentDescription = null,
-                    tint = Color(0xFFBBBBBB),
-                    modifier = Modifier.size(10.dp)
                 )
             }
         }
+
+        when (selectedTabIndex) {
+            0 -> ActiveSessionsTab(
+                isLoading = sessionState.isLoading,
+                sessions = inProgressSessions,
+                onNavigateToStudy = onNavigateToStudy,
+                onNavigateToRegister = onNavigateToRegister,
+                onMoreClick = onNavigateToActiveSessions,
+                onDelete = { deleteTargetId = it },
+                onReview = { sessionListViewModel.startReview(it) },
+                onReLearn = { sessionListViewModel.reLearn(it) },
+                onBookmark = {
+                    sessionListViewModel.toggleSessionBookmark(it) {
+                        bookmarkViewModel.reload()
+                    }
+                }
+            )
+            1 -> CompletedSessionsTab(
+                isLoading = sessionState.isLoading,
+                sessions = completedSessions,
+                onNavigateToStudy = onNavigateToStudy,
+                onMoreClick = onNavigateToCompletedSessions,
+                onDelete = { deleteTargetId = it },
+                onReview = { sessionListViewModel.startReview(it) },
+                onReLearn = { sessionListViewModel.reLearn(it) },
+                onBookmark = {
+                    sessionListViewModel.toggleSessionBookmark(it) {
+                        bookmarkViewModel.reload()
+                    }
+                }
+            )
+            2 -> BookmarkTab(
+                isLoading = bookmarkState.isLoading,
+                sessions = bookmarkState.bookmarkedSessions,
+                onRemove = { bookmarkViewModel.toggleBookmark(it) },
+                onNavigateToStudy = { bookmarkViewModel.navigateToSession(it) }
+
+            )
+        }
     }
 }
 
 @Composable
-private fun LoadingRow() {
-    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = Color(0xFFFEDF57))
-    }
-}
-
-@Composable
-private fun EmptyHorizontalCard(message: String, actionLabel: String?, onClick: (() -> Unit)?) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(1.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(message, fontSize = 14.sp, color = Color(0xFF888888))
-            if (actionLabel != null && onClick != null) {
+private fun ActiveSessionsTab(
+    isLoading: Boolean,
+    sessions: List<SessionSummary>,
+    onNavigateToStudy: (Long) -> Unit,
+    onNavigateToRegister: () -> Unit,
+    onMoreClick: () -> Unit,
+    onDelete: (Long) -> Unit,
+    onReview: (Long) -> Unit,
+    onReLearn: (Long) -> Unit,
+    onBookmark: (Long) -> Unit,
+) {
+    if (isLoading) { LoadingBox(); return }
+    if (sessions.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("진행 중인 학습이 없어요", fontSize = 15.sp, color = Color(0xFF888888))
                 Button(
-                    onClick = onClick,
+                    onClick = onNavigateToRegister,
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEDF57))
                 ) {
-                    Text(actionLabel, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000))
+                    Text("새 학습 시작하기", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000))
+                }
+            }
+        }
+        return
+    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(sessions.take(10), key = { it.sessionId }) { session ->
+            SessionVerticalCard(
+                session = session,
+                onClick = { onNavigateToStudy(session.sessionId) },
+                onDelete = { onDelete(session.sessionId) },
+                onReview = { onReview(session.sessionId) },
+                onReLearn = { onReLearn(session.sessionId) },
+                onBookmark = { onBookmark(session.sessionId) }
+            )
+        }
+        if (sessions.size > 10) {
+            item {
+                TextButton(onClick = onMoreClick, modifier = Modifier.fillMaxWidth()) {
+                    Text("더보기", color = Color(0xFF888888))
                 }
             }
         }
@@ -276,11 +233,95 @@ private fun EmptyHorizontalCard(message: String, actionLabel: String?, onClick: 
 }
 
 @Composable
-private fun SessionHorizontalCard(session: SessionSummary, onClick: () -> Unit) {
+private fun CompletedSessionsTab(
+    isLoading: Boolean,
+    sessions: List<SessionSummary>,
+    onNavigateToStudy: (Long) -> Unit,
+    onMoreClick: () -> Unit,
+    onDelete: (Long) -> Unit,
+    onReview: (Long) -> Unit,
+    onReLearn: (Long) -> Unit,
+    onBookmark: (Long) -> Unit,
+) {
+    if (isLoading) { LoadingBox(); return }
+    if (sessions.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("완료한 학습이 없어요", fontSize = 15.sp, color = Color(0xFF888888))
+        }
+        return
+    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(sessions.take(10), key = { it.sessionId }) { session ->
+            SessionVerticalCard(
+                session = session,
+                onClick = { onNavigateToStudy(session.sessionId) },
+                onDelete = { onDelete(session.sessionId) },
+                onReview = { onReview(session.sessionId) },
+                onReLearn = { onReLearn(session.sessionId) },
+                onBookmark = { onBookmark(session.sessionId) }
+            )
+        }
+        if (sessions.size > 10) {
+            item {
+                TextButton(onClick = onMoreClick, modifier = Modifier.fillMaxWidth()) {
+                    Text("더보기", color = Color(0xFF888888))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BookmarkTab(
+    isLoading: Boolean,
+    sessions: List<SessionSummary>,
+    onRemove: (Long) -> Unit,
+    onNavigateToStudy: (Long) -> Unit
+) {
+    if (isLoading) { LoadingBox(); return }
+    if (sessions.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("즐겨찾기한 세션이 없어요", fontSize = 15.sp, color = Color(0xFF888888))
+        }
+        return
+    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(sessions, key = { it.sessionId }) { session ->
+            SessionVerticalCard(
+                session = session,
+                onClick = { onNavigateToStudy(session.sessionId) },
+                onDelete = { onRemove(session.sessionId) },
+                onReview = { onNavigateToStudy(session.sessionId) },
+                onReLearn = { },
+                onBookmark = { onRemove(session.sessionId) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SessionVerticalCard(
+    session: SessionSummary,
+    onClick: () -> Unit,
+    onDelete: () -> Unit,
+    onReview: () -> Unit,
+    onReLearn: () -> Unit,
+    onBookmark: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Card(
-        modifier = Modifier
-            .width(300.dp)
-            .clickable { onClick() },
+        modifier = Modifier.fillMaxWidth().clickable {
+            if (session.isCompleted) onReview() else onClick()
+        },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(1.dp)
@@ -291,15 +332,9 @@ private fun SessionHorizontalCard(session: SessionSummary, onClick: () -> Unit) 
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box {
-                AsyncImage(
-                    model = session.thumbnailUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    placeholder = painterResource(R.drawable.thumbnail),
-                    error = painterResource(R.drawable.thumbnail),
-                    modifier = Modifier
-                        .width(100.dp)
-                        .aspectRatio(16f / 9f)
+                ThumbnailImage(
+                    url = session.thumbnailUrl,
+                    modifier = Modifier.width(100.dp).aspectRatio(16f / 9f)
                         .clip(RoundedCornerShape(10.dp))
                 )
                 if (session.isCompleted) {
@@ -321,11 +356,8 @@ private fun SessionHorizontalCard(session: SessionSummary, onClick: () -> Unit) 
             ) {
                 Text(
                     session.title.ifEmpty { "학습 세션" },
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF362000),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -337,29 +369,38 @@ private fun SessionHorizontalCard(session: SessionSummary, onClick: () -> Unit) 
                         color = if (session.isCompleted) Color(0xFFFF5D5D) else Color(0xFFFEDF57),
                         trackColor = Color(0xFFE0E0E0)
                     )
-                    Text(
-                        "${session.completedSentences}/${session.totalSentences}",
-                        fontSize = 10.sp, color = Color(0xFF888888)
-                    )
+                    Text("${session.completedSentences}/${session.totalSentences}", fontSize = 10.sp, color = Color(0xFF888888))
                 }
-                OutlinedButton(
-                    onClick = onClick,
-                    modifier = Modifier.fillMaxWidth().height(28.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                    border = BorderStroke(
-                        1.dp,
-                        if (session.isCompleted) Color(0xFFDDDDDD) else Color(0xFFFEDF57)
-                    ),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = if (session.isCompleted) Color(0xFF888888) else Color(0xFF362000)
+            }
+
+            Box {
+                IconButton(onClick = { showMenu = true }, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "더보기", tint = Color(0xFFBBBBBB), modifier = Modifier.size(18.dp))
+                }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    if (session.isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                    contentDescription = null,
+                                    tint = if (session.isBookmarked) Color(0xFFFF5D5D) else Color(0xFF362000),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(if (session.isBookmarked) "즐겨찾기 해제" else "즐겨찾기 추가")
+                            }
+                        },
+                        onClick = { showMenu = false; onBookmark() }
                     )
-                ) {
-                    Text(
-                        if (session.isCompleted) "복습하기" else "이어서 학습하기",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (session.isCompleted) Color(0xFF888888) else Color(0xFF362000)
+                    if (session.isCompleted) {
+                        DropdownMenuItem(
+                            text = { Text("재학습하기") },
+                            onClick = { showMenu = false; onReLearn() }
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { Text("삭제", color = Color(0xFFFF5D5D)) },
+                        onClick = { showMenu = false; onDelete() }
                     )
                 }
             }
@@ -368,102 +409,38 @@ private fun SessionHorizontalCard(session: SessionSummary, onClick: () -> Unit) 
 }
 
 @Composable
-private fun BookmarkHorizontalCard(bookmark: BookmarkedSentence, onRemove: () -> Unit) {
-    Card(
-        modifier = Modifier.width(240.dp).height(130.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(1.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                bookmark.sentence,
-                fontSize = 14.sp, color = Color(0xFF362000), lineHeight = 22.sp,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false)
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
-                    Icon(
-                        Icons.Default.Bookmark,
-                        contentDescription = "북마크 해제",
-                        tint = Color(0xFFFF5D5D),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HubGameCard(onClick: () -> Unit, leagueTopScore: Int, myScore: Int, tier: String) {
+private fun BookmarkCard(bookmark: BookmarkedSentence, onRemove: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(1.dp)
     ) {
-        Box(modifier = Modifier.fillMaxWidth().height(140.dp)) {
-            Image(
-                painter = painterResource(R.drawable.background3),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                bookmark.sentence,
+                fontSize = 14.sp, color = Color(0xFF1A1A1A), lineHeight = 22.sp,
+                modifier = Modifier.weight(1f)
             )
-            Row(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Image(
-                    painter = painterResource(tierToDrawable(tier)),
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxHeight().weight(1f)
+            IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
+                Icon(
+                    Icons.Default.Bookmark,
+                    contentDescription = "즐겨찾기 해제",
+                    tint = Color(0xFFFF5D5D),
+                    modifier = Modifier.size(18.dp)
                 )
-                Column(
-                    modifier = Modifier.weight(1.5f),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Card(
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(2.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("리그 최고", fontSize = 10.sp, color = Color(0xFF888888))
-                                Text("$leagueTopScore", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFFFEDF57))
-                            }
-                            Box(modifier = Modifier.width(1.dp).height(40.dp).align(Alignment.CenterVertically).background(Color(0xFFE0E0E0)))
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("내 기록", fontSize = 10.sp, color = Color(0xFF888888))
-                                Text("$myScore", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFFFF5D5D))
-                            }
-                        }
-                    }
-                    Button(
-                        onClick = onClick,
-                        modifier = Modifier.fillMaxWidth().height(36.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEDF57))
-                    ) {
-                        Text("잉무 꼬시러 가기", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF362000))
-                    }
-                }
             }
         }
+    }
+}
+
+@Composable
+private fun LoadingBox() {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(color = Color(0xFFFEDF57))
     }
 }

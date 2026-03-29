@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -37,9 +38,6 @@ class HomeViewModel @Inject constructor(
     private val _navigateToMoreSessions = MutableSharedFlow<Unit>()
     val navigateToMoreSessions: SharedFlow<Unit> = _navigateToMoreSessions.asSharedFlow()
 
-    private val _navigateToStreak = MutableSharedFlow<Unit>()
-    val navigateToStreak: SharedFlow<Unit> = _navigateToStreak.asSharedFlow()
-
     init {
         _uiState.update { it.copy(streak = getDefaultStreak()) }
         loadData()
@@ -47,6 +45,11 @@ class HomeViewModel @Inject constructor(
         loadUserMe()
     }
 
+    fun reload() {
+        loadData()
+        loadLeaderboard()
+        loadUserMe()
+    }
 
     fun onEvent(event: HomeEvent) {
         when (event) {
@@ -60,8 +63,6 @@ class HomeViewModel @Inject constructor(
                 viewModelScope.launch { _navigateToRegister.emit(Unit) }
             is HomeEvent.ClickGame ->
                 viewModelScope.launch { _navigateToGame.emit(Unit) }
-            is HomeEvent.ClickStreak ->
-                viewModelScope.launch { _navigateToStreak.emit(Unit) }
         }
     }
 
@@ -94,8 +95,8 @@ class HomeViewModel @Inject constructor(
                 .onSuccess { leaderboard ->
                     val myRanker = leaderboard.topRankers.find { it.isMe }
                         ?: leaderboard.nearbyRankers.find { it.isMe }
-                    val topScore = leaderboard.topRankers.firstOrNull()?.weeklyScore?.toInt() ?: 0
-                    val myScore = myRanker?.weeklyScore?.toInt() ?: 0
+                    val topScore = leaderboard.topRankers.firstOrNull()?.weeklyScore?.roundToInt() ?: 0
+                    val myScore = myRanker?.weeklyScore?.roundToInt() ?: 0
                     _uiState.update {
                         it.copy(gameSectionData = GameSectionData(topScore, myScore, leaderboard.tier))
                     }

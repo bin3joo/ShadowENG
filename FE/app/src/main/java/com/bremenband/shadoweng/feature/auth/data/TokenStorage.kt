@@ -19,7 +19,7 @@ class TokenStorage @Inject constructor(
 
     fun getOrCreateDeviceId(): String {
         // TODO: 개발 완료 후 아래 한 줄 제거
-        val devOverride = "test-device-ssafy"  // 여기서 원하는 값으로 바꾸면 됨
+        val devOverride = "test-device-004"  // 여기서 원하는 값으로 바꾸면 됨
         return devOverride
 
         // 실제 배포용 코드 (위 devOverride 제거 후 활성화)

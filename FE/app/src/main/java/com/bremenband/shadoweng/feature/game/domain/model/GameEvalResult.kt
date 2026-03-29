@@ -11,12 +11,11 @@ data class GameEvalResult(
 
 data class GameFinalResult(
     val finalScore: Double,
-    val cumulativeScore: Double,
     val hearts: Int,
     val avgTotalScore: Double,
-    val avgSpeedSimilarity: Double,
+    val avgWordRhythmScore: Double,
     val avgDynamicStressScore: Double,
-    val avgBoundaryToneScore: Double,
+    val avgWordAccuracy: Double,
     val missedWords: List<String> = emptyList(),
     val boundaryToneStatus: String = "",
     val dynamicStressStatus: String = ""

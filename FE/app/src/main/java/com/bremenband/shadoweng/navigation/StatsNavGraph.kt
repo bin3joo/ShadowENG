@@ -6,7 +6,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navigation
-import com.bremenband.shadoweng.feature.mypage.presentation.stats.StatsScreen
+import com.bremenband.shadoweng.feature.stats.StatsScreen
 import com.bremenband.shadoweng.feature.study.presentation.report.StudyReportScreen
 
 fun NavGraphBuilder.statsNavGraph(navController: NavHostController) {

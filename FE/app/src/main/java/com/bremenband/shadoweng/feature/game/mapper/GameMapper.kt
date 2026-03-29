@@ -30,12 +30,11 @@ fun GameFinalResultDto.toDomain(
     dynamicStressStatus: String = ""
 ) = GameFinalResult(
     finalScore = finalScore,
-    cumulativeScore = cumulativeScore,
     hearts = hearts,
     avgTotalScore = avgTotalScore,
-    avgSpeedSimilarity = avgSpeedSimilarity,
+    avgWordRhythmScore = avgWordRhythmScore,
     avgDynamicStressScore = avgDynamicStressScore,
-    avgBoundaryToneScore = avgBoundaryToneScore,
+    avgWordAccuracy = avgWordAccuracy,
     missedWords = missedWords,
     boundaryToneStatus = boundaryToneStatus,
     dynamicStressStatus = dynamicStressStatus

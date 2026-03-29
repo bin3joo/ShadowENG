@@ -3,14 +3,6 @@ package com.bremenband.shadoweng.feature.study.mapper
 import com.bremenband.shadoweng.core.ui.component.model.Annotation
 import com.bremenband.shadoweng.core.ui.component.model.AnnotationType
 import com.bremenband.shadoweng.feature.study.domain.EvaluationResult
-import kotlin.collections.forEach
-import kotlin.collections.lastOrNull
-import kotlin.text.indexOf
-import kotlin.text.isNotEmpty
-import kotlin.text.lastIndexOf
-import kotlin.text.split
-import kotlin.text.trim
-import kotlin.text.trimEnd
 
 /**
  * EvaluationResult의 wordLevelFeedback을 Annotation 리스트로 변환
@@ -36,22 +28,6 @@ fun EvaluationResult.toAnnotations(sentence: String): List<Annotation> {
             )
             "missed" -> annotations.add(
                 Annotation(idx, end, AnnotationType.HIGHLIGHT, 0x33FF5D5D)
-            )
-        }
-    }
-
-    // boundaryTone → 문장 마지막 단어에 억양 화살표
-    val lastWord = sentence.trimEnd().split(" ").lastOrNull()
-        ?.trim('.', ',', '!', '?') ?: ""
-    val lastIdx = sentence.lastIndexOf(lastWord)
-    if (lastIdx != -1 && lastWord.isNotEmpty()) {
-        val lastEnd = lastIdx + lastWord.length
-        when (boundaryToneFeedback.status) {
-            "short", "weak" -> annotations.add(
-                Annotation(lastIdx, lastEnd, AnnotationType.ARROW_UP, 0xFFFF5D5D)
-            )
-            "opposite" -> annotations.add(
-                Annotation(lastIdx, lastEnd, AnnotationType.ARROW_DOWN, 0xFFFF5D5D)
             )
         }
     }

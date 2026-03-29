@@ -10,15 +10,11 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,9 +30,9 @@ import com.bremenband.shadoweng.core.ui.component.AudioRecordButton
 import com.bremenband.shadoweng.core.ui.component.ExitConfirmDialog
 import com.bremenband.shadoweng.core.ui.component.YoutubePlayerView
 import com.bremenband.shadoweng.feature.study.domain.SentenceItem
-import kotlinx.coroutines.launch
 import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import com.bremenband.shadoweng.core.ui.component.TooShortRecordingModal
+import com.bremenband.shadoweng.core.ui.component.VoiceNotRecognizedModal
 import com.bremenband.shadoweng.feature.study.presentation.component.StepIndicator
 
 @Composable
@@ -71,20 +67,45 @@ fun StudyLearningScreen(
         )
     }
 
+    if (uiState.showVoiceNotRecognizedModal) {
+        VoiceNotRecognizedModal(
+            onRetry = {
+                viewModel.onEvent(StudyLearningEvent.DismissVoiceModal)
+                viewModel.onEvent(StudyLearningEvent.RetryRecording)
+            }
+        )
+    }
+
+    if (uiState.showTooShortModal) {
+        TooShortRecordingModal(
+            onRetry = { viewModel.onEvent(StudyLearningEvent.DismissTooShortModal) }
+        )
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF5F5F0))) {
+        if (uiState.showVoiceNotRecognizedModal) {
+            VoiceNotRecognizedModal(
+                onRetry = {
+                    viewModel.onEvent(StudyLearningEvent.DismissVoiceModal)
+                    viewModel.onEvent(StudyLearningEvent.RetryRecording)
+                }
+            )
+        }
+
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             YoutubePlayerView(
                 embedUrl = uiState.embedUrl,
-                //startSec = uiState.startSec,
-                //endSec = uiState.endSec,
+                startSec = uiState.startSec,
+                endSec = uiState.endSec,
+                autoPlay = step == 1,
                 modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
             )
 
             StepIndicator(
-                currentStep = uiState.subtitleMode.ordinal + 1,  // ordinal 0~3 → step 1~4
+                currentStep = uiState.subtitleMode.ordinal + 1,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
             )
 
@@ -118,7 +139,6 @@ fun StudyLearningScreen(
             }
         }
 
-        // 응원 모달 (step 1 전용)
         AnimatedVisibility(
             visible = uiState.showEncourageModal,
             enter = fadeIn(tween(300)) + scaleIn(
@@ -159,7 +179,6 @@ fun StudyLearningScreen(
             }
         }
 
-        // 로딩/분석 오버레이
         AnimatedVisibility(
             visible = uiState.isAnalyzing || uiState.isNavigating,
             enter = fadeIn(tween(300)) + scaleIn(
@@ -231,11 +250,6 @@ private fun NoneSubtitleCardContent(isFinal: Boolean) {
                 lineHeight = 24.sp
             )
         } else {
-//            Text(
-//                "학습은 총 4단계로 진행돼요.",
-//                fontSize = 16.sp, fontWeight = FontWeight.Bold,
-//                textAlign = TextAlign.Center, color = Color(0xFF1A1A1A)
-//            )
             Text(
                 "자막 없이 먼저 말해보고,\n점차 자막 없이 말할 수 있도록 연습해요!",
                 fontSize = 14.sp, textAlign = TextAlign.Center,
@@ -259,8 +273,17 @@ private fun FullSubtitleCardContent(sentence: SentenceItem) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("자막과 함께 따라 말해보세요!\n이번에는 발음을 분석합니다!", fontSize = 14.sp, textAlign = TextAlign.Center, color = Color(0xFF444444), lineHeight = 22.sp)
-        Text(sentence.content, fontSize = 18.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Start, color = Color(0xFF1A1A1A), lineHeight = 32.sp, modifier = Modifier.fillMaxWidth())
+        Text(
+            "자막과 함께 따라 말해보세요!\n이번에는 발음을 분석합니다!",
+            fontSize = 14.sp, textAlign = TextAlign.Center,
+            color = Color(0xFF444444), lineHeight = 22.sp
+        )
+        Text(
+            sentence.content,
+            fontSize = 18.sp, fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Start, color = Color(0xFF1A1A1A),
+            lineHeight = 32.sp, modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 

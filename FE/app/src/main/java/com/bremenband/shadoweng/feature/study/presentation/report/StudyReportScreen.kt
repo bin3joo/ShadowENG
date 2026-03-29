@@ -20,7 +20,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.bremenband.shadoweng.core.ui.component.AnnotatedSentenceView
+import com.bremenband.shadoweng.core.ui.component.model.AnnotationType
 import com.bremenband.shadoweng.feature.study.domain.DifficultSentence
+import com.bremenband.shadoweng.core.ui.component.model.Annotation
 
 @Composable
 fun StudyReportScreen(
@@ -70,12 +73,13 @@ fun StudyReportScreen(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFE53935)
                 )
-                Text(
-                    "속도 ${report.speedScore}점 | 강세 ${report.stressScore}점 | 억양 ${report.intonationScore}점",
-                    fontSize = 12.sp,
-                    color = Color(0xFF888888),
-                    textAlign = TextAlign.Center
-                )
+//                Spacer(Modifier.height(8.dp))
+//                Text(
+//                    "속도 ${report.speedScore}점 | 강세 ${report.stressScore}점 | 억양 ${report.intonationScore}점",
+//                    fontSize = 12.sp,
+//                    color = Color(0xFF888888),
+//                    textAlign = TextAlign.Center
+//                )
                 HorizontalDivider(color = Color(0xFFEEEEEE))
                 Row {
                     Text("${report.sentenceCount}문장", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE53935))
@@ -138,6 +142,19 @@ fun StudyReportScreen(
 private fun DifficultSentenceItem(sentence: DifficultSentence) {
     var bookmarked by remember { mutableStateOf(false) }
 
+    val annotations = sentence.wordFeedback.mapNotNull { wf ->
+        val word = wf.word.trim('.', ',', '!', '?', '"')
+        val idx = sentence.content.indexOf(word)
+        if (idx == -1) return@mapNotNull null
+        val end = idx + word.length
+        when (wf.status) {
+            "dragged" ->  Annotation(idx, end, AnnotationType.CURVE_LONG, 0xFFFFB800)
+            "rushed"  -> Annotation(idx, end, AnnotationType.CURVE_SHORT, 0xFF1565C0)
+            "missed"  -> Annotation(idx, end, AnnotationType.HIGHLIGHT, 0x33FF5D5D)
+            else -> null
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -149,11 +166,10 @@ private fun DifficultSentenceItem(sentence: DifficultSentence) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Top
         ) {
-            Text(
-                text = sentence.content,
-                fontSize = 14.sp,
-                color = Color(0xFF1A1A1A),
-                lineHeight = 22.sp,
+            AnnotatedSentenceView(
+                sentence = sentence.content,
+                annotations = annotations,
+                onWordTap = { _, _ -> },
                 modifier = Modifier.weight(1f)
             )
             if (sentence.averageScore > 0) {
@@ -171,12 +187,6 @@ private fun DifficultSentenceItem(sentence: DifficultSentence) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(sentence.feedback, fontSize = 13.sp, color = Color(0xFF888888), modifier = Modifier.weight(1f))
-            Icon(
-                imageVector = if (bookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                contentDescription = "북마크",
-                tint = if (bookmarked) Color(0xFFE53935) else Color(0xFFBBBBBB),
-                modifier = Modifier.size(20.dp).clickable { bookmarked = !bookmarked }
-            )
         }
     }
 }

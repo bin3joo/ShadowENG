@@ -26,7 +26,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.bremenband.shadoweng.R
 import com.bremenband.shadoweng.core.ui.component.AnimatedEngmuFire
+import com.bremenband.shadoweng.core.ui.component.ThumbnailImage
 import com.bremenband.shadoweng.core.ui.util.tierToDrawable
+import com.bremenband.shadoweng.core.ui.util.tierDisplayName
 
 @Composable
 fun HomeScreen(
@@ -43,7 +45,10 @@ fun HomeScreen(
     LaunchedEffect(Unit) { viewModel.navigateToGame.collect { onNavigateToGame() } }
     LaunchedEffect(Unit) { viewModel.navigateToRegister.collect { onNavigateToRegister() } }
     LaunchedEffect(Unit) { viewModel.navigateToMoreSessions.collect { onNavigateToMoreSessions() } }
-    LaunchedEffect(Unit) { viewModel.navigateToStreak.collect { onNavigateToCalendar() } }
+
+    LaunchedEffect(Unit) {
+        viewModel.reload()
+    }
 
     if (uiState.isLoading) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -65,7 +70,6 @@ fun HomeScreen(
         uiState.streak?.let { streak ->
             StreakSection(
                 streak = streak,
-                onNavigateToCalendar = { viewModel.onEvent(HomeEvent.ClickStreak) }
             )
         }
 
@@ -80,39 +84,36 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        uiState.latestSession?.let { session ->
-            LatestSessionSection(
-                session = session,
-                onSessionClick = { viewModel.onEvent(HomeEvent.ClickLatestSession) }
-            )
-        }
+        LatestSessionSection(
+            session = uiState.latestSession,
+            onSessionClick = { viewModel.onEvent(HomeEvent.ClickLatestSession) },
+            onRegisterClick = { viewModel.onEvent(HomeEvent.ClickRegister) }
+        )
 
         Spacer(modifier = Modifier.height(4.dp))
 
-//         TODO : 확인 후 삭제 처리
-//        GameSection(
-//            onClick = { viewModel.onEvent(HomeEvent.ClickGame) },
-//            leagueTopScore = uiState.gameSectionData?.leagueTopScore ?: 0,
-//            myScore = uiState.gameSectionData?.myScore ?: 0,
-//            tier = uiState.gameSectionData?.tier ?: ""
-//        )
+        GameSection(
+            onClick = { viewModel.onEvent(HomeEvent.ClickGame) },
+            leagueTopScore = uiState.gameSectionData?.leagueTopScore ?: 0,
+            myScore = uiState.gameSectionData?.myScore ?: 0,
+            tier = uiState.gameSectionData?.tier ?: ""
+        )
     }
 }
 
 @Composable
 private fun StreakSection(
     streak: StreakData,
-    onNavigateToCalendar: () -> Unit
 ) {
     val dayLabels = listOf("일", "월", "화", "수", "목", "금", "토")
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            "매일 따라 말해요",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF362000)
-        )
+//        Text(
+//            "매일 따라 말해요",
+//            fontSize = 18.sp,
+//            fontWeight = FontWeight.Bold,
+//            color = Color(0xFF362000)
+//        )
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -137,14 +138,6 @@ private fun StreakSection(
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF888888)
-                        )
-                        Icon(
-                            imageVector = Icons.Default.ArrowForwardIos,
-                            contentDescription = "달력 보기",
-                            tint = Color(0xFFBBBBBB),
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clickable { onNavigateToCalendar() }
                         )
                     }
 
@@ -183,67 +176,118 @@ private fun StreakSection(
 
 @Composable
 private fun LatestSessionSection(
-    session: LatestSession,
-    onSessionClick: () -> Unit
+    session: LatestSession?,
+    onSessionClick: () -> Unit,
+    onRegisterClick: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("이어서 말하기", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF362000))
-        Card(
-            modifier = Modifier.fillMaxWidth().clickable { onSessionClick() },
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(1.dp)
-        ) {
-            Column {
-                AsyncImage(
-                    model = session.thumbnailUrl.ifEmpty { null },
-                    contentDescription = "썸네일",
-                    contentScale = ContentScale.Crop,
-                    placeholder = painterResource(id = R.drawable.thumbnail),
-                    error = painterResource(id = R.drawable.thumbnail),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(16f / 9f)
-                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                )
+
+        if (session == null) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(1.dp)
+            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                        .padding(20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = session.title.ifEmpty { "학습 세션" },
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF362000),
-                        modifier = Modifier.weight(1f),
-                        maxLines = 1
+                    Image(
+                        painter = painterResource(R.drawable.engmu),
+                        contentDescription = null,
+                        modifier = Modifier.size(80.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
                     Column(
-                        horizontalAlignment = Alignment.End,
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        // verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "${session.completedSentences} / ${session.totalSentences} 문장",
+                            "아직 학습이 없어요",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF362000)
+                        )
+                        Text(
+                            "좋아하는 영상으로 지금 바로 시작해봐요!",
                             fontSize = 13.sp,
-                            color = Color(0xFF888888)
+                            color = Color(0xFF888888),
+                            lineHeight = 20.sp
                         )
-                        LinearProgressIndicator(
-                            progress = {
-                                if (session.totalSentences > 0)
-                                    session.completedSentences / session.totalSentences.toFloat()
-                                else 0f
-                            },
-                            modifier = Modifier
-                                .width(100.dp)
-                                .height(6.dp)
-                                .clip(RoundedCornerShape(4.dp)),
-                            color = Color(0xFFFEDF57),
-                            trackColor = Color(0xFFE0E0E0)
+//                        Spacer(
+//                            modifier = Modifier.height(4.dp)
+//                        )
+                        Surface(
+                            onClick = onRegisterClick,
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFFFEDF57)
+                        ) {
+                            Text(
+                                "학습 시작하기 →",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF362000),
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            Card(
+                modifier = Modifier.fillMaxWidth().clickable { onSessionClick() },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(1.dp)
+            ) {
+                Column {
+                    ThumbnailImage(
+                        url = session.thumbnailUrl,
+                        modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = session.title.ifEmpty { "학습 세션" },
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF362000),
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "${session.completedSentences} / ${session.totalSentences} 문장",
+                                fontSize = 13.sp,
+                                color = Color(0xFF888888)
+                            )
+                            LinearProgressIndicator(
+                                progress = {
+                                    if (session.totalSentences > 0)
+                                        session.completedSentences / session.totalSentences.toFloat()
+                                    else 0f
+                                },
+                                modifier = Modifier
+                                    .width(100.dp)
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(4.dp)),
+                                color = Color(0xFFFEDF57),
+                                trackColor = Color(0xFFE0E0E0)
+                            )
+                        }
                     }
                 }
             }
@@ -259,91 +303,65 @@ private fun GameSection(
     tier: String = ""
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("잉무를 꼬셔라", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF362000))
+//        Text("잉무를 꼬셔라", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF362000))
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().clickable { onClick() },
+            shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
             elevation = CardDefaults.cardElevation(1.dp)
         ) {
-            Box(modifier = Modifier.fillMaxWidth().height(160.dp)) {
-                Image(
-                    painter = painterResource(R.drawable.background3),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Image(
-                        painter = painterResource(tierToDrawable(tier)),
-                        contentDescription = null,
-                        contentScale = ContentScale.Fit,
+                    Box(
                         modifier = Modifier
-                            .fillMaxHeight()
-                            .weight(1f)
-                    )
-
-                    Column(
-                        modifier = Modifier.weight(1.5f),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFFF8E1)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Card(
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(2.dp)
+                        Image(
+                            painter = painterResource(tierToDrawable(tier)),
+                            contentDescription = null,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("잉무를 꼬셔라", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF362000))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(Color(0xFFFEDF57).copy(alpha = 0.2f))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("리그 최고 기록", fontSize = 11.sp, color = Color(0xFF888888))
-                                    Text(
-                                        "$leagueTopScore",
-                                        fontSize = 26.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = Color(0xFFFEDF57)
-                                    )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .width(1.dp)
-                                        .height(48.dp)
-                                        .align(Alignment.CenterVertically)
-                                        .background(Color(0xFFE0E0E0))
+                                Text(
+                                    tierDisplayName(tier),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF362000)
                                 )
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("내 기록", fontSize = 11.sp, color = Color(0xFF888888))
-                                    Text(
-                                        "$myScore",
-                                        fontSize = 26.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = Color(0xFFFF5D5D)
-                                    )
-                                }
                             }
-                        }
-
-                        Text("최고 리그에 도전하세요!", fontSize = 12.sp, color = Color(0xFF362000))
-
-                        Button(
-                            onClick = onClick,
-                            modifier = Modifier.fillMaxWidth().height(40.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEDF57))
-                        ) {
-                            Text("잉무 꼬시러 가기", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF362000))
+                            Text("주간 ${myScore}점", fontSize = 12.sp, color = Color(0xFF888888))
                         }
                     }
                 }
-            }        }
+                Icon(
+                    imageVector = Icons.Default.ArrowForwardIos,
+                    contentDescription = null,
+                    tint = Color(0xFFBBBBBB),
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
     }
 }
