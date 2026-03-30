@@ -98,7 +98,8 @@ fun LeaderboardScreen(
     LaunchedEffect(uiState.nearbyRankers) {
         if (myNearbyIndex >= 0 && uiState.nearbyRankers.isNotEmpty()) {
             val myRank = uiState.nearbyRankers.find { it.isMe }?.rank ?: Int.MAX_VALUE
-            val isMyRankInTop = myRank <= 5  // 여기서 직접 계산
+            val topMaxRank = uiState.topRankers.lastOrNull()?.rank ?: 0
+            val isMyRankInTop = myRank <= topMaxRank
 
             val afterTop = 4 + uiState.topRankers.size
             val targetIndex = if (isMyRankInTop) {
@@ -106,6 +107,12 @@ fun LeaderboardScreen(
             } else {
                 afterTop + 1 + myNearbyIndex
             }
+
+            kotlinx.coroutines.delay(900)
+            // 먼저 맨 위로
+            listState.scrollToItem(0)
+            kotlinx.coroutines.delay(100)
+            // 내 위치까지 샤라락
             listState.animateScrollToItem(
                 index = targetIndex.coerceAtLeast(0),
                 scrollOffset = -200
@@ -124,7 +131,7 @@ fun LeaderboardScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(280.dp)
+                    .height(260.dp)
                     .graphicsLayer {
                         translationY = headerOffsetY.value
                         alpha = headerAlpha.value
@@ -320,23 +327,27 @@ fun LeaderboardScreen(
         val isMyRankInTop = myRank <= 5
 
         // TOP 3
-        itemsIndexed(uiState.topRankers, key = { _, r -> "top_${r.rank}" }) { _, ranker ->
-            RankerRow(ranker = ranker, showMedal = true, zoneStatus = getZoneStatus(ranker.rank, totalRankers))
+        if (!isMyRankInTop) {
+            itemsIndexed(uiState.topRankers.take(3), key = { _, r -> "top_${r.rank}" }) { _, ranker ->
+                RankerRow(ranker = ranker, showMedal = true, zoneStatus = getZoneStatus(ranker.rank, totalRankers))
+            }
         }
 
         if (isMyRankInTop) {
-            // TOP5 이내 → 바로 이어서
-            val topMaxRank = uiState.topRankers.lastOrNull()?.rank ?: 0
-            itemsIndexed(
-                uiState.nearbyRankers.filter { it.rank > topMaxRank },
-                key = { _, r -> "nearby_top_${r.rank}" }
-            ) { index, ranker ->
+            val merged = (uiState.topRankers + uiState.nearbyRankers)
+                .distinctBy { it.rank }
+                .sortedBy { it.rank }
+            itemsIndexed(merged, key = { _, r -> "merged_${r.rank}" }) { _, ranker ->
                 val zone = getZoneStatus(ranker.rank, totalRankers)
-                val adjustedIndex = uiState.nearbyRankers.indexOfFirst { it.rank == ranker.rank }
-                if (adjustedIndex == myNearbyIndex) {
-                    ZoneBanner(index = adjustedIndex, myNearbyIndex = myNearbyIndex, zone = zone)
+                val isMyRow = ranker.isMe
+                if (isMyRow) {
+                    ZoneBanner(index = myNearbyIndex, myNearbyIndex = myNearbyIndex, zone = zone)
                 }
-                RankerRow(ranker = ranker, showMedal = false, zoneStatus = zone)
+                RankerRow(
+                    ranker = ranker,
+                    showMedal = ranker.rank <= 3,
+                    zoneStatus = zone
+                )
             }
         } else {
             // TOP5 밖 → ⋮ 구분 후 nearbyRankers

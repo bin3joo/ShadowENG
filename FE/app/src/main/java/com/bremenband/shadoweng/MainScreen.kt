@@ -2,7 +2,9 @@ package com.bremenband.shadoweng
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
@@ -21,6 +23,8 @@ import androidx.navigation.compose.rememberNavController
 import com.bremenband.shadoweng.navigation.NavRoutes
 import com.bremenband.shadoweng.navigation.RootNavGraph
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 sealed class BottomNavItem(
     val route: String,
@@ -66,10 +70,14 @@ fun MainScreen() {
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = Color.White,
+                    tonalElevation = 0.dp
+                ) {
                     bottomNavItems.forEach { item ->
+                        val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
                         NavigationBarItem(
-                            selected = currentDestination?.hierarchy?.any { it.route == item.route } == true,
+                            selected = selected,
                             onClick = {
                                 navController.navigate(item.route) {
                                     popUpTo(navController.graph.findStartDestination().id) {
@@ -83,17 +91,22 @@ fun MainScreen() {
                                 Icon(
                                     painter = painterResource(id = item.icon),
                                     contentDescription = item.label,
-                                    tint = if (currentDestination?.hierarchy?.any { it.route == item.route } == true)
-                                        Color(0xFFFF5D5D) else Color(0xFFAAAAAA)
+                                    modifier = Modifier.size(24.dp),
+                                    tint = if (selected) Color(0xFFFF5D5D) else Color(0xFFAAAAAA)
                                 )
                             },
                             label = {
                                 Text(
                                     item.label,
-                                    color = if (currentDestination?.hierarchy?.any { it.route == item.route } == true)
-                                        Color(0xFFFF5D5D) else Color(0xFFAAAAAA)
+                                    fontSize = 10.sp,
+                                    color = if (selected) Color(0xFFFF5D5D) else Color(0xFFAAAAAA)
                                 )
                             },
+                            colors = NavigationBarItemDefaults.colors(
+                                indicatorColor = Color(0xFFFF5D5D).copy(alpha = 0.1f),
+                                selectedIconColor = Color(0xFFFF5D5D),
+                                unselectedIconColor = Color(0xFFAAAAAA)
+                            )
                         )
                     }
                 }
