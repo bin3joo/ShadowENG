@@ -377,30 +377,64 @@ private fun SessionVerticalCard(
                 IconButton(onClick = { showMenu = true }, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.MoreVert, contentDescription = "더보기", tint = Color(0xFFBBBBBB), modifier = Modifier.size(18.dp))
                 }
-                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    modifier = Modifier.width(160.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    containerColor = Color.White,
+                    shadowElevation = 4.dp
+                ) {
                     DropdownMenuItem(
                         text = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Icon(
                                     if (session.isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
                                     contentDescription = null,
                                     tint = if (session.isBookmarked) Color(0xFFFF5D5D) else Color(0xFF362000),
                                     modifier = Modifier.size(16.dp)
                                 )
-                                Text(if (session.isBookmarked) "즐겨찾기 해제" else "즐겨찾기 추가")
+                                Text(
+                                    if (session.isBookmarked) "즐겨찾기 해제" else "즐겨찾기 추가",
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF362000),
+                                    fontWeight = FontWeight.Medium
+                                )
                             }
                         },
-                        onClick = { showMenu = false; onBookmark() }
+                        onClick = { showMenu = false; onBookmark() },
+                        modifier = Modifier.padding(horizontal = 4.dp)
                     )
                     if (session.isCompleted) {
+                        HorizontalDivider(color = Color(0xFFF0F0F0), modifier = Modifier.padding(horizontal = 12.dp))
                         DropdownMenuItem(
-                            text = { Text("재학습하기") },
-                            onClick = { showMenu = false; onReLearn() }
+                            text = {
+                                Text(
+                                    "재학습하기",
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF362000),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            },
+                            onClick = { showMenu = false; onReLearn() },
+                            modifier = Modifier.padding(horizontal = 4.dp)
                         )
                     }
+                    HorizontalDivider(color = Color(0xFFF0F0F0), modifier = Modifier.padding(horizontal = 12.dp))
                     DropdownMenuItem(
-                        text = { Text("삭제", color = Color(0xFFFF5D5D)) },
-                        onClick = { showMenu = false; onDelete() }
+                        text = {
+                            Text(
+                                "삭제",
+                                fontSize = 14.sp,
+                                color = Color(0xFFFF5D5D),
+                                fontWeight = FontWeight.Medium
+                            )
+                        },
+                        onClick = { showMenu = false; onDelete() },
+                        modifier = Modifier.padding(horizontal = 4.dp)
                     )
                 }
             }

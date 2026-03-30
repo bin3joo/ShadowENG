@@ -109,10 +109,9 @@ fun GameHomeScreen(
                 .size(40.dp)
                 .clip(CircleShape)
         ) {
-            Icon(
-                imageVector = Icons.Default.Dashboard,
+            Image(
+                painter = painterResource(id = R.drawable.leaderboard),
                 contentDescription = "리더보드",
-                tint = Color.Gray,
                 modifier = Modifier.size(32.dp)
             )
         }

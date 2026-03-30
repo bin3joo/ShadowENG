@@ -319,19 +319,11 @@ private fun GameSection(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFFFF8E1)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(tierToDrawable(tier)),
-                            contentDescription = null,
-                            modifier = Modifier.size(36.dp)
-                        )
-                    }
+                    Image(
+                        painter = painterResource(tierToDrawable(tier)),
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp)
+                    )
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("잉무를 꼬셔라", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF362000))
                         Row(

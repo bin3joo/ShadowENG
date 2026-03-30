@@ -88,7 +88,7 @@ fun AuthScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 32.dp)
                 .height(56.dp),
-            shape = RoundedCornerShape(50),
+            shape = RoundedCornerShape(24),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEDF57))
         ) {
             Text(

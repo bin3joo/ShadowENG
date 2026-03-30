@@ -29,7 +29,6 @@ import com.bremenband.shadoweng.R
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import coil.compose.AsyncImage
 import com.bremenband.shadoweng.core.ui.component.ThumbnailImage
 import java.time.LocalDate
 import java.time.YearMonth
@@ -47,7 +46,7 @@ fun StatsScreen(
         if (reports.isNotEmpty()) {
             DailyReportDialog(
                 date = date,
-                reports = reports,  // 추가
+                reports = reports,
                 onDismiss = { selectedDate = null },
                 onNavigateToReport = onNavigateToReport
             )
@@ -78,9 +77,16 @@ fun StatsScreen(
                 elevation = CardDefaults.cardElevation(1.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("${state.currentMonth.year}", fontSize = 12.sp, color = Color(0xFF888888),
-                        modifier = Modifier.align(Alignment.CenterHorizontally))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "${state.currentMonth.year}",
+                        fontSize = 12.sp, color = Color(0xFF888888),
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         IconButton(onClick = { viewModel.prevMonth() }) {
                             Icon(Icons.Default.ChevronLeft, contentDescription = "이전 달")
                         }
@@ -97,7 +103,7 @@ fun StatsScreen(
                     CalendarGrid(
                         currentMonth = state.currentMonth,
                         studyDates = state.studyDates,
-                        reportDates = state.reportDates,  // 추가
+                        reportDates = state.reportDates,
                         onDateClick = { selectedDate = it }
                     )
                     Text(
@@ -154,7 +160,7 @@ private fun StatCard(
 private fun CalendarGrid(
     currentMonth: LocalDate,
     studyDates: Set<LocalDate>,
-    reportDates: Map<LocalDate, List<ReportSummaryUi>>,  // 추가
+    reportDates: Map<LocalDate, List<ReportSummaryUi>>,
     onDateClick: (LocalDate) -> Unit
 ) {
     val yearMonth = YearMonth.of(currentMonth.year, currentMonth.month)
@@ -179,7 +185,8 @@ private fun CalendarGrid(
     cells.chunked(7).forEach { week ->
         Row(modifier = Modifier.fillMaxWidth()) {
             week.forEach { (date, isCurrentMonth) ->
-                val hasReport = isCurrentMonth && reportDates.containsKey(date)  // studyDates 대신 reportDates 기준
+                val hasReport = isCurrentMonth && reportDates.containsKey(date)
+                val hasStudy = isCurrentMonth && studyDates.contains(date)
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -187,14 +194,18 @@ private fun CalendarGrid(
                         .then(if (hasReport) Modifier.clickable { onDateClick(date) } else Modifier),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (hasReport) {
-                        Image(
+                    when {
+                        hasReport -> Image(
                             painter = painterResource(R.drawable.engmu_stamp),
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(0.85f)
                         )
-                    } else {
-                        Text(
+                        hasStudy -> Image(
+                            painter = painterResource(R.drawable.engmu_stamp_empty),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(0.85f)
+                        )
+                        else -> Text(
                             text = date.dayOfMonth.toString(),
                             fontSize = 13.sp,
                             color = if (isCurrentMonth) Color(0xFF362000) else Color(0xFFCCCCCC)
@@ -234,7 +245,8 @@ private fun ReportCard(report: ReportSummaryUi, onClick: () -> Unit) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ReportPagerDialog(
+private fun DailyReportDialog(
+    date: LocalDate,
     reports: List<ReportSummaryUi>,
     onDismiss: () -> Unit,
     onNavigateToReport: (sessionId: Long, reportId: Long) -> Unit
@@ -242,183 +254,105 @@ private fun ReportPagerDialog(
     val pagerState = rememberPagerState(pageCount = { reports.size })
 
     Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F3)),
-            elevation = CardDefaults.cardElevation(8.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(top = 20.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+        Box {
+            Card(
+                modifier = Modifier.padding(top = 40.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F3)),
+                elevation = CardDefaults.cardElevation(8.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.padding(top = 20.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(reports[pagerState.currentPage].date, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000))
-                    IconButton(onClick = onDismiss) {
-                        Text("✕", fontSize = 18.sp, color = Color(0xFF888888))
-                    }
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                    repeat(reports.size) { index ->
-                        Box(
-                            modifier = Modifier.padding(horizontal = 3.dp)
-                                .size(if (pagerState.currentPage == index) 10.dp else 6.dp)
-                                .clip(CircleShape)
-                                .background(if (pagerState.currentPage == index) Color(0xFF362000) else Color(0xFFCCCCCC))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "${date.monthValue}월 ${date.dayOfMonth}일 리포트",
+                            fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000)
                         )
+                        IconButton(onClick = onDismiss) {
+                            Text("✕", fontSize = 18.sp, color = Color(0xFF888888))
+                        }
                     }
-                }
-                HorizontalPager(state = pagerState, contentPadding = PaddingValues(horizontal = 20.dp), pageSpacing = 12.dp) { page ->
-                    val report = reports[page]
-                    Card(
-                        modifier = Modifier.fillMaxWidth().clickable { onNavigateToReport(report.sessionId, report.reportId) },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(1.dp)
-                    ) {
-                        Column {
-                            ThumbnailImage(
-                                url = report.thumbnailUrl,
-                                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
-                                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                            )
-                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text(report.title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000), maxLines = 2)
-                                Card(
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F3)),
-                                    elevation = CardDefaults.cardElevation(0.dp)
-                                ) {
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+
+                    if (reports.size > 1) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                            repeat(reports.size) { index ->
+                                Box(
+                                    modifier = Modifier.padding(horizontal = 3.dp)
+                                        .size(if (pagerState.currentPage == index) 10.dp else 6.dp)
+                                        .clip(CircleShape)
+                                        .background(if (pagerState.currentPage == index) Color(0xFF362000) else Color(0xFFCCCCCC))
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalPager(
+                        state = pagerState,
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        pageSpacing = 12.dp
+                    ) { page ->
+                        val report = reports[page]
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable { onNavigateToReport(report.sessionId, report.reportId) },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(1.dp)
+                        ) {
+                            Column {
+                                ThumbnailImage(
+                                    url = report.thumbnailUrl,
+                                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                                )
+                                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text(report.title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000), maxLines = 2)
+                                    Card(
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F3)),
+                                        elevation = CardDefaults.cardElevation(0.dp)
                                     ) {
-                                        Text("종합 점수", fontSize = 12.sp, color = Color(0xFF888888))
-                                        Text(
-                                            "${report.studyScore}",
-                                            fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFFFF5D5D)
-                                        )
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text("종합 점수", fontSize = 12.sp, color = Color(0xFF888888))
+                                            Text(
+                                                "${report.studyScore}",
+                                                fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFFFF5D5D)
+                                            )
+                                        }
                                     }
-                                }
-                                Button(
-                                    onClick = { onNavigateToReport(report.sessionId, report.reportId) },
-                                    modifier = Modifier.fillMaxWidth().height(44.dp),
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEDF57))
-                                ) {
-                                    Text("자세히 보기", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000))
+                                    Button(
+                                        onClick = { onNavigateToReport(report.sessionId, report.reportId) },
+                                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEDF57))
+                                    ) {
+                                        Text("자세히 보기", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000))
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-        }
-    }
-}
 
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun DailyReportDialog(
-    date: LocalDate,
-    reports: List<ReportSummaryUi>,  // 추가, mockReports 제거
-    onDismiss: () -> Unit,
-    onNavigateToReport: (sessionId: Long, reportId: Long) -> Unit
-) {
-    // mockReports 제거하고 reports 파라미터 사용
-    val pagerState = rememberPagerState(pageCount = { reports.size })
-
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F3)),
-            elevation = CardDefaults.cardElevation(8.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(top = 20.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "${date.monthValue}월 ${date.dayOfMonth}일 리포트",
-                        fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000)
-                    )
-                    IconButton(onClick = onDismiss) {
-                        Text("✕", fontSize = 18.sp, color = Color(0xFF888888))
-                    }
-                }
-
-                if (reports.size > 1) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                        repeat(reports.size) { index ->
-                            Box(
-                                modifier = Modifier.padding(horizontal = 3.dp)
-                                    .size(if (pagerState.currentPage == index) 10.dp else 6.dp)
-                                    .clip(CircleShape)
-                                    .background(if (pagerState.currentPage == index) Color(0xFF362000) else Color(0xFFCCCCCC))
-                            )
-                        }
-                    }
-                }
-
-                HorizontalPager(
-                    state = pagerState,
-                    contentPadding = PaddingValues(horizontal = 20.dp),
-                    pageSpacing = 12.dp
-                ) { page ->
-                    val report = reports[page]
-                    Card(
-                        modifier = Modifier.fillMaxWidth().clickable { onNavigateToReport(report.sessionId, report.reportId) },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(1.dp)
-                    ) {
-                        Column {
-                            ThumbnailImage(
-                                url = report.thumbnailUrl,
-                                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
-                                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                            )
-                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text(report.title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000), maxLines = 2)
-                                Card(
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F3)),
-                                    elevation = CardDefaults.cardElevation(0.dp)
-                                ) {
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Text("종합 점수", fontSize = 12.sp, color = Color(0xFF888888))
-                                        Text(
-                                            "${report.studyScore}",
-                                            fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFFFF5D5D)
-                                        )
-                                    }
-                                }
-                                Button(
-                                    onClick = { onNavigateToReport(report.sessionId, report.reportId) },
-                                    modifier = Modifier.fillMaxWidth().height(44.dp),
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEDF57))
-                                ) {
-                                    Text("자세히 보기", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF362000))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // 잉무 이미지 — 카드 위로 살짝 올라오게
+            Image(
+                painter = painterResource(R.drawable.engmu_half),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(100.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-16).dp, y = -25.dp)
+            )
         }
     }
 }

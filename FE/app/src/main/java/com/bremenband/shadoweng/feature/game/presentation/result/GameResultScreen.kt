@@ -24,6 +24,11 @@ import com.bremenband.shadoweng.core.ui.component.RainEffect
 import com.bremenband.shadoweng.feature.game.domain.model.GameFinalResult
 import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import coil.decode.GifDecoder
+import coil.request.ImageRequest
 import com.bremenband.shadoweng.feature.game.presentation.play.EngmuMood
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -48,7 +53,14 @@ fun GameResultScreen(
         finalResult.avgTotalScore >= 80 -> EngmuMood.LOVE
         finalResult.avgTotalScore >= 60 -> EngmuMood.EXCITED
         finalResult.avgTotalScore >= 40 -> EngmuMood.INTERESTED
-        else -> EngmuMood.NEUTRAL
+        else -> EngmuMood.INTERESTED
+    }
+
+    val engmuRes = when (mood) {
+        EngmuMood.NEUTRAL -> R.drawable.neutral
+        EngmuMood.INTERESTED -> R.drawable.engmu_interested
+        EngmuMood.EXCITED -> R.drawable.engmu_excited
+        EngmuMood.LOVE -> R.drawable.engmu_love
     }
 
     val scoreAnim = remember { Animatable(0f) }
@@ -135,19 +147,42 @@ fun GameResultScreen(
                 }
             }
 
-            Image(
-                painter = painterResource(
-                    id = when (mood) {
-                        EngmuMood.NEUTRAL -> R.drawable.engmu_neutral
-                        EngmuMood.INTERESTED -> R.drawable.engmu_interested
-                        EngmuMood.EXCITED -> R.drawable.engmu_excited
-                        EngmuMood.LOVE -> R.drawable.engmu_love
-                    }
-                ),
-                contentDescription = "잉무",
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                contentScale = ContentScale.Fit
-            )
+            val context = LocalContext.current
+            val gifLoader = remember {
+                ImageLoader.Builder(context)
+                    .components { add(GifDecoder.Factory()) }
+                    .build()
+            }
+
+            if (mood == EngmuMood.NEUTRAL) {
+                val context = LocalContext.current
+                val gifLoader = remember {
+                    ImageLoader.Builder(context)
+                        .components { add(GifDecoder.Factory()) }
+                        .build()
+                }
+                AsyncImage(
+                    model = ImageRequest.Builder(context).data(R.drawable.neutral).build(),
+                    imageLoader = gifLoader,
+                    contentDescription = "잉무",
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentScale = ContentScale.Fit
+                )
+            } else {
+                Image(
+                    painter = painterResource(
+                        id = when (mood) {
+                            EngmuMood.INTERESTED -> R.drawable.engmu_interested
+                            EngmuMood.EXCITED -> R.drawable.engmu_excited
+                            EngmuMood.LOVE -> R.drawable.engmu_love
+                            else -> R.drawable.engmu_interested
+                        }
+                    ),
+                    contentDescription = "잉무",
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentScale = ContentScale.Fit
+                )
+            }
 
             val isNewRecord = previousBestScore != null && finalResult.avgTotalScore > previousBestScore
 
@@ -194,14 +229,16 @@ fun GameResultScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        repeat(3) { index ->
-                            Image(
-                                painter = painterResource(id = R.drawable.icon_heart),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .graphicsLayer { alpha = if (index < hearts) 1f else 0.25f }
-                            )
+                        if (hearts > 0) {
+                            repeat(3) { index ->
+                                Image(
+                                    painter = painterResource(id = R.drawable.icon_heart),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .graphicsLayer { alpha = if (index < hearts) 1f else 0.25f }
+                                )
+                            }
                         }
                     }
 
@@ -250,22 +287,6 @@ fun GameResultScreen(
                                 FeedbackRow("🎵", "강약을 살려서 말해보세요")
                             }
                         }
-                    }
-
-                    HorizontalDivider(color = Color(0xFFF0F0F0))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("누적 점수", fontSize = 13.sp, color = Color(0xFF888888))
-                        Text(
-                            "%.0f점".format(finalResult.finalScore),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF362000)
-                        )
                     }
                 }
             }

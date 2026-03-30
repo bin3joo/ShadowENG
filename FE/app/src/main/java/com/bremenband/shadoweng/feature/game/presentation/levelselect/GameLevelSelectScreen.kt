@@ -89,11 +89,10 @@ fun GameLevelSelectScreen(
                 .size(40.dp)
                 .clip(CircleShape)
         ) {
-            Icon(
-                imageVector = Icons.Default.Dashboard,
+            Image(
+                painter = painterResource(id = R.drawable.leaderboard),
                 contentDescription = "리더보드",
-                tint = Color(0xFF362000),
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(32.dp)
             )
         }
 

@@ -235,67 +235,6 @@ fun MyInfoScreen(
                 }
             }
 
-            // 게임 현황 카드
-            Card(
-                modifier = Modifier.fillMaxWidth().clickable { onNavigateToLeaderboard() },
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(1.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(20.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFFFF8E1)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Image(
-                                painter = painterResource(tierToDrawable(uiState.tier)),
-                                contentDescription = null,
-                                modifier = Modifier.size(36.dp)
-                            )
-                        }
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text("게임 현황", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF362000))
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(50))
-                                        .background(Color(0xFFFEDF57).copy(alpha = 0.2f))
-                                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        tierDisplayName(uiState.tier),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF362000)
-                                    )
-                                }
-                                Text("주간 ${uiState.weeklyScore}점", fontSize = 12.sp, color = Color(0xFF888888))
-                            }
-                        }
-                    }
-                    Icon(
-                        imageVector = Icons.Default.ArrowForwardIos,
-                        contentDescription = null,
-                        tint = Color(0xFFBBBBBB),
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-            }
-
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
