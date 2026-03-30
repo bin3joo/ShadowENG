@@ -62,10 +62,10 @@ VALUES
   (10, 'PLATINUM', 210.00, 0, false, date_trunc('week', CURRENT_DATE)::date, NOW(), NOW()),
   -- GOLD (11~20): user11의 weekly_score가 platinum 1위보다 높음 — 리그가 다르므로 정상
   (11, 'GOLD', 468.00, 0, false, date_trunc('week', CURRENT_DATE)::date, NOW(), NOW()),
-  (12, 'GOLD', 312.00, 0, false, date_trunc('week', CURRENT_DATE)::date, NOW(), NOW()),
-  (13, 'GOLD', 298.00, 0, false, date_trunc('week', CURRENT_DATE)::date, NOW(), NOW()),
-  (14, 'GOLD', 225.00, 0, false, date_trunc('week', CURRENT_DATE)::date, NOW(), NOW()),
-  (15, 'GOLD', 212.00, 0, false, date_trunc('week', CURRENT_DATE)::date, NOW(), NOW()),
+  (12, 'GOLD', 452.00, 0, false, date_trunc('week', CURRENT_DATE)::date, NOW(), NOW()),
+  (13, 'GOLD', 438.00, 0, false, date_trunc('week', CURRENT_DATE)::date, NOW(), NOW()),
+  (14, 'GOLD', 325.00, 0, false, date_trunc('week', CURRENT_DATE)::date, NOW(), NOW()),
+  (15, 'GOLD', 272.00, 0, false, date_trunc('week', CURRENT_DATE)::date, NOW(), NOW()),
   (16, 'GOLD', 198.00, 0, false, date_trunc('week', CURRENT_DATE)::date, NOW(), NOW()),
   (17, 'GOLD', 185.00, 0, false, date_trunc('week', CURRENT_DATE)::date, NOW(), NOW()),
   (18, 'GOLD', 170.00, 0, false, date_trunc('week', CURRENT_DATE)::date, NOW(), NOW()),
@@ -120,7 +120,7 @@ VALUES
   (14, 14, 1, CURRENT_DATE, 1, 70.00, 65.50, 63.00, 73.50,  77.00, NOW(), NOW()),
   (15, 15, 1, CURRENT_DATE, 2, 66.00, 61.50, 59.00, 69.50,  79.20, NOW(), NOW()),
   (16, 16, 1, CURRENT_DATE, 1, 61.00, 57.00, 54.00, 64.00,  67.10, NOW(), NOW()),
-  (17, 17, 1, CURRENT_DATE, 2, 73.00, 68.50, 65.50, 76.50,  87.60, NOW(), NOW()),
+  (17, 17, 1, CURRENT_DATE, 1, 70.00, 65.50, 62.50, 74.00,  77.00, NOW(), NOW()),
   (18, 18, 1, CURRENT_DATE, 0, 58.00, 54.00, 51.50, 61.00,  58.00, NOW(), NOW()),  -- hearts=0 → level2 접근 불가
   (19, 19, 1, CURRENT_DATE, 1, 60.00, 56.00, 53.50, 63.00,  66.00, NOW(), NOW()),
   (20, 20, 1, CURRENT_DATE, 1, 56.00, 52.50, 50.00, 59.00,  61.60, NOW(), NOW()),
@@ -158,8 +158,8 @@ VALUES
   (44, 14, 2, CURRENT_DATE, 1, 68.00, 63.50, 61.00, 71.50, 112.20, NOW(), NOW()),
   (45, 15, 2, CURRENT_DATE, 2, 64.00, 59.50, 57.00, 67.50, 115.20, NOW(), NOW()),
   (46, 16, 2, CURRENT_DATE, 1, 59.00, 54.50, 52.00, 62.00,  97.35, NOW(), NOW()),
-  (47, 17, 2, CURRENT_DATE, 2, 70.00, 65.50, 63.00, 73.50, 126.00, NOW(), NOW()),
-  (48, 19, 2, CURRENT_DATE, 1, 58.00, 53.50, 51.00, 61.00,  95.70, NOW(), NOW()),
+  (47, 17, 2, CURRENT_DATE, 2, 60.00, 56.00, 53.50, 63.00, 108.00, NOW(), NOW()),
+  (48, 19, 2, CURRENT_DATE, 0, 62.00, 57.50, 55.50, 65.00,  93.00, NOW(), NOW()),
   (49, 20, 2, CURRENT_DATE, 0, 54.00, 50.00, 47.50, 57.00,  81.00, NOW(), NOW())
 ON CONFLICT (id) DO NOTHING;
 
@@ -205,7 +205,7 @@ VALUES
   (14, 1, CURRENT_DATE, 14,  77.00),
   (15, 1, CURRENT_DATE, 15,  79.20),
   (16, 1, CURRENT_DATE, 16,  67.10),
-  (17, 1, CURRENT_DATE, 17,  87.60),
+  (17, 1, CURRENT_DATE, 17,  77.00),
   (18, 1, CURRENT_DATE, 18,  58.00),
   (19, 1, CURRENT_DATE, 19,  66.00),
   (20, 1, CURRENT_DATE, 20,  61.60),
@@ -240,8 +240,8 @@ VALUES
   (14, 2, CURRENT_DATE, 44, 112.20),
   (15, 2, CURRENT_DATE, 45, 115.20),
   (16, 2, CURRENT_DATE, 46,  97.35),
-  (17, 2, CURRENT_DATE, 47, 126.00),
-  (19, 2, CURRENT_DATE, 48,  95.70),
+  (17, 2, CURRENT_DATE, 47, 108.00),
+  (19, 2, CURRENT_DATE, 48,  93.00),
   (20, 2, CURRENT_DATE, 49,  81.00)
 ON CONFLICT (user_id, level, record_date) DO NOTHING;
 
