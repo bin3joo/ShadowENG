@@ -233,9 +233,9 @@ public class GameService {
             }
         }
 
-        // Top 3
+        // Top 6
         List<GameLeaderboardResponse.RankerInfo> topRankers = new ArrayList<>();
-        for (int i = 0; i < Math.min(3, ranked.size()); i++) {
+        for (int i = 0; i < Math.min(6, ranked.size()); i++) {
             UserGameProfile p = ranked.get(i);
             topRankers.add(new GameLeaderboardResponse.RankerInfo(
                     i + 1, p.getUser().getNickname(),
