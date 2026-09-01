@@ -4,3 +4,15 @@
 .env
 .env.example
 logs/
+
+# Local secrets and deployment-only configuration
+env
+*.env
+*.env.*
+*secret*.yaml
+application-secret.yaml
+exec/env
+exec/application-secret.yaml
+
+# Database dumps should not be published
+*dump*.sql
